@@ -30,24 +30,28 @@
       overflow: hidden;
     }
 
-    .top-right {
-      top: 20px;
-      right: 20px;
-    }
-
     .top-left {
       top: 20px;
       left: 20px;
+      animation: moveTopLeft 10s infinite linear;
+    }
+
+    .top-right {
+      top: 20px;
+      right: 20px;
+      animation: moveTopRight 10s infinite linear;
     }
 
     .bottom-right {
       bottom: 20px;
       right: 20px;
+      animation: moveBottomRight 10s infinite linear;
     }
 
     .bottom-left {
       bottom: 20px;
       left: 20px;
+      animation: moveBottomLeft 10s infinite linear;
     }
 
     .panel img {
@@ -167,12 +171,141 @@
         transform: translateY(0) translateX(0) rotate(-45deg);
       }
     }
+
+    @keyframes moveTopLeft {
+      0% {
+        top: 20px;
+        left: 20px;
+      }
+
+      25% {
+        top: 20px;
+        left: calc(100vw - 270px);
+      }
+
+      50% {
+        top: calc(100vh - 190px);
+        left: calc(100vw - 270px);
+      }
+
+      75% {
+        top: calc(100vh - 190px);
+        left: 20px;
+      }
+
+      100% {
+        top: 20px;
+        left: 20px;
+      }
+    }
+
+    @keyframes moveTopRight {
+      0% {
+        top: 20px;
+        right: 20px;
+      }
+
+      25% {
+        top: calc(100vh - 190px);
+        right: 20px;
+      }
+
+      50% {
+        top: calc(100vh - 190px);
+        right: calc(100vw - 270px);
+      }
+
+      75% {
+        top: 20px;
+        right: calc(100vw - 270px);
+      }
+
+      100% {
+        top: 20px;
+        right: 20px;
+      }
+    }
+
+    @keyframes moveBottomRight {
+      0% {
+        bottom: 20px;
+        right: 20px;
+      }
+
+      25% {
+        bottom: 20px;
+        right: calc(100vw - 270px);
+      }
+
+      50% {
+        bottom: calc(100vh - 190px);
+        right: calc(100vw - 270px);
+      }
+
+      75% {
+        bottom: calc(100vh - 190px);
+        right: 20px;
+      }
+
+      100% {
+        bottom: 20px;
+        right: 20px;
+      }
+    }
+
+    @keyframes moveBottomLeft {
+      0% {
+        bottom: 20px;
+        left: 20px;
+      }
+
+      25% {
+        bottom: calc(100vh - 190px);
+        left: 20px;
+      }
+
+      50% {
+        bottom: calc(100vh - 190px);
+        left: calc(100vw - 270px);
+      }
+
+      75% {
+        bottom: 20px;
+        left: calc(100vw - 270px);
+      }
+
+      100% {
+        bottom: 20px;
+        left: 20px;
+      }
+    }
+
+    .firework {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background-color: white;
+      animation: explode 1s ease-in-out forwards;
+    }
+
+    @keyframes explode {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(50);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 
 <body>
 
-  <button onclick="document.getElementById('elevatorMusic').play()">Müziği Başlat</button>
+  
   <audio id="elevatorMusic" loop>
     <source src="asansor.mp3" type="audio/mp3">
     <source src="asansor.mp3" type="audio/ogg">
@@ -183,21 +316,48 @@
     <div class="text">Bekleniyor</div>
   </div>
 
-  <div class="panel top-right"><img src="1.png" alt="Resim 1"></div>
-  <div class="panel top-left"><img src="2.png" alt="Resim 2"></div>
+  <div class="panel top-left"><img src="1.png" alt="Resim 1"></div>
+  <div class="panel top-right"><img src="2.png" alt="Resim 2"></div>
   <div class="panel bottom-right"><img src="3.png" alt="Resim 3"></div>
   <div class="panel bottom-left"><img src="4.png" alt="Resim 4"></div>
 
   <button id="playButton"
     style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; font-size: 16px; cursor: pointer;">Müziği
     Başlat</button>
+  <button id="endButton"
+    style="position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); padding: 10px 20px; font-size: 16px; cursor: pointer;">Sonunda</button>
+
+  <audio id="successSound">
+    <source src="success.mp3" type="audio/mp3">
+    <source src="success.mp3" type="audio/ogg">
+    Tarayıcınız audio etiketini desteklemiyor.
+  </audio>
 
   <script>
     document.getElementById("playButton").addEventListener("click", function () {
       document.getElementById("elevatorMusic").play();
     });
-  </script>
-  <script>
+
+    document.getElementById("endButton").addEventListener("click", function () {
+      document.getElementById("elevatorMusic").pause();
+      document.getElementById("successSound").play();
+      createFireworks();
+    });
+
+    function createFireworks() {
+      for (let i = 0; i < 20; i++) {
+        let firework = document.createElement("div");
+        firework.classList.add("firework");
+        firework.style.top = Math.random() * 100 + "vh";
+        firework.style.left = Math.random() * 100 + "vw";
+        document.body.appendChild(firework);
+
+        setTimeout(() => {
+          firework.remove();
+        }, 1000);
+      }
+    }
+
     function createHeart() {
       let heart = document.createElement("div");
       heart.classList.add("heart");
