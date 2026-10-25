@@ -847,10 +847,17 @@
           $("kisiSayisi").textContent = s.numChildren() + " kişi bekliyor";
         });
 
-        let ilkKutlama = true;
+        // Odanın tamamını dinlemek, "oda" üzerindeki işlemlerin boş veriyle başlayıp
+        // her şarkı değişiminde tüm alanları bir an silip geri yazmasını önler.
+        odaRef.on("value", () => { });
+
+        // Sadece gerçekten yeni basılmış bir "Sonunda"yı kutla; aynı değerin geri gelmesi sayılmaz.
+        let sonKutlama = null;
         odaRef.child("kutlama").on("value", (s) => {
-          if (ilkKutlama) { ilkKutlama = false; return; }
-          if (s.val()) kutla();
+          const deger = s.val() || 0;
+          // Sunucu, yerel tahmini zamanı birkaç ms sonra düzeltip ikinci kez bildirir; onu da sayma.
+          if (sonKutlama !== null && deger > sonKutlama + 3000 && sunucuZamani() - deger < 15000) kutla();
+          sonKutlama = Math.max(sonKutlama || 0, deger);
         });
         return null;
       } catch (e) {
