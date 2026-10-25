@@ -404,6 +404,63 @@ a {
   line-height: 1;
 }
 
+/* Odadakiler: üst üste binen küçük fotoğraflar */
+.avatar-yigini {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.avatar-yigini .avatar {
+  width: 1.55rem;
+  height: 1.55rem;
+  margin-left: -0.45rem;
+  border: 2px solid #181818;
+}
+
+.avatar-yigini .avatar:first-child {
+  margin-left: 0;
+}
+
+.avatar.harf {
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #7209b7, #1db954);
+}
+
+.kart-kisiler {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kart-kisiler .avatar {
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+#kisiSayisi {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.kisi-satiri {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.88rem;
+}
+
 /* YouTube'dan kopyalama yer imi */
 .adimlar {
   margin: 0.5rem 0;
@@ -559,6 +616,14 @@ a {
   background: linear-gradient(160deg, var(--arka1), var(--arka2));
   background-size: cover;
   background-position: center;
+}
+
+.arka-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .arka-plan.resimli::after {

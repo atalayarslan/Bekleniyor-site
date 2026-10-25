@@ -32,13 +32,16 @@ function lobiyiBaslat() {
 function odaKarti(id, oda) {
   const bilgi = oda.bilgi || {};
   const tasarim = tasarimiTamamla(oda.tasarim, id);
-  const kisi = Object.keys(oda.katilanlar || {}).length;
+  const icerdekiler = katilanListesi(oda.katilanlar);
   const calan = oda.muzik && oda.muzik.simdiki;
+  // İçeridekiler: ilk 5 kişinin fotoğrafı ve isimleri
+  const isimler = icerdekiler.slice(0, 3).map((k) => k.ad).join(", ") + (icerdekiler.length > 3 ? " +" + (icerdekiler.length - 3) : "");
   const kart = el("a", { className: "oda-karti", href: "?oda=" + id },
     el("div", { className: "kart-emoji" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
     el("h3", {}, bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
     el("div", { className: "kart-alt" },
-      (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + (kisi ? kisi + " kişi içeride" : "şu an boş")),
+      (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + (icerdekiler.length ? icerdekiler.length + " kişi içeride" : "şu an boş")),
+    icerdekiler.length ? el("div", { className: "kart-kisiler" }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null,
     calan ? el("div", { className: "kart-calan" }, "♪ " + calan.baslik) : null);
   kart.style.setProperty("--k1", tasarim.arka2 === tasarim.arka1 ? tasarim.daire1 : tasarim.arka1);
   kart.style.setProperty("--k2", tasarim.arka2 === tasarim.arka1 ? tasarim.daire2 : tasarim.arka2);

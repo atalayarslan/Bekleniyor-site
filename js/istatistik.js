@@ -57,9 +57,10 @@ function istatistikGonder() {
   const dinleme = birikenDinleme;
   birikenSitede = 0;
   birikenDinleme = 0;
+  // Herkese açık tabloda sadece ilk ad ve Google profil fotoğrafı tutulur (soyad ve e-posta değil)
   istatistikRef.set({
-    ad: (kullanici.displayName || "İsimsiz").slice(0, 60),
-    foto: (kullanici.photoURL || "").slice(0, 500),
+    ad: kisaAd() || "İsimsiz",
+    foto: guvenliFoto(kullanici.photoURL),
     sitede: (eski.sitede || 0) + sitede,
     dinleme: (eski.dinleme || 0) + dinleme,
     guncelleme: firebase.database.ServerValue.TIMESTAMP
@@ -98,7 +99,7 @@ function siralamayiCiz() {
   const gosterilen = kayitlar.slice(0, 10);
   const satir = (v, i) => el("div", { className: "siralama-satiri" + (kullanici && v.uid === kullanici.uid ? " ben" : "") },
     el("div", { className: "sira-no" }, madalya[i] || String(i + 1)),
-    el("img", { className: "avatar", src: v.foto || BOS_KAPAK, alt: "", referrerPolicy: "no-referrer" }),
+    avatarOgesi({ ad: v.ad, foto: v.foto }),
     el("div", { className: "siralama-bilgi" },
       el("div", { className: "siralama-ad" }, (v.ad || "İsimsiz").split(" ")[0]),
       el("div", { className: "siralama-cubuk" }, el("div", { style: { width: Math.max(4, (v[siralamaTuru] || 0) / enYuksek * 100) + "%" } }))),

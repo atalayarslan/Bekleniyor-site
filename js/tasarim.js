@@ -82,6 +82,7 @@ function tasarimiUygula(t, fotolar) {
   const arka = fotolar && fotolar.arka;
   $("arkaPlan").style.backgroundImage = arka && arka.startsWith("data:image/") ? 'url("' + arka + '")' : "";
   $("arkaPlan").classList.toggle("resimli", !!arka);
+  arkaVideosunuCiz(videoMu(arka) ? arka : null, (t.hizlar && t.hizlar.arka) || 1);
 
   emojileriCiz(t.emoji || "", Math.max(0, Math.min(30, t.emojiSayisi | 0)));
   const hizlar = t.hizlar || {};
@@ -117,6 +118,20 @@ const SABIT_KONUMLAR = [
   { left: "1rem", top: "calc(50% - var(--fy) / 2)" },
   { right: "1rem", top: "calc(50% - var(--fy) / 2)" }
 ];
+
+// Arka plan GIF/video ise sahnenin arkasında döngüde oynar
+let cizilenArka = "";
+function arkaVideosunuCiz(kaynak, hiz) {
+  const anahtar = kaynak ? kaynak.length + kaynak.slice(-24) + "@" + hiz : "";
+  if (anahtar === cizilenArka) return;
+  cizilenArka = anahtar;
+  const eski = $("arkaPlan").querySelector(".arka-video");
+  if (eski) eski.remove();
+  if (!kaynak) return;
+  const video = medyaOgesi(kaynak, hiz);
+  video.className = "arka-video";
+  $("arkaPlan").prepend(video);
+}
 
 function videoMu(kaynak) {
   return typeof kaynak === "string" && kaynak.startsWith("data:video/");
@@ -265,11 +280,47 @@ async function gifSuresi(dosya) {
   }
 }
 
+// GIF'in karelerini ve her karenin başlangıç zamanını (ms) çıkarır.
+// Chrome görünmeyen GIF'leri oynatmadığı için kareler doğrudan dosyadan çözülür.
+async function gifKareleri(dosya) {
+  const cozucu = new ImageDecoder({ data: await dosya.arrayBuffer(), type: "image/gif" });
+  await cozucu.tracks.ready;
+  const kareSayisi = cozucu.tracks.selectedTrack.frameCount;
+  const kareler = [];
+  let toplam = 0;
+  for (let i = 0; i < kareSayisi && toplam < MEDYA_SURESI * 1000; i++) {
+    const { image } = await cozucu.decode({ frameIndex: i });
+    kareler.push({ bitmap: await createImageBitmap(image), bas: toplam, g: image.displayWidth, y: image.displayHeight });
+    toplam += Math.max(20, (image.duration || 100000) / 1000);
+    image.close();
+  }
+  cozucu.close();
+  return { kareler, toplam: Math.max(toplam, 200) };
+}
+
 async function gifiDonustur(dosya, enFazlaKenar, bitHizi) {
+  if ("ImageDecoder" in window) {
+    const { kareler, toplam } = await gifKareleri(dosya);
+    try {
+      const [g, y] = boyutHesapla(kareler[0].g, kareler[0].y, enFazlaKenar);
+      const baslangic = performance.now();
+      return await tuvaliKaydet(g, y, toplam / 1000, bitHizi, (b) => {
+        const t = (performance.now() - baslangic) % toplam;
+        let kare = kareler[0];
+        for (const k of kareler) { if (k.bas <= t) kare = k; else break; }
+        b.fillStyle = "#000";
+        b.fillRect(0, 0, g, y);
+        b.drawImage(kare.bitmap, 0, 0, g, y);
+      });
+    } finally {
+      kareler.forEach((k) => k.bitmap.close());
+    }
+  }
+  // ImageDecoder olmayan tarayıcılar: GIF ekranda (neredeyse görünmez) bir resimde oynatılıp kaydedilir
   const sure = await gifSuresi(dosya);
   const adres = URL.createObjectURL(dosya);
   // Hareketli GIF'in kareleri ancak sayfadaki bir resimde ilerler
-  const resim = el("img", { src: adres, style: { position: "fixed", left: "-9999px", top: "0", width: "1px", height: "1px" } });
+  const resim = el("img", { src: adres, style: { position: "fixed", left: "0", top: "0", width: "160px", opacity: "0.01", pointerEvents: "none", zIndex: "-1" } });
   document.body.append(resim);
   try {
     await resim.decode();
@@ -285,9 +336,13 @@ async function gifiDonustur(dosya, enFazlaKenar, bitHizi) {
   }
 }
 
-async function medyayiHazirla(dosya) {
+// buyuk: arka plan için daha yüksek çözünürlük denenir
+async function medyayiHazirla(dosya, buyuk) {
   const gif = dosya.type === "image/gif";
-  for (const [kenar, bit] of [[480, 700000], [360, 400000], [280, 220000]]) {
+  const denemeler = buyuk
+    ? [[720, 1000000], [540, 650000], [400, 350000]]
+    : [[480, 700000], [360, 400000], [280, 220000]];
+  for (const [kenar, bit] of denemeler) {
     const sonuc = gif ? await gifiDonustur(dosya, kenar, bit) : await videoyuDonustur(dosya, kenar, bit);
     if (sonuc.length <= MEDYA_SINIRI) return sonuc;
   }
@@ -399,7 +454,7 @@ function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk, hareketliOlabilir) {
         yuva.classList.add("hazirlaniyor");
         yuva.textContent = hareketli ? "⏳" : "…";
         bildir(hareketli ? "Video hazırlanıyor (en fazla 15 sn sürer)…" : "Fotoğraf hazırlanıyor…");
-        taslakFotolar[anahtar] = hareketli ? await medyayiHazirla(dosya) : await resmiKucult(dosya, enFazlaKenar, enFazlaUzunluk);
+        taslakFotolar[anahtar] = hareketli ? await medyayiHazirla(dosya, anahtar === "arka") : await resmiKucult(dosya, enFazlaKenar, enFazlaUzunluk);
         bildir((hareketli ? "Video" : "Fotoğraf") + " eklendi, kaydetmeyi unutma");
       } catch (e) {
         bildir(e.message);
@@ -443,7 +498,7 @@ function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk, hareketliOlabilir) {
 
 function fotoYuvalariniCiz() {
   $("tFotolar").replaceChildren(...FOTO_ANAHTARLARI.map((k) => fotoYuvasi(k, 720, 230000, true)));
-  $("tArkaResim").replaceChildren(fotoYuvasi("arka", 1400, 380000, false));
+  $("tArkaResim").replaceChildren(fotoYuvasi("arka", 1400, 380000, true));
 }
 
 async function duzenKaydet() {
@@ -472,6 +527,8 @@ async function duzenKaydet() {
       const h = taslak.hizlar && taslak.hizlar[k];
       if (videoMu(taslakFotolar[k]) && h && h !== 1) hizlar[FOTO_ANAHTARLARI[i]] = Math.max(0.25, Math.min(4, Number(h)));
     });
+    const arkaHiz = taslak.hizlar && taslak.hizlar.arka;
+    if (videoMu(taslakFotolar.arka) && arkaHiz && arkaHiz !== 1) hizlar.arka = Math.max(0.25, Math.min(4, Number(arkaHiz)));
     if (Object.keys(hizlar).length) kayit.hizlar = hizlar;
     guncellemeler["odalar/" + odaId + "/tasarim"] = kayit;
 

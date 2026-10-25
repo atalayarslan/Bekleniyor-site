@@ -65,7 +65,7 @@
           },
           "hizlar": {
             "$f": {
-              ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5') && newData.isNumber() && newData.val() >= 0.25 && newData.val() <= 4"
+              ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isNumber() && newData.val() >= 0.25 && newData.val() <= 4"
             }
           },
           "$diger": {
@@ -163,7 +163,16 @@
         "katilanlar": {
           ".write": true,
           "$id": {
-            ".validate": "newData.isString() && newData.val().length <= 40"
+            ".validate": "(newData.isString() && newData.val().length <= 40) || newData.hasChild('ad')",
+            "ad": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "foto": {
+              ".validate": "newData.isString() && (newData.val() == '' || (newData.val().beginsWith('https://lh') && newData.val().contains('.googleusercontent.com/') && newData.val().length <= 500))"
+            },
+            "$diger": {
+              ".validate": false
+            }
           }
         },
         "$diger": {
@@ -176,7 +185,7 @@
       "$oda": {
         ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)))",
         "$f": {
-          ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isString() && ((newData.val().beginsWith('data:image/') && newData.val().length <= 400000) || ($f != 'arka' && newData.val().beginsWith('data:video/') && newData.val().length <= 1500000))"
+          ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isString() && ((newData.val().beginsWith('data:image/') && newData.val().length <= 400000) || (newData.val().beginsWith('data:video/') && newData.val().length <= 1500000))"
         }
       }
     },
@@ -283,7 +292,7 @@
     "aramaOnbellek": {
       ".read": true,
       "$k": {
-        ".write": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.child('zaman').val() < now - 604800000)",
         ".validate": "$k.length <= 100 && newData.hasChildren(['zaman', 'sonuclar'])",
         "zaman": {
           ".validate": "newData.isNumber()"
@@ -328,7 +337,7 @@
     "eslesmeler": {
       ".read": true,
       "$k": {
-        ".write": "!data.exists()",
+        ".write": "auth != null && !data.exists()",
         ".validate": "$k.length <= 100 && newData.isString() && newData.val().length == 11"
       }
     },
@@ -350,7 +359,7 @@
           ".validate": "newData.isString() && newData.val().length <= 60"
         },
         "foto": {
-          ".validate": "newData.isString() && newData.val().length <= 500"
+          ".validate": "newData.isString() && (newData.val() == '' || (newData.val().beginsWith('https://lh') && newData.val().contains('.googleusercontent.com/') && newData.val().length <= 500))"
         },
         "$diger": {
           ".validate": false

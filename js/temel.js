@@ -142,6 +142,29 @@ function bildir(metin) {
   bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur"), 3200);
 }
 
+// Odadakiler listesi: eski kayıtlar sadece isim (metin), yenileri { ad, foto }
+function katilanListesi(veri) {
+  return Object.values(veri || {}).map((k) => typeof k === "string" ? { ad: k } : { ad: k.ad || "Misafir", foto: k.foto || "" });
+}
+
+// Sadece Google profil fotoğrafı adresleri gösterilir; başka bir sunucuya istek atılıp
+// ziyaretçilerin IP adresi toplanamaz (kurallar da aynısını zorunlu kılar).
+function guvenliFoto(adres) {
+  return typeof adres === "string" && /^https:\/\/lh\d\.googleusercontent\.com\//.test(adres) ? adres : "";
+}
+
+function avatarOgesi(kisi) {
+  if (guvenliFoto(kisi.foto)) {
+    return el("img", { className: "avatar", src: kisi.foto, alt: "", title: kisi.ad, referrerPolicy: "no-referrer" });
+  }
+  // Fotoğrafı olmayanlar için baş harf
+  return el("span", { className: "avatar harf", title: kisi.ad }, (kisi.ad || "?").trim().charAt(0).toLocaleUpperCase("tr"));
+}
+
+function avatarYigini(kisiler, enFazla) {
+  return el("span", { className: "avatar-yigini" }, kisiler.slice(0, enFazla).map(avatarOgesi));
+}
+
 // ---------- Pencereler ----------
 
 function pencereAc(baslik, icerik, dugmeler) {
@@ -187,7 +210,7 @@ $("pencere").addEventListener("mousedown", (e) => { if (e.target === $("pencere"
 // Bir düğmenin yanında açılan küçük menü
 function menuAc(hedef, ogeler) {
   const menu = $("acilirMenu");
-  menu.replaceChildren(...ogeler.map((o) => o.baslik
+  menu.replaceChildren(...ogeler.map((o) => o.dugum ? o.dugum : o.baslik
     ? el("div", { className: "menu-baslik" }, o.baslik)
     : el("button", { onclick: () => { menuKapat(); o.is(); } }, o.yazi)));
   menu.hidden = false;

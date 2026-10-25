@@ -76,7 +76,7 @@ function yonetimKullanicilariniCiz() {
       const yasak = yonetimYasaklilar[uid] === true;
       return el("tr", {},
         el("td", {}, el("div", { style: { display: "flex", alignItems: "center", gap: "0.5rem" } },
-          el("img", { className: "avatar", src: k.foto || BOS_KAPAK, alt: "", referrerPolicy: "no-referrer" }),
+          avatarOgesi({ ad: k.ad, foto: k.foto }),
           el("div", {}, k.ad || "İsimsiz", yasak ? el("span", { className: "etiket-kirmizi" }, " · yasaklı") : null,
             el("div", { className: "soluk" }, k.eposta || "")))),
         el("td", { className: "gizle-dar" }, odalari.map((id) => (yonetimOdalar[id].bilgi || {}).ad || id).join(", ") || "—"),

@@ -19,6 +19,7 @@ let katildi = false;
 let asansorSustur = false;
 let isim = "Misafir";
 let benimKaydim = null;
+let odadakiler = [];          // [{ ad, foto }] şu an odada olanlar
 const asansor = $("elevatorMusic");
 const basariSesi = $("successSound");
 
@@ -98,8 +99,8 @@ function odayiBaslat(id) {
   });
 
   odaRef.child("katilanlar").on("value", (s) => {
-    const sayi = s.numChildren();
-    $("kisiSayisi").textContent = sayi ? sayi + " kişi bekliyor" : "";
+    odadakiler = katilanListesi(s.val());
+    $("kisiSayisi").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 3), odadakiler.length + " kişi bekliyor"] : []));
   });
 
   db.ref("odaGecmisi/" + id).limitToLast(100).on("value", (s) => {
@@ -113,6 +114,7 @@ function odayiBaslat(id) {
   oturumDegisince(() => {
     yetkileriGuncelle();
     listeleriBaslat();
+    if (katildi) varliginiBildir();
     if (!$("isimKutusu").value && kisaAd()) $("isimKutusu").value = kisaAd();
   });
 
@@ -177,7 +179,10 @@ function varliginiBildir() {
   if (!odaRef) return;
   if (!benimKaydim) benimKaydim = odaRef.child("katilanlar").push();
   benimKaydim.onDisconnect().remove();
-  benimKaydim.set(isim);
+  // Giriş yapmışsa profil fotoğrafı da görünür; misafirler sadece adla
+  const kayit = { ad: isim };
+  if (kullanici && guvenliFoto(kullanici.photoURL)) kayit.foto = guvenliFoto(kullanici.photoURL);
+  benimKaydim.set(kayit);
 }
 
 function odayaKatil() {
@@ -1020,6 +1025,15 @@ function odaOlaylariniBagla() {
   });
 
   $("listeKapat").addEventListener("click", () => $("listePaneli").classList.remove("acik"));
+
+  // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
+  $("kisiSayisi").addEventListener("click", (e) => {
+    if (!odadakiler.length) return;
+    menuAc(e.currentTarget, [
+      { baslik: "Şu an odada (" + odadakiler.length + ")" },
+      ...odadakiler.map((k) => ({ dugum: el("div", { className: "kisi-satiri" }, avatarOgesi(k), el("span", {}, k.ad)) }))
+    ]);
+  });
 
   $("oynatTus").addEventListener("click", () => {
     if (simdiki) {
