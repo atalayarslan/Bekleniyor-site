@@ -63,6 +63,12 @@ Sonra tarayıcıda `http://localhost:8000/` adresini aç.
   `database.rules.json` içinde aynı e-postayla yapılır; e-postayı değiştirirsen iki yerde de değiştir.
 - Yönetici ilk kez giriş yaptığında "Ana Oda" (`?oda=ana`) otomatik olarak onun adına kurulur.
 
+## Güncelleme yaparken
+
+GitHub Pages dosyaları tarayıcılarda 10 dakika önbellekte tutar. `stil.css`, `config.js` ya da `js/`
+içindeki bir dosyayı değiştirdiğinde `index.html`'deki `?v=2` sayılarını bir artır (`?v=3`);
+böylece ziyaretçiler eski ve yeni dosyaları karışık yüklemez.
+
 ## Bilmen gerekenler
 
 - Odaya linki bilen herkes şarkı ekleyip silebilir; arkadaş sitesi için bilerek böyle bırakıldı.
