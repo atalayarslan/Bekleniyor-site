@@ -69,7 +69,8 @@ function listelerCiz() {
   kutu.replaceChildren(
     el("div", { className: "arac-satiri" },
       el("button", { className: "tus-kucuk", onclick: yeniListePenceresi }, "+ Yeni liste"),
-      el("button", { className: "tus-kucuk", onclick: dosyadanListeYukle }, "⬆ Dosyadan yükle")),
+      el("button", { className: "tus-kucuk", onclick: dosyadanListeYukle }, "⬆ Dosyadan yükle"),
+      el("button", { className: "tus-kucuk", onclick: yerImiPenceresi }, "🔖 YouTube'dan birebir kopyala")),
     kayitlar.length
       ? el("div", {}, kayitlar.map(([id, liste]) => el("button", {
         className: "liste-karti", onclick: () => { acikListe = id; listelerCiz(); }
@@ -177,7 +178,7 @@ async function dosyadanListeYukle() {
 function yeniListePenceresi() {
   if (!kullanici) return bildir("Liste için önce Google ile giriş yap");
   const adKutusu = el("input", { className: "metin-kutusu", maxLength: 60, placeholder: "Liste adı (linkten de alınabilir)" });
-  const linkKutusu = el("input", { className: "metin-kutusu", maxLength: 400, placeholder: "YouTube ya da Spotify liste / albüm linki" });
+  const linkKutusu = el("input", { className: "metin-kutusu", maxLength: 4000, placeholder: "YouTube ya da Spotify liste / albüm linki" });
   const durum = el("p", { className: "not" });
   let calisiyor = false;
   const olustur = async () => {
@@ -193,8 +194,10 @@ function yeniListePenceresi() {
     durum.textContent = "Liste okunuyor…";
     try {
       let bilgi;
+      const idler = youtubeIdListesiBul(link);
       const ytListe = youtubeListeIdBul(link);
-      if (ytListe) bilgi = await youtubeListesiCek(ytListe);
+      if (idler) bilgi = await youtubeVideolariCek(idler, kopyaListeAdi(link));
+      else if (ytListe) bilgi = await youtubeListesiCek(ytListe);
       else if (/open\.spotify\.com\/(intl-[\w-]+\/)?(playlist|album|track)\//.test(link)) bilgi = await spotifyListesiCek(link);
       else throw new Error("Bu bir YouTube ya da Spotify liste linki değil.");
       pencereKapat();
@@ -210,9 +213,36 @@ function yeniListePenceresi() {
     el("label", { className: "alan" }, "Liste adı", adKutusu),
     el("label", { className: "alan" }, "Liste linki (isteğe bağlı)", linkKutusu),
     el("p", { className: "not" }, "Spotify listesindeki şarkılar ilk çalındıklarında YouTube'da bulunur. Spotify, aracı üzerinden listenin ilk 100 şarkısını verir."),
+    el("button", { type: "button", className: "tus-kucuk", onclick: yerImiPenceresi }, "🔖 YouTube'daki listeyi birebir kopyala"),
     durum
   ], [
     { yazi: "Vazgeç", is: pencereKapat },
     { yazi: "Oluştur", ana: true, is: olustur }
+  ]);
+}
+
+// ---------- YouTube'dan birebir kopya için yer imi düğmesi ----------
+
+// Yer imi, YouTube'da açık olan Mix ya da oynatma listesindeki videoları ekrandaki sırasıyla toplar ve
+// "watch_videos?video_ids=..." biçiminde bir link olarak panoya kopyalar. Site bu linki tanır.
+const YER_IMI_KODU = "javascript:(()=>{const s=new Set();document.querySelectorAll('ytd-playlist-panel-video-renderer a#wc-endpoint,ytd-playlist-video-renderer a#video-title').forEach(a=>{try{const v=new URL(a.href).searchParams.get('v');if(v)s.add(v)}catch(e){}});const i=[...s];if(!i.length){alert('Bu sayfada liste bulunamadı. YouTube\\'da bir Mix ya da oynatma listesi açıkken dene.');return}const b=[...document.querySelectorAll('ytd-playlist-panel-renderer .title,ytd-playlist-header-renderer h1,yt-dynamic-sizing-formatted-string,h1')].map(e=>e.textContent.trim()).find(Boolean)||'YouTube listesi';const l='https://www.youtube.com/watch_videos?video_ids='+i.join(',')+'&ad='+encodeURIComponent(b.slice(0,60));const t=()=>alert(i.length+' şarkı kopyalandı! Bekleniyor sitesinde: Listelerim → + Yeni liste → Liste linki kutusuna yapıştır.');navigator.clipboard.writeText(l).then(t,()=>prompt('Bu linki kopyala:',l))})()";
+
+function yerImiPenceresi() {
+  const dugme = el("a", { href: YER_IMI_KODU, className: "yer-imi-dugmesi", title: "Bunu yer işaretleri çubuğuna sürükle" }, "📋 Bekleniyor'a kopyala");
+  dugme.addEventListener("click", (e) => {
+    e.preventDefault();
+    bildir("Tıklama değil: düğmeyi yer işaretleri çubuğuna sürükle");
+  });
+  pencereAc("YouTube listesini birebir kopyala", [
+    el("p", {}, "YouTube'da gördüğün listeyi (Mix dahil) aynı şarkılar ve aynı sırayla almak için bir kerelik kurulum:"),
+    el("ol", { className: "adimlar" },
+      el("li", {}, "Chrome'da yer işaretleri çubuğu görünmüyorsa ", el("b", {}, "Ctrl+Shift+B"), " ile aç."),
+      el("li", {}, "Aşağıdaki yeşil düğmeyi fareyle tutup yer işaretleri çubuğuna ", el("b", {}, "sürükle"), "."),
+      el("li", {}, "YouTube'da Mix'i ya da listeyi aç, sonra yer işaretleri çubuğundaki ", el("b", {}, "📋 Bekleniyor'a kopyala"), "'ya tıkla."),
+      el("li", {}, "Sitede ", el("b", {}, "Listelerim → + Yeni liste"), " → ", el("b", {}, "Liste linki"), " kutusuna yapıştır (Ctrl+V) ve Oluştur'a bas.")),
+    el("div", { className: "yer-imi-kutusu" }, dugme),
+    el("p", { className: "not" }, "Mix'lerde YouTube ekranda yaklaşık 25-50 şarkı gösterir; düğme ekranda yüklü olan şarkıların hepsini alır.")
+  ], [
+    { yazi: "Tamam", ana: true, is: pencereKapat }
   ]);
 }

@@ -404,6 +404,38 @@ a {
   line-height: 1;
 }
 
+/* YouTube'dan kopyalama yer imi */
+.adimlar {
+  margin: 0.5rem 0;
+  padding-left: 1.3rem;
+  color: var(--soluk);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.adimlar b {
+  color: #fff;
+}
+
+.yer-imi-kutusu {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  border: 2px dashed #444;
+  border-radius: 0.75rem;
+}
+
+.yer-imi-dugmesi {
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  background: var(--yesil);
+  color: #000;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: grab;
+}
+
 /* Sıralama tablosu */
 .siralama {
   display: flex;

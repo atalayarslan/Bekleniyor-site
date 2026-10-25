@@ -852,6 +852,35 @@ async function youtubeListesiCek(listeId) {
   return { ad: ad.slice(0, 60), sarkilar };
 }
 
+// Yer imi düğmesinin kopyaladığı "watch_videos?video_ids=a,b,c&ad=..." linkindeki video kimlikleri
+function youtubeIdListesiBul(metin) {
+  const m = metin.match(/[?&]video_ids=([\w,-]+)/);
+  if (!m) return null;
+  const idler = [...new Set(m[1].split(",").filter(gecerliId))];
+  return idler.length ? idler : null;
+}
+
+function kopyaListeAdi(metin) {
+  const m = metin.match(/[?&]ad=([^&]*)/);
+  try { return m ? decodeURIComponent(m[1]).slice(0, 60) : "YouTube listesi"; } catch (e) { return "YouTube listesi"; }
+}
+
+// Video kimliklerinin başlıklarını sırasını bozmadan getirir (her 50 video için 1 birim kota).
+async function youtubeVideolariCek(idler, ad) {
+  const sarkilar = [];
+  for (let i = 0; i < idler.length && i < 500; i += 50) {
+    const parca = idler.slice(i, i + 50);
+    const veri = await youtubeIstegi("videos", { part: "snippet", id: parca.join(",") });
+    const harita = {};
+    for (const v of veri.items || []) harita[v.id] = v.snippet;
+    for (const id of parca) {
+      if (harita[id]) sarkilar.push(sarkiKaydi({ videoId: id, baslik: htmlCoz(harita[id].title), kanal: htmlCoz(harita[id].channelTitle) }));
+    }
+  }
+  if (!sarkilar.length) throw new Error("Linkteki videolar bulunamadı");
+  return { ad: ad || "YouTube listesi", sarkilar };
+}
+
 async function youtubeMixCek(listeId) {
   if (!AYARLAR.spotifyAraci) throw new Error("YouTube Mix listeleri için aracı tanımlı değil (config.js).");
   let veri;
@@ -894,6 +923,16 @@ async function aramaYap(metin) {
   try {
     const listeKimligi = youtubeListeIdBul(metin);
     const ytId = youtubeIdBul(metin);
+    const kopyaIdleri = youtubeIdListesiBul(metin);
+
+    if (kopyaIdleri) {
+      const { ad, sarkilar } = await youtubeVideolariCek(kopyaIdleri, kopyaListeAdi(metin));
+      not.textContent = "“" + ad + "” (" + sarkilar.length + " şarkı)";
+      sonuclariGoster(sarkilar, el("div", { className: "arac-satiri" },
+        el("button", { className: "tus-kucuk", onclick: () => sarkilariEkle(sarkilar) }, "▶ Hepsini sıraya ekle"),
+        el("button", { className: "tus-kucuk", onclick: () => kullanici ? yeniListe(ad, sarkilar) : bildir("Liste için önce Google ile giriş yap") }, "☆ Listelerime kaydet")));
+      return;
+    }
 
     if (listeKimligi && (!ytId || /\/playlist\?/.test(metin))) {
       const { ad, sarkilar } = await youtubeListesiCek(listeKimligi);
