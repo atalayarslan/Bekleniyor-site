@@ -68,9 +68,8 @@ function listelerCiz() {
   const kayitlar = Object.entries(listeler).sort((a, b) => (b[1].olusturma || 0) - (a[1].olusturma || 0));
   kutu.replaceChildren(
     el("div", { className: "arac-satiri" },
-      el("button", { className: "tus-kucuk", onclick: async () => { const ad = await metinSor("Yeni liste", null, "", 60); if (ad) yeniListe(ad, []); } }, "+ Yeni liste"),
-      el("button", { className: "tus-kucuk", onclick: dosyadanListeYukle }, "⬆ Dosyadan yükle"),
-      el("button", { className: "tus-kucuk", onclick: youtubeListesiniAktar }, "▶ YouTube listesi aktar")),
+      el("button", { className: "tus-kucuk", onclick: yeniListePenceresi }, "+ Yeni liste"),
+      el("button", { className: "tus-kucuk", onclick: dosyadanListeYukle }, "⬆ Dosyadan yükle")),
     kayitlar.length
       ? el("div", {}, kayitlar.map(([id, liste]) => el("button", {
         className: "liste-karti", onclick: () => { acikListe = id; listelerCiz(); }
@@ -96,8 +95,9 @@ async function yeniListe(ad, sarkilar) {
   const sarkiNesnesi = {};
   const gorulen = new Set();
   for (const s of sarkilar) {
-    if (!gecerliId(s.videoId) || gorulen.has(s.videoId)) continue;
-    gorulen.add(s.videoId);
+    const kimlik = sarkiKimligi(s);
+    if (!s.baslik || gorulen.has(kimlik)) continue;
+    gorulen.add(kimlik);
     sarkiNesnesi[ref.child("sarkilar").push().key] = Object.assign(sarkiKaydi(s), { eklenme: Date.now() });
   }
   await ref.set({ ad: ad.slice(0, 60), olusturma: firebase.database.ServerValue.TIMESTAMP, sarkilar: sarkiNesnesi });
@@ -107,7 +107,7 @@ async function yeniListe(ad, sarkilar) {
 
 async function listeyeSarkiEkle(listeId, sarki) {
   const liste = listeler[listeId];
-  if (listeSarkilari(liste).some((s) => s.videoId === sarki.videoId)) {
+  if (listeSarkilari(liste).some((s) => sarkiKimligi(s) === sarkiKimligi(sarki))) {
     bildir("Bu şarkı zaten “" + liste.ad + "” listesinde");
     return;
   }
@@ -164,7 +164,7 @@ async function dosyadanListeYukle() {
   if (!dosya) return;
   try {
     const veri = JSON.parse(await dosya.text());
-    const sarkilar = (Array.isArray(veri) ? veri : veri.sarkilar || []).filter((s) => s && gecerliId(s.videoId));
+    const sarkilar = (Array.isArray(veri) ? veri : veri.sarkilar || []).filter((s) => s && s.baslik && (gecerliId(s.videoId) || s.arama));
     if (!sarkilar.length) throw new Error("Dosyada şarkı bulunamadı");
     await yeniListe(String(veri.ad || dosya.name.replace(/\.json$/i, "")).slice(0, 60), sarkilar);
   } catch (e) {
@@ -172,17 +172,47 @@ async function dosyadanListeYukle() {
   }
 }
 
-async function youtubeListesiniAktar() {
+// Yeni liste: ad ve isteğe bağlı bir YouTube ya da Spotify liste/albüm linki.
+// Link verilirse içindeki bütün şarkılar listeye eklenir.
+function yeniListePenceresi() {
   if (!kullanici) return bildir("Liste için önce Google ile giriş yap");
-  const link = await metinSor("YouTube listesi aktar", "YouTube'daki bir oynatma listesinin linkini yapıştır. Liste bir kez okunur, sonra arama hakkı harcamadan kullanılır.", "", 300);
-  if (!link) return;
-  const kimlik = youtubeListeIdBul(link);
-  if (!kimlik) return bildir("Bu bir YouTube oynatma listesi linki değil");
-  try {
-    bildir("Liste okunuyor…");
-    const { ad, sarkilar } = await youtubeListesiCek(kimlik);
-    await yeniListe(ad, sarkilar);
-  } catch (e) {
-    bildir(e.message);
-  }
+  const adKutusu = el("input", { className: "metin-kutusu", maxLength: 60, placeholder: "Liste adı (linkten de alınabilir)" });
+  const linkKutusu = el("input", { className: "metin-kutusu", maxLength: 400, placeholder: "YouTube ya da Spotify liste / albüm linki" });
+  const durum = el("p", { className: "not" });
+  let calisiyor = false;
+  const olustur = async () => {
+    if (calisiyor) return;
+    const link = linkKutusu.value.trim();
+    let ad = adKutusu.value.trim();
+    if (!link) {
+      if (!ad) return adKutusu.focus();
+      pencereKapat();
+      return yeniListe(ad, []);
+    }
+    calisiyor = true;
+    durum.textContent = "Liste okunuyor…";
+    try {
+      let bilgi;
+      const ytListe = youtubeListeIdBul(link);
+      if (ytListe) bilgi = await youtubeListesiCek(ytListe);
+      else if (/open\.spotify\.com\/(intl-[\w-]+\/)?(playlist|album|track)\//.test(link)) bilgi = await spotifyListesiCek(link);
+      else throw new Error("Bu bir YouTube ya da Spotify liste linki değil.");
+      pencereKapat();
+      await yeniListe(ad || bilgi.ad, bilgi.sarkilar);
+    } catch (e) {
+      durum.textContent = e.message;
+    } finally {
+      calisiyor = false;
+    }
+  };
+  [adKutusu, linkKutusu].forEach((k) => k.addEventListener("keydown", (e) => { if (e.key === "Enter") olustur(); }));
+  pencereAc("Yeni liste", [
+    el("label", { className: "alan" }, "Liste adı", adKutusu),
+    el("label", { className: "alan" }, "Liste linki (isteğe bağlı)", linkKutusu),
+    el("p", { className: "not" }, "Spotify listesindeki şarkılar ilk çalındıklarında YouTube'da bulunur. Spotify, aracı üzerinden listenin ilk 100 şarkısını verir."),
+    durum
+  ], [
+    { yazi: "Vazgeç", is: pencereKapat },
+    { yazi: "Oluştur", ana: true, is: olustur }
+  ]);
 }

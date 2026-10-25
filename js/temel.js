@@ -76,12 +76,21 @@ function guvenliAnahtar(metin) {
   return metin.replace(/[.#$[\]/]/g, "_").slice(0, 100);
 }
 
+// Şarkı kaydı. Spotify'dan gelen şarkıların henüz YouTube karşılığı yoktur; onlarda videoId yerine
+// "arama" (Sanatçı - Şarkı) bulunur ve şarkı ilk çalınacağı zaman YouTube'da aranır.
 function sarkiKaydi(s) {
-  return {
-    videoId: s.videoId,
+  const kayit = {
     baslik: String(s.baslik || "Bilinmeyen şarkı").slice(0, 200),
     kanal: String(s.kanal || "").slice(0, 100)
   };
+  if (gecerliId(s.videoId)) kayit.videoId = s.videoId;
+  else kayit.arama = String(s.arama || ((s.kanal ? s.kanal + " - " : "") + kayit.baslik)).slice(0, 200);
+  return kayit;
+}
+
+// Aynı şarkıyı tanımak için: YouTube kimliği, yoksa arama metni.
+function sarkiKimligi(s) {
+  return s ? (gecerliId(s.videoId) ? s.videoId : "?" + (s.arama || "")) : "";
 }
 
 function hafizadanOku(anahtar) {

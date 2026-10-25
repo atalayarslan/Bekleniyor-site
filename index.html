@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Nunito:wght@400;700;800&family=Pacifico&family=Press+Start+2P&display=swap">
-  <link rel="stylesheet" href="stil.css?v=6">
+  <link rel="stylesheet" href="stil.css?v=7">
 </head>
 
 <body>
@@ -67,7 +67,6 @@
       </div>
     </header>
 
-    <button id="endButton">Sonunda 🎉</button>
 
     <!-- Sağ panel: video, arama, sıra, geçmiş, listeler -->
     <aside id="listePaneli" class="yan-panel sag">
@@ -97,6 +96,7 @@
           <button id="siraKaristir" class="tus-kucuk">🔀 Karıştır</button>
           <button id="siraKaydet" class="tus-kucuk">☆ Listeye kaydet</button>
           <button id="siraTemizle" class="tus-kucuk">🗑️ Temizle</button>
+          <button id="radyoTus" class="tus-kucuk" title="Sıra bitince çalan şarkıya benzer şarkılar eklensin mi">📻 Benzer şarkılar</button>
         </div>
         <div id="sira"></div>
       </div>
@@ -206,6 +206,7 @@
         </div>
       </div>
       <div class="calar-sag">
+        <button id="endButton" title="Beklenen geldi! Müziği durdurup kutla">Sonunda 🎉</button>
         <span id="kisiSayisi" class="kisi-rozeti"></span>
         <button id="sesTus" class="kontrol-tus kucuk" title="Sesi kapat / aç">🔊</button>
         <input id="sesAyari" class="ses-cubugu" type="range" min="0" max="100" value="80" title="Ses">
@@ -256,14 +257,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="config.js?v=6"></script>
-  <script src="js/temel.js?v=6"></script>
-  <script src="js/tasarim.js?v=6"></script>
-  <script src="js/listeler.js?v=6"></script>
-  <script src="js/oda.js?v=6"></script>
-  <script src="js/lobi.js?v=6"></script>
-  <script src="js/yonetim.js?v=6"></script>
-  <script src="js/baslat.js?v=6"></script>
+  <script src="config.js?v=7"></script>
+  <script src="js/temel.js?v=7"></script>
+  <script src="js/tasarim.js?v=7"></script>
+  <script src="js/listeler.js?v=7"></script>
+  <script src="js/oda.js?v=7"></script>
+  <script src="js/lobi.js?v=7"></script>
+  <script src="js/yonetim.js?v=7"></script>
+  <script src="js/baslat.js?v=7"></script>
 </body>
 
 </html>

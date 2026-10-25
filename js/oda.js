@@ -9,6 +9,7 @@ let odaFotolar = null;
 let simdiki = null;           // odada şu an çalan şarkı
 let siraVerisi = {};
 let oncekiListesi = [];       // geri düğmesi için son çalınan şarkılar
+let radyoKapali = false;      // sıra bitince benzer şarkı eklensin mi
 let gecmisListesi = [];
 let ilerlemeSurukleniyor = false;
 let oynatici = null;
@@ -81,9 +82,15 @@ function odayiBaslat(id) {
     simdiki = m.simdiki || null;
     siraVerisi = m.sira || {};
     oncekiListesi = Object.values(m.onceki || {});
+    radyoKapali = m.radyoKapali === true;
     arayuzuGuncelle();
     siraCiz();
     senkronla();
+    if (katildi) {
+      simdikiyiCoz();
+      siradakiniHazirla();
+      radyoyuDoldur();
+    }
   });
 
   // Sadece gerçekten yeni basılmış bir "Sonunda"yı kutla.
@@ -190,6 +197,7 @@ function odayaKatil() {
 // ---------- Oda işlemleri (herkese yansır) ----------
 
 function gecmiseYaz(sarki) {
+  if (!sarki || !gecerliId(sarki.videoId)) return;
   db.ref("odaGecmisi/" + odaId).push(Object.assign(sarkiKaydi(sarki), {
     ekleyen: String(sarki.ekleyen || "").slice(0, 40),
     zaman: firebase.database.ServerValue.TIMESTAMP
@@ -197,9 +205,11 @@ function gecmiseYaz(sarki) {
 }
 
 // Bir ya da daha fazla şarkıyı sıraya ekler; oda boşsa ilki hemen çalmaya başlar.
-function sarkilariEkle(liste) {
+// Spotify'dan gelen (henüz YouTube karşılığı olmayan) şarkılar da eklenebilir; çalma sırası gelince aranır.
+function sarkilariEkle(liste, ekleyen) {
   if (!muzikRef) return;
-  const kayitlar = liste.filter((s) => gecerliId(s.videoId)).map((s) => Object.assign(sarkiKaydi(s), { ekleyen: isim }));
+  const kayitlar = liste.filter((s) => gecerliId(s.videoId) || s.arama || s.baslik)
+    .map((s) => Object.assign(sarkiKaydi(s), { ekleyen: String(ekleyen || isim).slice(0, 40) }));
   if (!kayitlar.length) return;
   const anahtarlar = kayitlar.map(() => muzikRef.child("sira").push().key);
   let baslayan = null;
@@ -218,18 +228,18 @@ function sarkilariEkle(liste) {
   }).then((sonuc) => {
     if (!sonuc.committed) return;
     if (baslayan) gecmiseYaz(baslayan);
-    bildir(kayitlar.length === 1 ? "Eklendi: " + kayitlar[0].baslik : kayitlar.length + " şarkı sıraya eklendi");
+    if (!ekleyen) bildir(kayitlar.length === 1 ? "Eklendi: " + kayitlar[0].baslik : kayitlar.length + " şarkı sıraya eklendi");
   }).catch((e) => bildir("Eklenemedi: " + e.message));
 }
 
 // Sadece biten şarkı hâlâ çalıyorsa ilerler; böylece birden fazla kişi aynı anda tetiklese de tek şarkı atlanır.
-function sonrakineGec(bitenId) {
+function sonrakineGec(bitenKimlik) {
   if (!muzikRef) return;
   let baslayan = null;
   muzikRef.transaction((m) => {
     baslayan = null;
     if (!m) return m;
-    if (!m.simdiki || m.simdiki.videoId !== bitenId) return;
+    if (!m.simdiki || sarkiKimligi(m.simdiki) !== bitenKimlik) return;
     m.onceki = oncekiyeEkle(m.onceki, m.simdiki);
     const anahtarlar = Object.keys(m.sira || {}).sort();
     if (!anahtarlar.length) {
@@ -251,6 +261,7 @@ const ONCEKI_SINIRI = 5;
 
 function oncekiyeEkle(onceki, sarki) {
   const liste = Object.values(onceki || {});
+  if (!sarki || !gecerliId(sarki.videoId)) return liste.length ? liste : null;
   liste.push(Object.assign(sarkiKaydi(sarki), { ekleyen: String(sarki.ekleyen || "").slice(0, 40) }));
   return liste.slice(-ONCEKI_SINIRI);
 }
@@ -261,9 +272,17 @@ function sirabasiAnahtari() {
 }
 
 // Seçilen şarkıyı hemen çalar; çalan şarkı kapanır, sıra olduğu gibi devam eder.
-// Şarkı sıradan seçildiyse sıradan çıkarılır.
-function hemenCal(sarki, siraAnahtari) {
-  if (!muzikRef || !gecerliId(sarki.videoId)) return;
+// Şarkı sıradan seçildiyse sıradan çıkarılır. Spotify şarkısıysa önce YouTube'da bulunur.
+async function hemenCal(sarki, siraAnahtari) {
+  if (!muzikRef) return;
+  if (!gecerliId(sarki.videoId)) {
+    bildir("“" + sarki.baslik + "” YouTube'da aranıyor…");
+    try {
+      sarki = await sarkiyiCoz(sarki);
+    } catch (e) {
+      return bildir(e.message);
+    }
+  }
   const kayit = Object.assign(sarkiKaydi(sarki), { ekleyen: String(sarki.ekleyen || isim).slice(0, 40) });
   let baslayan = null;
   muzikRef.transaction((m) => {
@@ -304,6 +323,117 @@ function geriGit() {
   }).then((sonuc) => {
     if (sonuc.committed && baslayan) gecmiseYaz(baslayan);
   }).catch(() => { });
+}
+
+// ---------- Spotify şarkılarını YouTube'da bulma ----------
+
+// "Sanatçı - Şarkı" metnini YouTube'da arar. Bulunan sonuç "eslesmeler" altında herkes için saklanır;
+// böylece aynı şarkı bir daha aranmaz ve arama hakkı harcanmaz.
+async function sarkiyiCoz(sarki) {
+  if (gecerliId(sarki.videoId)) return sarki;
+  const metin = sarki.arama || ((sarki.kanal ? sarki.kanal + " - " : "") + sarki.baslik);
+  const anahtar = guvenliAnahtar(metin.toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_";
+  let videoId = null;
+  try { videoId = (await db.ref("eslesmeler/" + anahtar).get()).val(); } catch (e) { }
+  if (!gecerliId(videoId)) {
+    const { sonuclar } = await youtubeAra(metin);
+    if (!sonuclar.length) throw new Error("“" + sarki.baslik + "” YouTube'da bulunamadı");
+    videoId = sonuclar[0].videoId;
+    db.ref("eslesmeler/" + anahtar).set(videoId).catch(() => { });
+  }
+  const sonuc = Object.assign({}, sarki, { videoId });
+  delete sonuc.arama;
+  return sonuc;
+}
+
+// Çalma sırası bir Spotify şarkısına gelince odadaki biri onu YouTube'da bulur ve herkes için yazar.
+let cozulenKimlik = null;
+async function simdikiyiCoz() {
+  if (!simdiki || gecerliId(simdiki.videoId)) return;
+  const kimlik = sarkiKimligi(simdiki);
+  if (cozulenKimlik === kimlik) return;
+  cozulenKimlik = kimlik;
+  // Herkes aynı anda aramasın diye küçük, rastgele bir bekleme
+  await new Promise((r) => setTimeout(r, Math.random() * 1200));
+  if (!simdiki || sarkiKimligi(simdiki) !== kimlik) return;
+  try {
+    const bulunan = await sarkiyiCoz(simdiki);
+    await muzikRef.child("simdiki").transaction((s) => {
+      if (!s || sarkiKimligi(s) !== kimlik) return;
+      s.videoId = bulunan.videoId;
+      delete s.arama;
+      s.baslangic = sunucuZamani();
+      s.konum = 0;
+      return s;
+    });
+    gecmiseYaz(Object.assign({}, simdiki, { videoId: bulunan.videoId }));
+  } catch (e) {
+    bildir(e.message + ", sıradakine geçiliyor");
+    sonrakineGec(kimlik);
+  }
+}
+
+// Sıradaki şarkı Spotify şarkısıysa, çalan şarkı sürerken önceden bulunur; geçişte bekleme olmaz.
+let hazirlananKimlik = null;
+async function siradakiniHazirla() {
+  if (!simdiki || !gecerliId(simdiki.videoId)) return;
+  const siradaki = siraListesi()[0];
+  if (!siradaki || gecerliId(siradaki.videoId)) return;
+  const kimlik = sarkiKimligi(siradaki);
+  if (hazirlananKimlik === kimlik) return;
+  hazirlananKimlik = kimlik;
+  try {
+    const bulunan = await sarkiyiCoz(siradaki);
+    muzikRef.child("sira/" + siradaki.anahtar).transaction((s) => {
+      if (!s || sarkiKimligi(s) !== kimlik) return;
+      s.videoId = bulunan.videoId;
+      delete s.arama;
+      return s;
+    });
+  } catch (e) { }
+}
+
+// ---------- Sıra bitince benzer şarkılar ----------
+
+// Çalan şarkının sanatçısından benzer şarkılar bulur. Önce YouTube araması (önbellekli),
+// yetmezse odanın geçmişinden yakında çalınmamış şarkılar.
+function sanatciAdi(sarki) {
+  const kanal = String(sarki.kanal || "").replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").replace(/\s*(Official|Resmi)\s*$/i, "").trim();
+  if (kanal) return kanal;
+  const tire = String(sarki.baslik || "").split(" - ");
+  return tire.length > 1 ? tire[0].trim() : "";
+}
+
+let radyoKimligi = null;
+async function radyoyuDoldur() {
+  if (radyoKapali || !simdiki || !gecerliId(simdiki.videoId) || siraListesi().length) return;
+  const kimlik = simdiki.videoId;
+  if (radyoKimligi === kimlik) return;
+  radyoKimligi = kimlik;
+  // Aynı şarkı için odada sadece bir kişi öneri arasın
+  const sahiplen = await muzikRef.child("radyoIcin").transaction((v) => (v === kimlik ? undefined : kimlik));
+  if (!sahiplen.committed) return;
+
+  const yakinda = new Set([kimlik, ...gecmisListesi.slice(0, 40).map((s) => s.videoId)]);
+  const oneriler = [];
+  const sanatci = sanatciAdi(simdiki);
+  if (sanatci) {
+    try {
+      const { sonuclar } = await youtubeAra(sanatci);
+      for (const s of karistir(sonuclar)) {
+        if (!yakinda.has(s.videoId) && !/\b(mix|full album|playlist|1 hour|live stream)\b/i.test(s.baslik)) {
+          oneriler.push(s);
+          yakinda.add(s.videoId);
+        }
+        if (oneriler.length >= 4) break;
+      }
+    } catch (e) { }
+  }
+  for (const s of karistir(gecmisListesi.slice(10))) {
+    if (oneriler.length >= 5) break;
+    if (!yakinda.has(s.videoId)) { oneriler.push(s); yakinda.add(s.videoId); }
+  }
+  if (oneriler.length && !siraListesi().length) sarkilariEkle(oneriler, "📻 Benzer");
 }
 
 function simdikiniDegistir(degistir) {
@@ -365,6 +495,15 @@ function senkronla() {
   asansor.pause();
   if (!oynaticiHazir) return;
 
+  // Spotify şarkısı henüz YouTube'da bulunmadıysa bekle
+  if (!gecerliId(simdiki.videoId)) {
+    if (yuklenenId) {
+      oynatici.stopVideo();
+      yuklenenId = null;
+    }
+    return;
+  }
+
   const hedef = konumHesapla(simdiki);
   if (simdiki.videoId !== yuklenenId) {
     yuklenenId = simdiki.videoId;
@@ -401,13 +540,13 @@ function onYouTubeIframeAPIReady() {
       },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.ENDED && simdiki && simdiki.videoId === yuklenenId) {
-          sonrakineGec(simdiki.videoId);
+          sonrakineGec(sarkiKimligi(simdiki));
         }
       },
       onError: () => {
         if (!simdiki) return;
         bildir("Bu video sitede çalınamıyor, sıradakine geçiliyor");
-        sonrakineGec(simdiki.videoId);
+        sonrakineGec(sarkiKimligi(simdiki));
       }
     }
   });
@@ -434,7 +573,8 @@ function arayuzuGuncelle() {
   if (simdiki) {
     $("kapak").src = kapakAdresi(simdiki.videoId);
     $("sarkiAdi").textContent = simdiki.baslik || "Bilinmeyen şarkı";
-    $("sarkiAlt").textContent = (simdiki.kanal ? simdiki.kanal + " · " : "") + "ekleyen: " + (simdiki.ekleyen || "?");
+    $("sarkiAlt").textContent = !gecerliId(simdiki.videoId) ? "YouTube'da aranıyor…"
+      : (simdiki.kanal ? simdiki.kanal + " · " : "") + "ekleyen: " + (simdiki.ekleyen || "?");
     oynatSimgesi(!simdiki.duraklatildi);
     $("simdikiListeye").hidden = false;
   } else {
@@ -555,11 +695,15 @@ function siraCiz() {
   if (!kutu) return;
   const sira = siraListesi();
   $("siraSayisi").textContent = sira.length || "";
+  $("radyoTus").textContent = "📻 Benzer şarkılar: " + (radyoKapali ? "Kapalı" : "Açık");
+  $("radyoTus").classList.toggle("acik-durum", !radyoKapali);
   if (!sira.length) {
-    kutu.replaceChildren(el("div", { className: "not" }, "Sıra boş. Ara sekmesinden ya da listelerinden şarkı ekle."));
+    kutu.replaceChildren(el("div", { className: "not" }, radyoKapali
+      ? "Sıra boş. Ara sekmesinden ya da listelerinden şarkı ekle."
+      : "Sıra boş. Şarkı eklemezsen çalan şarkıya benzer şarkılar otomatik eklenir."));
     return;
   }
-  kutu.replaceChildren(...sira.map((s, i) => sarkiSatiri(s, (i + 1) + ". · ekleyen: " + (s.ekleyen || "?"), [
+  kutu.replaceChildren(...sira.map((s, i) => sarkiSatiri(s, (i + 1) + ". · " + (gecerliId(s.videoId) ? "" : "Spotify · ") + "ekleyen: " + (s.ekleyen || "?"), [
     listeDugmesi(s),
     { yazi: "✕", baslik: "Sıradan çıkar", is: () => muzikRef.child("sira/" + s.anahtar).remove() }
   ], () => hemenCal(s, s.anahtar))));
@@ -645,8 +789,9 @@ async function youtubeIstegi(yol, parametreler) {
 }
 
 // Aynı arama 7 gün içinde tekrar yapılırsa YouTube'a hiç gidilmez (kota harcanmaz).
+// Sonuçlar müzik kategorisinden gelir ve izlenme sayısına göre sıralanır; popüler şarkılar üstte çıkar.
 async function youtubeAra(sorgu) {
-  const anahtar = guvenliAnahtar(sorgu.toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_";
+  const anahtar = guvenliAnahtar("p:" + sorgu.toLocaleLowerCase("tr").replace(/\s+/g, " ").trim());
   try {
     const onbellek = (await db.ref("aramaOnbellek/" + anahtar).get()).val();
     if (onbellek && sunucuZamani() - onbellek.zaman < 7 * 864e5) {
@@ -654,12 +799,23 @@ async function youtubeAra(sorgu) {
     }
   } catch (e) { }
 
-  const veri = await youtubeIstegi("search", { part: "snippet", type: "video", videoEmbeddable: "true", maxResults: "10", q: sorgu });
-  const sonuclar = veri.items.map((v) => sarkiKaydi({
+  const parametreler = { part: "snippet", type: "video", videoEmbeddable: "true", maxResults: "15", q: sorgu };
+  let veri = await youtubeIstegi("search", Object.assign({ videoCategoryId: "10" }, parametreler));
+  if (!veri.items || !veri.items.length) veri = await youtubeIstegi("search", parametreler);
+  let sonuclar = (veri.items || []).map((v) => sarkiKaydi({
     videoId: v.id.videoId,
     baslik: htmlCoz(v.snippet.title),
     kanal: htmlCoz(v.snippet.channelTitle)
   }));
+  // İzlenme sayıları (15 video için 1 birim kota). Alakalılık sırası da hafifçe korunur.
+  try {
+    const istatistik = await youtubeIstegi("videos", { part: "statistics", id: sonuclar.map((s) => s.videoId).join(",") });
+    const izlenme = {};
+    for (const v of istatistik.items || []) izlenme[v.id] = Number(v.statistics.viewCount || 0);
+    const puan = (s, i) => Math.log10((izlenme[s.videoId] || 0) + 10) - i * 0.12;
+    sonuclar = sonuclar.map((s, i) => [s, puan(s, i)]).sort((a, b) => b[1] - a[1]).map(([s]) => s);
+  } catch (e) { }
+  sonuclar = sonuclar.slice(0, 10);
   if (kullanici) {
     db.ref("aramaOnbellek/" + anahtar).set({ zaman: firebase.database.ServerValue.TIMESTAMP, sonuclar }).catch(() => { });
   }
@@ -683,6 +839,26 @@ async function youtubeListesiCek(listeId) {
   } while (sayfa && sarkilar.length < 200);
   if (!sarkilar.length) throw new Error("Listede çalınabilir şarkı bulunamadı");
   return { ad: ad.slice(0, 60), sarkilar };
+}
+
+// Spotify liste ya da albümünü Cloudflare'deki aracı üzerinden okur (spotify-araci/worker.js).
+// Şarkıların YouTube karşılığı henüz yoktur; "Sanatçı - Şarkı" araması olarak saklanır.
+async function spotifyListesiCek(link) {
+  if (!AYARLAR.spotifyAraci) throw new Error("Spotify aracısı tanımlı değil (config.js).");
+  let veri;
+  try {
+    veri = await (await fetch(AYARLAR.spotifyAraci + "?link=" + encodeURIComponent(link))).json();
+  } catch (e) {
+    throw new Error("Spotify'a ulaşılamadı, biraz sonra tekrar dene.");
+  }
+  if (veri.hata) throw new Error(veri.hata);
+  const sarkilar = (veri.sarkilar || []).filter((s) => s.baslik).map((s) => sarkiKaydi({
+    baslik: s.baslik,
+    kanal: s.sanatci,
+    arama: (s.sanatci ? s.sanatci.split(",")[0].trim() + " - " : "") + s.baslik
+  }));
+  if (!sarkilar.length) throw new Error("Spotify listesinde şarkı bulunamadı");
+  return { ad: String(veri.ad || "Spotify listesi").slice(0, 60), sarkilar };
 }
 
 async function aramaYap(metin) {
@@ -710,8 +886,16 @@ async function aramaYap(metin) {
     }
 
     if (/spotify\.(com|link)\//.test(metin)) {
+      if (/open\.spotify\.com\/(intl-[\w-]+\/)?(playlist|album)\//.test(metin)) {
+        const { ad, sarkilar } = await spotifyListesiCek(metin);
+        not.textContent = "Spotify: “" + ad + "” (" + sarkilar.length + " şarkı). Her şarkı çalınacağı zaman YouTube'da bulunur.";
+        sonuclariGoster(sarkilar, el("div", { className: "arac-satiri" },
+          el("button", { className: "tus-kucuk", onclick: () => sarkilariEkle(sarkilar) }, "▶ Hepsini sıraya ekle"),
+          el("button", { className: "tus-kucuk", onclick: () => kullanici ? yeniListe(ad, sarkilar) : bildir("Liste için önce Google ile giriş yap") }, "☆ Listelerime kaydet")));
+        return;
+      }
       if (!/open\.spotify\.com\/(intl-[\w-]+\/)?track\//.test(metin)) {
-        throw new Error("Spotify'dan sadece tek şarkı linki açılabiliyor (liste ve albüm değil).");
+        throw new Error("Bu Spotify linki açılamadı. Şarkı, liste ya da albüm linki yapıştır.");
       }
       const ad = await spotifyAdiniBul(metin);
       $("aramaKutusu").value = ad;
@@ -783,7 +967,7 @@ function odaOlaylariniBagla() {
     }
   });
 
-  $("atlaTus").addEventListener("click", () => { if (simdiki) sonrakineGec(simdiki.videoId); });
+  $("atlaTus").addEventListener("click", () => { if (simdiki) sonrakineGec(sarkiKimligi(simdiki)); });
   $("geriTus").addEventListener("click", geriGit);
 
   ilerlemeOlaylariniBagla();
@@ -800,6 +984,10 @@ function odaOlaylariniBagla() {
   $("simdikiListeye").addEventListener("click", (e) => { if (simdiki) listeyeEkleMenusu(simdiki, e.currentTarget); });
 
   $("siraKaristir").addEventListener("click", siraKaristir);
+  $("radyoTus").addEventListener("click", () => {
+    muzikRef.child("radyoKapali").set(radyoKapali ? null : true);
+    radyoKimligi = null;
+  });
   $("siraKaydet").addEventListener("click", () => topluListeyeKaydet(siraListesi(), (odaBilgi && odaBilgi.ad || "Oda") + " sırası"));
   $("siraTemizle").addEventListener("click", async () => {
     if (await onayla("Sırayı temizle", "Sıradaki tüm şarkılar silinecek (çalan şarkı devam eder).", "Temizle", true)) {

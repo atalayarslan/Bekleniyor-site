@@ -84,7 +84,9 @@ function tasarimiUygula(t, fotolar) {
   $("arkaPlan").classList.toggle("resimli", !!arka);
 
   emojileriCiz(t.emoji || "", Math.max(0, Math.min(30, t.emojiSayisi | 0)));
-  fotolariCiz(FOTO_ANAHTARLARI.map((k) => fotolar && fotolar[k]).filter(Boolean), !!t.fotoHareket);
+  const hizlar = t.hizlar || {};
+  fotolariCiz(FOTO_ANAHTARLARI.filter((k) => fotolar && fotolar[k])
+    .map((k) => ({ kaynak: fotolar[k], hiz: hizlar[k] || 1 })), !!t.fotoHareket);
 }
 
 function emojileriCiz(emoji, sayi) {
@@ -116,13 +118,28 @@ const SABIT_KONUMLAR = [
   { right: "1rem", top: "calc(50% - var(--fy) / 2)" }
 ];
 
-function fotolariCiz(kaynaklar, hareketli) {
-  const anahtar = hareketli + "|" + kaynaklar.map((k) => k.length + k.slice(-24)).join(",");
+function videoMu(kaynak) {
+  return typeof kaynak === "string" && kaynak.startsWith("data:video/");
+}
+
+// Video (GIF'ten dönüştürülmüş olabilir) sessiz, döngüde ve seçilen hızda oynar.
+function medyaOgesi(kaynak, hiz) {
+  if (!videoMu(kaynak)) return el("img", { src: kaynak, alt: "" });
+  const video = el("video", { src: kaynak, muted: true, autoplay: true, loop: true, playsInline: true });
+  video.defaultPlaybackRate = hiz;
+  video.playbackRate = hiz;
+  video.addEventListener("loadedmetadata", () => { video.playbackRate = hiz; video.play().catch(() => { }); });
+  return video;
+}
+
+function fotolariCiz(medyalar, hareketli) {
+  const anahtar = hareketli + "|" + medyalar.map((m) => m.kaynak.length + m.kaynak.slice(-24) + "@" + m.hiz).join(",");
   if (anahtar === cizilenFotolar) return;
   cizilenFotolar = anahtar;
   const katman = $("fotoKatmani");
-  katman.replaceChildren(...kaynaklar.map((kaynak, i) => {
-    const panel = el("div", { className: "foto-paneli" + (hareketli ? " dolasan" : "") }, el("img", { src: kaynak, alt: "" }));
+  const kaynaklar = medyalar;
+  katman.replaceChildren(...medyalar.map((m, i) => {
+    const panel = el("div", { className: "foto-paneli" + (hareketli ? " dolasan" : "") }, medyaOgesi(m.kaynak, m.hiz));
     if (hareketli) panel.style.animationDelay = (-(i * 20) / kaynaklar.length) + "s";
     else Object.assign(panel.style, SABIT_KONUMLAR[i]);
     return panel;
@@ -158,6 +175,123 @@ function resmiKucult(kaynak, enFazlaKenar, enFazlaUzunluk) {
     resim.onerror = () => reddet(new Error("Resim okunamadı"));
     resim.src = adres;
   });
+}
+
+// ---------- GIF ve kısa video ----------
+
+// GIF ve videolar tarayıcıda en fazla 15 saniyelik, küçük bir WebM videoya dönüştürülür.
+// Böylece veritabanına sığar ve hızları ayarlanabilir.
+const MEDYA_SURESI = 15;
+const MEDYA_SINIRI = 1400000;
+
+function dosyayiOku(dosya) {
+  return new Promise((coz, reddet) => {
+    const okuyucu = new FileReader();
+    okuyucu.onload = () => coz(okuyucu.result);
+    okuyucu.onerror = () => reddet(new Error("Dosya okunamadı"));
+    okuyucu.readAsDataURL(dosya);
+  });
+}
+
+function kayitTuru() {
+  return ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"]
+    .find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+}
+
+// ciz(baglam) her karede tuvale çizer; sure saniye boyunca kaydedilir.
+function tuvaliKaydet(genislik, yukseklik, sure, bitHizi, ciz) {
+  return new Promise((coz, reddet) => {
+    const tur = kayitTuru();
+    if (!tur) return reddet(new Error("Tarayıcın video dönüştürmeyi desteklemiyor"));
+    const tuval = el("canvas", { width: genislik, height: yukseklik });
+    const baglam = tuval.getContext("2d");
+    const kaydedici = new MediaRecorder(tuval.captureStream(30), { mimeType: tur, videoBitsPerSecond: bitHizi });
+    const parcalar = [];
+    kaydedici.ondataavailable = (e) => { if (e.data.size) parcalar.push(e.data); };
+    kaydedici.onstop = () => dosyayiOku(new Blob(parcalar, { type: tur.split(";")[0] })).then(coz, reddet);
+    const baslangic = performance.now();
+    kaydedici.start(250);
+    const kare = () => {
+      ciz(baglam);
+      if (performance.now() - baslangic < sure * 1000) requestAnimationFrame(kare);
+      else kaydedici.stop();
+    };
+    kare();
+  });
+}
+
+function boyutHesapla(g, y, enFazlaKenar) {
+  const olcek = Math.min(1, enFazlaKenar / Math.max(g, y));
+  // Video kodlayıcılar çift sayılı boyut ister
+  return [Math.max(2, Math.round(g * olcek / 2) * 2), Math.max(2, Math.round(y * olcek / 2) * 2)];
+}
+
+async function videoyuDonustur(dosya, enFazlaKenar, bitHizi) {
+  const adres = URL.createObjectURL(dosya);
+  const video = el("video", { src: adres, muted: true, playsInline: true });
+  try {
+    await new Promise((coz, reddet) => {
+      video.onloadeddata = coz;
+      video.onerror = () => reddet(new Error("Video açılamadı"));
+    });
+    const sure = Math.min(video.duration || MEDYA_SURESI, MEDYA_SURESI);
+    const [g, y] = boyutHesapla(video.videoWidth, video.videoHeight, enFazlaKenar);
+    video.currentTime = 0;
+    await video.play();
+    return await tuvaliKaydet(g, y, sure, bitHizi, (b) => b.drawImage(video, 0, 0, g, y));
+  } finally {
+    video.pause();
+    URL.revokeObjectURL(adres);
+  }
+}
+
+// GIF'in toplam süresi (tarayıcı destekliyorsa karelerden hesaplanır)
+async function gifSuresi(dosya) {
+  if (!("ImageDecoder" in window)) return 6;
+  try {
+    const cozucu = new ImageDecoder({ data: await dosya.arrayBuffer(), type: "image/gif" });
+    await cozucu.tracks.ready;
+    const kareSayisi = cozucu.tracks.selectedTrack.frameCount;
+    let toplam = 0;
+    for (let i = 0; i < kareSayisi && toplam < MEDYA_SURESI * 1e6; i++) {
+      const { image } = await cozucu.decode({ frameIndex: i });
+      toplam += image.duration || 100000;
+      image.close();
+    }
+    cozucu.close();
+    return Math.min(Math.max(toplam / 1e6, 0.5), MEDYA_SURESI);
+  } catch (e) {
+    return 6;
+  }
+}
+
+async function gifiDonustur(dosya, enFazlaKenar, bitHizi) {
+  const sure = await gifSuresi(dosya);
+  const adres = URL.createObjectURL(dosya);
+  // Hareketli GIF'in kareleri ancak sayfadaki bir resimde ilerler
+  const resim = el("img", { src: adres, style: { position: "fixed", left: "-9999px", top: "0", width: "1px", height: "1px" } });
+  document.body.append(resim);
+  try {
+    await resim.decode();
+    const [g, y] = boyutHesapla(resim.naturalWidth, resim.naturalHeight, enFazlaKenar);
+    return await tuvaliKaydet(g, y, sure, bitHizi, (b) => {
+      b.fillStyle = "#000";
+      b.fillRect(0, 0, g, y);
+      b.drawImage(resim, 0, 0, g, y);
+    });
+  } finally {
+    resim.remove();
+    URL.revokeObjectURL(adres);
+  }
+}
+
+async function medyayiHazirla(dosya) {
+  const gif = dosya.type === "image/gif";
+  for (const [kenar, bit] of [[480, 700000], [360, 400000], [280, 220000]]) {
+    const sonuc = gif ? await gifiDonustur(dosya, kenar, bit) : await videoyuDonustur(dosya, kenar, bit);
+    if (sonuc.length <= MEDYA_SINIRI) return sonuc;
+  }
+  throw new Error("Bu dosya çok büyük kaldı; daha kısa ya da daha küçük bir video dene.");
 }
 
 // ---------- Düzen modu ----------
@@ -210,7 +344,7 @@ function duzenFormunuDoldur() {
     className: "tema-karti" + (taslak.tema === id ? " secili" : ""),
     style: { "--k1": tema.tasarim.arka1, "--k2": tema.tasarim.arka2 },
     onclick: () => {
-      taslak = Object.assign(temaTasarimi(id, taslak.baslik));
+      taslak = Object.assign(temaTasarimi(id, taslak.baslik), { hizlar: taslak.hizlar });
       duzenFormunuDoldur();
       taslagiUygula();
     }
@@ -248,38 +382,68 @@ function duzenFormunuDoldur() {
   fotoYuvalariniCiz();
 }
 
-function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk) {
+// hareketliOlabilir: GIF ve video da kabul edilir (fotoğraf yuvaları); arka plan sadece resim alır.
+function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk, hareketliOlabilir) {
   const deger = taslakFotolar[anahtar];
+  let hazirlaniyor = false;
   const yuva = el("div", {
     className: "foto-yuvasi" + (deger ? " dolu" : ""),
-    title: deger ? "Değiştirmek için tıkla" : "Fotoğraf ekle",
+    title: deger ? "Değiştirmek için tıkla" : (hareketliOlabilir ? "Fotoğraf, GIF ya da video ekle" : "Resim ekle"),
     onclick: async () => {
-      const dosya = await dosyaSec("image/*");
+      if (hazirlaniyor) return;
+      const dosya = await dosyaSec(hareketliOlabilir ? "image/*,video/*" : "image/*");
       if (!dosya) return;
+      const hareketli = hareketliOlabilir && (dosya.type === "image/gif" || dosya.type.startsWith("video/"));
       try {
-        bildir("Fotoğraf hazırlanıyor…");
-        taslakFotolar[anahtar] = await resmiKucult(dosya, enFazlaKenar, enFazlaUzunluk);
-        fotoYuvalariniCiz();
-        taslagiUygula();
-        bildir("Fotoğraf eklendi, kaydetmeyi unutma");
+        hazirlaniyor = true;
+        yuva.classList.add("hazirlaniyor");
+        yuva.textContent = hareketli ? "⏳" : "…";
+        bildir(hareketli ? "Video hazırlanıyor (en fazla 15 sn sürer)…" : "Fotoğraf hazırlanıyor…");
+        taslakFotolar[anahtar] = hareketli ? await medyayiHazirla(dosya) : await resmiKucult(dosya, enFazlaKenar, enFazlaUzunluk);
+        bildir((hareketli ? "Video" : "Fotoğraf") + " eklendi, kaydetmeyi unutma");
       } catch (e) {
         bildir(e.message);
+      } finally {
+        hazirlaniyor = false;
+        fotoYuvalariniCiz();
+        taslagiUygula();
       }
     }
   }, deger ? "" : "+");
   if (deger) {
-    yuva.style.backgroundImage = 'url("' + deger + '")';
+    if (videoMu(deger)) {
+      yuva.prepend(el("video", { className: "yuva-video", src: deger, muted: true, autoplay: true, loop: true, playsInline: true }));
+    } else {
+      yuva.style.backgroundImage = 'url("' + deger + '")';
+    }
     yuva.append(el("button", {
       className: "sil", title: "Kaldır",
-      onclick: (e) => { e.stopPropagation(); delete taslakFotolar[anahtar]; fotoYuvalariniCiz(); taslagiUygula(); }
+      onclick: (e) => {
+        e.stopPropagation();
+        delete taslakFotolar[anahtar];
+        if (taslak.hizlar) delete taslak.hizlar[anahtar];
+        fotoYuvalariniCiz();
+        taslagiUygula();
+      }
     }, "✕"));
   }
-  return yuva;
+  if (!videoMu(deger)) return yuva;
+
+  // Video yuvası: altında hız seçici
+  const hiz = (taslak.hizlar && taslak.hizlar[anahtar]) || 1;
+  const secici = el("select", {
+    className: "hiz-secici", title: "Oynatma hızı",
+    onchange: (e) => {
+      taslak.hizlar = Object.assign({}, taslak.hizlar, { [anahtar]: Number(e.target.value) });
+      taslagiUygula();
+    }
+  }, [0.5, 0.75, 1, 1.25, 1.5, 2].map((h) => el("option", { value: h, selected: h === hiz }, h + "×")));
+  return el("div", { className: "foto-hucre" }, yuva, secici);
 }
 
 function fotoYuvalariniCiz() {
-  $("tFotolar").replaceChildren(...FOTO_ANAHTARLARI.map((k) => fotoYuvasi(k, 720, 230000)));
-  $("tArkaResim").replaceChildren(fotoYuvasi("arka", 1400, 380000));
+  $("tFotolar").replaceChildren(...FOTO_ANAHTARLARI.map((k) => fotoYuvasi(k, 720, 230000, true)));
+  $("tArkaResim").replaceChildren(fotoYuvasi("arka", 1400, 380000, false));
 }
 
 async function duzenKaydet() {
@@ -301,13 +465,22 @@ async function duzenKaydet() {
       guncellemeler["odalar/" + odaId + "/bilgi/ad"] = (taslakOdaAdi || odaBilgi.ad).slice(0, 40);
       guncellemeler["odalar/" + odaId + "/bilgi/herkeseAcik"] = taslakHerkeseAcik;
     }
+    // Fotoğraflar boşluksuz sıralanır; video hızları da yeni yerleriyle birlikte taşınır.
+    const doluAnahtarlar = FOTO_ANAHTARLARI.filter((k) => taslakFotolar[k]);
+    const hizlar = {};
+    doluAnahtarlar.forEach((k, i) => {
+      const h = taslak.hizlar && taslak.hizlar[k];
+      if (videoMu(taslakFotolar[k]) && h && h !== 1) hizlar[FOTO_ANAHTARLARI[i]] = Math.max(0.25, Math.min(4, Number(h)));
+    });
+    if (Object.keys(hizlar).length) kayit.hizlar = hizlar;
+    guncellemeler["odalar/" + odaId + "/tasarim"] = kayit;
+
     const onceki = gecerliFotolar(odaId, odaFotolar);
     const fotolarDegisti = [...FOTO_ANAHTARLARI, "arka"].some((k) => (taslakFotolar[k] || null) !== (onceki[k] || null)) || !odaFotolar;
     if (fotolarDegisti) {
-      // Fotoğraflar boşluksuz sıralanır; repodaki dosyalar (ana oda) önce küçültülüp veriye çevrilir.
-      const siralı = FOTO_ANAHTARLARI.map((k) => taslakFotolar[k]).filter(Boolean);
+      // Repodaki dosyalar (ana oda) önce küçültülüp veriye çevrilir.
       for (let i = 0; i < FOTO_ANAHTARLARI.length; i++) {
-        let deger = siralı[i] || null;
+        let deger = taslakFotolar[doluAnahtarlar[i]] || null;
         if (deger && !deger.startsWith("data:")) deger = await resmiKucult(deger, 720, 230000);
         guncellemeler["odaFotolari/" + odaId + "/" + FOTO_ANAHTARLARI[i]] = deger;
       }

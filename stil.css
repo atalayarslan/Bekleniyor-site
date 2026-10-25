@@ -456,9 +456,10 @@ a {
   transition: left var(--kayma), right var(--kayma);
 }
 
+/* Arka plan alt çubuğun üstünde biter; resmin alt kısmı çubuğun arkasında kalmaz */
 .arka-plan {
   position: absolute;
-  inset: 0;
+  inset: 0 0 var(--cubuk) 0;
   background: linear-gradient(160deg, var(--arka1), var(--arka2));
   background-size: cover;
   background-position: center;
@@ -562,10 +563,12 @@ a {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
-.foto-paneli img {
+.foto-paneli img,
+.foto-paneli video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .foto-paneli.dolasan {
@@ -617,21 +620,22 @@ a {
   }
 }
 
+/* "Sonunda" çalar çubuğunda durur; sahnedeki fotoğraflarla çakışmaz */
 #endButton {
-  position: fixed;
-  bottom: calc(var(--cubuk) + 1rem);
-  left: calc((100vw + var(--sol) - var(--sag)) / 2);
-  transform: translateX(-50%);
-  transition: left var(--kayma);
-  padding: 0.65rem 1.6rem;
-  font-size: 1rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.82rem;
   font-weight: 800;
   border: none;
   border-radius: 999px;
-  background: #fff;
+  background: linear-gradient(135deg, #ffd60a, #ff8fab);
   color: #000;
-  z-index: 20;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(255, 143, 171, 0.35);
+  transition: transform 0.1s;
+}
+
+#endButton:hover {
+  transform: scale(1.05);
 }
 
 .firework {
@@ -1426,6 +1430,42 @@ a {
 .foto-yuvasi.dolu {
   border-style: solid;
   border-color: #555;
+}
+
+.foto-yuvasi .yuva-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.4rem;
+}
+
+.foto-yuvasi.hazirlaniyor {
+  cursor: progress;
+  animation: nabiz 1s infinite alternate;
+}
+
+@keyframes nabiz {
+  to {
+    opacity: 0.5;
+  }
+}
+
+.foto-hucre {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hiz-secici {
+  width: 100%;
+  padding: 0.2rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--kenar);
+  background: var(--yuzey2);
+  color: #fff;
+  font-size: 0.75rem;
 }
 
 .foto-yuvasi .sil {
