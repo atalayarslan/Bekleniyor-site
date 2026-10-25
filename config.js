@@ -13,6 +13,8 @@ window.AYARLAR = {
   },
   // Boş kalırsa sadece YouTube linki yapıştırarak şarkı eklenebilir, isimle arama çalışmaz.
   youtubeApiKey: "AIzaSyCz1PZYmvVKdcaiWTVc9nt61xkBRuKxb2Y",
+  // Cloudflare'e kurulan Spotify aracısının adresi (spotify-araci/worker.js). Boşsa sadece şarkı adı okunur.
+  spotifyAraci: "",
   // Yönetim panelini görebilecek Google hesabı. Asıl kontrol database.rules.json içinde de yapılır.
   yoneticiEposta: "erayaksuhome@outlook.com"
 };

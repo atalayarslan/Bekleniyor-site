@@ -615,7 +615,15 @@ async function youtubeLinkiniCoz(id) {
 }
 
 // Spotify sesi dışarı vermiyor; Discord botları gibi şarkının adını alıp YouTube'da arıyoruz.
+// Spotify aracısı (spotify-araci/worker.js) tanımlıysa sanatçı adı da alınır ("Rust" yerine "Black Label Society - Rust").
 async function spotifyAdiniBul(link) {
+  if (AYARLAR.spotifyAraci) {
+    try {
+      const veri = await (await fetch(AYARLAR.spotifyAraci + "?link=" + encodeURIComponent(link))).json();
+      const s = veri.sarkilar && veri.sarkilar[0];
+      if (s) return (s.sanatci ? s.sanatci + " - " : "") + s.baslik;
+    } catch (e) { }
+  }
   const yanit = await fetch("https://open.spotify.com/oembed?url=" + encodeURIComponent(link));
   if (!yanit.ok) throw new Error("Spotify linki okunamadı");
   return (await yanit.json()).title;
