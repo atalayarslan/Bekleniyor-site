@@ -86,11 +86,7 @@ function odayiBaslat(id) {
     arayuzuGuncelle();
     siraCiz();
     senkronla();
-    if (katildi) {
-      simdikiyiCoz();
-      siradakiniHazirla();
-      radyoyuDoldur();
-    }
+    muzikBakimi();
   });
 
   // Sadece gerçekten yeni basılmış bir "Sonunda"yı kutla.
@@ -192,7 +188,19 @@ function odayaKatil() {
   varliginiBildir();
   senkronla();
   arayuzuGuncelle();
+  muzikBakimi();
 }
+
+// Spotify şarkısını bulma, sıradakini hazırlama ve sıra bitince benzer şarkı ekleme.
+// Müzik verisi değişince, odaya katılınca ve birkaç saniyede bir çağrılır.
+function muzikBakimi() {
+  if (!katildi || !muzikRef) return;
+  simdikiyiCoz();
+  siradakiniHazirla();
+  radyoyuDoldur();
+}
+
+setInterval(muzikBakimi, 5000);
 
 // ---------- Oda işlemleri (herkese yansır) ----------
 
