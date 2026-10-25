@@ -85,6 +85,7 @@ function odayiBaslat(id) {
     siraVerisi = m.sira || {};
     oncekiListesi = Object.values(m.onceki || {});
     radyoKapali = m.radyoKapali === true;
+    sarkiDegisinceCubuguGoster();
     arayuzuGuncelle();
     siraCiz();
     senkronla();
@@ -128,6 +129,8 @@ function odayiBaslat(id) {
   odaOlaylariniBagla();
   duzenOlaylariniBagla();
   sahneyiPanellereBagla();
+  cubukDavranisiniBagla();
+  klavyeKisayollariniBagla();
   listelerCiz();
   siraCiz();
   gecmisCiz();
@@ -148,6 +151,64 @@ function sahneyiPanellereBagla() {
   gozlemci.observe($("listePaneli"), { attributes: true, attributeFilter: ["class"] });
   gozlemci.observe($("duzenPaneli"), { attributes: true, attributeFilter: ["class"] });
   guncelle();
+}
+
+// Alt çubuk: normalde gizli, fare alttaki şeride ya da tutamağa gelince açılır, çubuktan çıkınca kapanır.
+// 📌 ile sabitlenir (tercih tarayıcıda hatırlanır). Şarkı değişince birkaç saniye görünür.
+let cubukKapatmaZamanlayici = null;
+
+function cubuguAc(sure) {
+  clearTimeout(cubukKapatmaZamanlayici);
+  $("oda").classList.add("cubuk-acik");
+  if (sure) cubukKapatmaZamanlayici = setTimeout(cubuguKapat, sure);
+}
+
+function cubuguKapat() {
+  clearTimeout(cubukKapatmaZamanlayici);
+  // Fare çubuktaysa, ilerleme sürükleniyorsa ya da bir menü açıksa kapanmaz
+  if ($("calar").matches(":hover") || ilerlemeSurukleniyor || !$("acilirMenu").hidden) {
+    cubukKapatmaZamanlayici = setTimeout(cubuguKapat, 800);
+    return;
+  }
+  $("oda").classList.remove("cubuk-acik");
+}
+
+function cubukDavranisiniBagla() {
+  const sabitle = (acik) => {
+    $("oda").classList.toggle("cubuk-sabit", acik);
+    $("sabitleTus").title = acik ? "Sabitlemeyi kaldır" : "Çubuğu sabitle";
+    hafizayaYaz("cubukSabit", acik ? "1" : "0");
+  };
+  sabitle(hafizadanOku("cubukSabit") === "1");
+  $("sabitleTus").addEventListener("click", () => sabitle(!$("oda").classList.contains("cubuk-sabit")));
+
+  const ac = () => cubuguAc();
+  $("calarBolgesi").addEventListener("mouseenter", ac);
+  $("calarTutamak").addEventListener("mouseenter", ac);
+  $("calarTutamak").addEventListener("click", ac);
+  $("calar").addEventListener("mouseenter", () => clearTimeout(cubukKapatmaZamanlayici));
+  $("calar").addEventListener("mouseleave", () => { cubukKapatmaZamanlayici = setTimeout(cubuguKapat, 600); });
+}
+
+let sonGosterilenKimlik = null;
+function sarkiDegisinceCubuguGoster() {
+  const kimlik = sarkiKimligi(simdiki);
+  if (!katildi || !kimlik || kimlik === sonGosterilenKimlik) return;
+  const ilk = sonGosterilenKimlik === null;
+  sonGosterilenKimlik = kimlik;
+  if (!ilk && !$("calar").matches(":hover")) cubuguAc(4000);
+}
+
+// Space: oynat / duraklat (yazı kutularında yazarken çalışmaz)
+function klavyeKisayollariniBagla() {
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Space" || !katildi || e.ctrlKey || e.altKey || e.metaKey) return;
+    const hedef = e.target;
+    if (hedef.closest && hedef.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']")) return;
+    if (!$("pencere").hidden || !$("yonetimPaneli").hidden) return;
+    e.preventDefault();
+    $("oynatTus").click();
+  });
 }
 
 function odaBulunamadi() {

@@ -586,6 +586,9 @@ a {
 /* Sahne: yan paneller açılınca daire, fotoğraflar, emojiler ve üst çubuk kalan alana kayar.
    --sol / --sag panel genişlikleridir; panel kapalıyken ya da dar ekranda 0 olur. */
 .oda-gorunumu {
+  /* --alt: sahnenin altta bıraktığı boşluk. Çubuk gizliyken sadece tutamak kadar,
+     sabitlenince çubuğun tamamı kadar. */
+  --alt: 1.4rem;
   --sol: 0px;
   --sag: 0px;
   --kayma: 0.3s cubic-bezier(.2, .8, .2, 1);
@@ -612,7 +615,7 @@ a {
 /* Arka plan alt çubuğun üstünde biter; resmin alt kısmı çubuğun arkasında kalmaz */
 .arka-plan {
   position: absolute;
-  inset: 0 0 var(--cubuk) 0;
+  inset: 0 0 var(--alt) 0;
   background: linear-gradient(160deg, var(--arka1), var(--arka2));
   background-size: cover;
   background-position: center;
@@ -636,9 +639,9 @@ a {
 /* Daire, üstte ve altta dolaşan fotoğraf şeritlerinin arasına sığacak kadar büyür */
 .daire-dis {
   --cap: min(26rem, 55vmin, calc(100vw - var(--sol) - var(--sag) - 4rem),
-      calc(100vh - var(--ust) - var(--cubuk) - 2 * var(--fy) - 2rem));
+      calc(100vh - var(--ust) - var(--alt) - 2 * var(--fy) - 2rem));
   position: absolute;
-  inset: var(--ust) var(--sag) var(--cubuk) var(--sol);
+  inset: var(--ust) var(--sag) var(--alt) var(--sol);
   margin: auto;
   width: var(--cap);
   height: var(--cap);
@@ -751,12 +754,12 @@ a {
 
   50% {
     left: calc(100% - var(--fg) - 1rem);
-    top: calc(100% - var(--fy) - var(--cubuk) - 0.75rem);
+    top: calc(100% - var(--fy) - var(--alt) - 0.75rem);
   }
 
   75% {
     left: 1rem;
-    top: calc(100% - var(--fy) - var(--cubuk) - 0.75rem);
+    top: calc(100% - var(--fy) - var(--alt) - 0.75rem);
   }
 }
 
@@ -819,6 +822,94 @@ a {
     transform: scale(50);
     opacity: 0;
   }
+}
+
+/* ---------- Gizlenen çalar ---------- */
+
+.oda-gorunumu.cubuk-sabit {
+  --alt: var(--cubuk);
+}
+
+.oda-gorunumu .calar {
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(.2, .8, .2, 1);
+  z-index: 46;
+}
+
+.oda-gorunumu.cubuk-acik .calar,
+.oda-gorunumu.cubuk-sabit .calar {
+  transform: translateY(0);
+}
+
+/* Fareyi alttaki şeride getirmek çubuğu açar */
+.calar-bolgesi {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.4rem;
+  z-index: 44;
+}
+
+/* Çubuk gizliyken görünen canlı renkli tutamak */
+.calar-tutamak {
+  position: fixed;
+  left: calc((100vw + var(--sol) - var(--sag)) / 2);
+  bottom: 0.3rem;
+  transform: translateX(-50%);
+  width: 7.5rem;
+  height: 1.1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1db954, #ffd60a, #ff4d88);
+  box-shadow: 0 0 14px rgba(255, 214, 10, 0.45);
+  cursor: pointer;
+  z-index: 45;
+  transition: opacity 0.2s, transform 0.2s, left var(--kayma);
+  animation: tutamakNabiz 2.4s ease-in-out infinite;
+}
+
+.calar-tutamak svg {
+  width: 1.1rem;
+  height: 0.6rem;
+  fill: none;
+  stroke: #000;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.calar-tutamak:hover {
+  transform: translateX(-50%) scale(1.08);
+}
+
+.oda-gorunumu.cubuk-acik .calar-tutamak,
+.oda-gorunumu.cubuk-sabit .calar-tutamak,
+.oda-gorunumu.cubuk-sabit .calar-bolgesi {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes tutamakNabiz {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(255, 214, 10, 0.35);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(255, 77, 136, 0.6);
+  }
+}
+
+#sabitleTus {
+  transition: transform 0.2s, color 0.2s;
+}
+
+.oda-gorunumu.cubuk-sabit #sabitleTus {
+  transform: rotate(-45deg);
+  background: rgba(29, 185, 84, 0.18);
 }
 
 /* ---------- Alt çalar ---------- */
@@ -1143,7 +1234,7 @@ a {
 .yan-panel {
   position: fixed;
   top: 0;
-  bottom: var(--cubuk);
+  bottom: var(--alt);
   width: var(--sag-genislik);
   max-width: 100%;
   padding: 1rem;
@@ -1860,6 +1951,24 @@ a {
 }
 
 /* ---------- Dar ekranlar ---------- */
+
+/* Dokunmatik ekranlarda fareyle "üstüne gelme" olmadığı için çubuk hep açık durur */
+@media (hover: none),
+(max-width: 760px) {
+  .oda-gorunumu {
+    --alt: var(--cubuk);
+  }
+
+  .oda-gorunumu .calar {
+    transform: none;
+  }
+
+  .calar-tutamak,
+  .calar-bolgesi,
+  #sabitleTus {
+    display: none !important;
+  }
+}
 
 @media (max-width: 760px) {
   html {

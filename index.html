@@ -7,11 +7,12 @@
   <!-- Chrome'un "Bu sayfa çevrilsin mi?" balonu sağ üstteki düğmelerin üstünde görünmez kalıp tıklamaları engelliyordu -->
   <meta name="google" content="notranslate">
   <title>Bekleniyor</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Nunito:wght@400;700;800&family=Pacifico&family=Press+Start+2P&display=swap">
-  <link rel="stylesheet" href="stil.css?v=15">
+  <link rel="stylesheet" href="stil.css?v=16">
 </head>
 
 <body>
@@ -183,8 +184,12 @@
       </div>
     </aside>
 
-    <!-- Alt çalar çubuğu -->
-    <div class="calar">
+    <!-- Alt çalar çubuğu: normalde aşağıda gizli, tutamağa gelince yukarı kayar; 📌 ile sabitlenir -->
+    <div id="calarBolgesi" class="calar-bolgesi"></div>
+    <div id="calarTutamak" class="calar-tutamak" title="Çalar (fareyi getir)">
+      <svg viewBox="0 0 24 12"><path d="M5 9l7-6 7 6" /></svg>
+    </div>
+    <div id="calar" class="calar">
       <div class="calar-sol">
         <img id="kapak" src="1.png" alt="">
         <div class="calar-bilgi">
@@ -220,6 +225,7 @@
         <span id="kisiSayisi" class="kisi-rozeti"></span>
         <button id="sesTus" class="kontrol-tus kucuk" title="Sesi kapat / aç">🔊</button>
         <input id="sesAyari" class="ses-cubugu" type="range" min="0" max="100" value="80" title="Ses">
+        <button id="sabitleTus" class="kontrol-tus kucuk" title="Çubuğu sabitle">📌</button>
         <button id="listeTus" class="kontrol-tus kucuk" title="Arama, sıra ve listeler">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="2.2" rx="1"/><rect x="3" y="10.9" width="13" height="2.2" rx="1"/><rect x="3" y="16.8" width="8" height="2.2" rx="1"/><path d="M18 9.5v8.2a2.3 2.3 0 1 1-1.6-2.2V8.2a.9.9 0 0 1 1.17-.86l3 .9a.9.9 0 0 1-.52 1.73z"/></svg>
         </button>
@@ -267,15 +273,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="config.js?v=15"></script>
-  <script src="js/temel.js?v=15"></script>
-  <script src="js/tasarim.js?v=15"></script>
-  <script src="js/listeler.js?v=15"></script>
-  <script src="js/oda.js?v=15"></script>
-  <script src="js/lobi.js?v=15"></script>
-  <script src="js/yonetim.js?v=15"></script>
-  <script src="js/istatistik.js?v=15"></script>
-  <script src="js/baslat.js?v=15"></script>
+  <script src="config.js?v=16"></script>
+  <script src="js/temel.js?v=16"></script>
+  <script src="js/tasarim.js?v=16"></script>
+  <script src="js/listeler.js?v=16"></script>
+  <script src="js/oda.js?v=16"></script>
+  <script src="js/lobi.js?v=16"></script>
+  <script src="js/yonetim.js?v=16"></script>
+  <script src="js/istatistik.js?v=16"></script>
+  <script src="js/baslat.js?v=16"></script>
 </body>
 
 </html>

@@ -113,8 +113,8 @@ function emojileriCiz(emoji, sayi) {
 const SABIT_KONUMLAR = [
   { left: "1rem", top: "calc(var(--ust) + 0.5rem)" },
   { right: "1rem", top: "calc(var(--ust) + 0.5rem)" },
-  { right: "1rem", bottom: "calc(var(--cubuk) + 0.75rem)" },
-  { left: "1rem", bottom: "calc(var(--cubuk) + 0.75rem)" },
+  { right: "1rem", bottom: "calc(var(--alt) + 0.75rem)" },
+  { left: "1rem", bottom: "calc(var(--alt) + 0.75rem)" },
   { left: "1rem", top: "calc(50% - var(--fy) / 2)" },
   { right: "1rem", top: "calc(50% - var(--fy) / 2)" }
 ];
