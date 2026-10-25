@@ -1,34 +1,161 @@
 {
   "rules": {
-    "oda": {
+    "odalar": {
       ".read": true,
-      ".write": true,
-      "simdiki": {
-        ".validate": "newData.hasChildren(['videoId', 'baslik', 'baslangic', 'duraklatildi'])",
-        "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
-        "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
-        "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
-        "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" },
-        "baslangic": { ".validate": "newData.isNumber()" },
-        "duraklatildi": { ".validate": "newData.isBoolean()" },
-        "konum": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+      "$oda": {
+        ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (data.child('bilgi/sahip').val() == auth.uid || (!data.child('bilgi').exists() && $oda != 'ana'))))",
+        "bilgi": {
+          ".validate": "newData.hasChildren(['ad', 'sahip', 'olusturma', 'herkeseAcik']) && ((data.exists() && newData.child('sahip').val() == data.child('sahip').val()) || (!data.exists() && newData.child('sahip').val() == auth.uid)) && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || ($oda != 'ana' && (newData.parent().parent().parent().child('kullanicilar').child(newData.child('sahip').val()).child('slot1').val() == $oda || newData.parent().parent().parent().child('kullanicilar').child(newData.child('sahip').val()).child('slot2').val() == $oda)))",
+          "ad": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+          "sahip": { ".validate": "newData.isString()" },
+          "sahipAdi": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "olusturma": { ".validate": "newData.isNumber()" },
+          "herkeseAcik": { ".validate": "newData.isBoolean()" },
+          "$diger": { ".validate": false }
+        },
+        "tasarim": {
+          ".validate": "newData.parent().child('bilgi').exists() || $oda == 'ana'",
+          "tema": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "arka1": { ".validate": "newData.isString() && newData.val().length == 7 && newData.val().beginsWith('#')" },
+          "arka2": { ".validate": "newData.isString() && newData.val().length == 7 && newData.val().beginsWith('#')" },
+          "vurgu": { ".validate": "newData.isString() && newData.val().length == 7 && newData.val().beginsWith('#')" },
+          "daire1": { ".validate": "newData.isString() && newData.val().length == 7 && newData.val().beginsWith('#')" },
+          "daire2": { ".validate": "newData.isString() && newData.val().length == 7 && newData.val().beginsWith('#')" },
+          "daireGoster": { ".validate": "newData.isBoolean()" },
+          "baslik": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "yaziTipi": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "emoji": { ".validate": "newData.isString() && newData.val().length <= 16" },
+          "emojiSayisi": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 30" },
+          "fotoHareket": { ".validate": "newData.isBoolean()" },
+          "$diger": { ".validate": false }
+        },
+        "muzik": {
+          ".write": true,
+          "simdiki": {
+            ".validate": "newData.hasChildren(['videoId', 'baslik', 'baslangic', 'duraklatildi'])",
+            "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+            "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+            "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+            "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "baslangic": { ".validate": "newData.isNumber()" },
+            "duraklatildi": { ".validate": "newData.isBoolean()" },
+            "konum": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+            "$diger": { ".validate": false }
+          },
+          "sira": {
+            "$id": {
+              ".validate": "newData.hasChildren(['videoId', 'baslik'])",
+              "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+              "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+              "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+              "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "$diger": { ".validate": false }
+            }
+          },
+          "kutlama": { ".validate": "newData.isNumber()" },
+          "$diger": { ".validate": false }
+        },
+        "katilanlar": {
+          ".write": true,
+          "$id": { ".validate": "newData.isString() && newData.val().length <= 40" }
+        },
         "$diger": { ".validate": false }
-      },
-      "sira": {
+      }
+    },
+    "odaFotolari": {
+      ".read": true,
+      "$oda": {
+        ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)))",
+        "$f": {
+          ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length <= 400000"
+        }
+      }
+    },
+    "odaGecmisi": {
+      ".read": true,
+      "$oda": {
+        ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)",
         "$id": {
-          ".validate": "newData.hasChildren(['videoId', 'baslik'])",
+          ".write": "!data.exists()",
+          ".validate": "newData.hasChildren(['videoId', 'baslik', 'zaman'])",
           "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
           "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
           "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
-          "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "zaman": { ".validate": "newData.isNumber()" },
           "$diger": { ".validate": false }
         }
-      },
-      "katilanlar": {
-        "$id": { ".validate": "newData.isString() && newData.val().length <= 20" }
-      },
-      "kutlama": { ".validate": "newData.isNumber()" },
-      "$diger": { ".validate": false }
+      }
+    },
+    "kullanicilar": {
+      ".read": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      ".write": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "ad": { ".write": "auth != null && auth.uid == $uid", ".validate": "newData.isString() && newData.val().length <= 60" },
+        "foto": { ".write": "auth != null && auth.uid == $uid", ".validate": "newData.isString() && newData.val().length <= 500" },
+        "eposta": { ".write": "auth != null && auth.uid == $uid", ".validate": "newData.isString() && newData.val().length <= 100" },
+        "sonGiris": { ".write": "auth != null && auth.uid == $uid", ".validate": "newData.isNumber()" },
+        "slot1": {
+          ".write": "auth != null && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "slot2": {
+          ".write": "auth != null && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "listeler": {
+          ".write": "auth != null && auth.uid == $uid",
+          "$liste": {
+            ".validate": "newData.hasChildren(['ad'])",
+            "ad": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+            "olusturma": { ".validate": "newData.isNumber()" },
+            "sarkilar": {
+              "$s": {
+                ".validate": "newData.hasChildren(['videoId', 'baslik'])",
+                "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+                "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+                "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+                "eklenme": { ".validate": "newData.isNumber()" },
+                "$diger": { ".validate": false }
+              }
+            },
+            "$diger": { ".validate": false }
+          }
+        },
+        "$diger": { ".validate": false }
+      }
+    },
+    "aramaOnbellek": {
+      ".read": true,
+      "$k": {
+        ".write": "auth != null",
+        ".validate": "$k.length <= 100 && newData.hasChildren(['zaman', 'sonuclar'])",
+        "zaman": { ".validate": "newData.isNumber()" },
+        "sonuclar": {
+          "$i": {
+            ".validate": "newData.hasChildren(['videoId', 'baslik'])",
+            "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+            "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+            "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+            "$diger": { ".validate": false }
+          }
+        },
+        "$diger": { ".validate": false }
+      }
+    },
+    "yasakli": {
+      ".read": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      ".write": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".validate": "newData.isBoolean()"
+      }
+    },
+    "yoneticiler": {
+      ".read": "auth != null",
+      ".write": false,
+      "$uid": { ".validate": "newData.isBoolean()" }
     }
   }
 }

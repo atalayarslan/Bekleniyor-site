@@ -53,8 +53,20 @@ python -m http.server 8000
 
 Sonra tarayıcıda `http://localhost:8000/` adresini aç.
 
+## Google girişi ve yönetici
+
+- Firebase → Authentication → Sign-in method bölümünde **Google** açık olmalı.
+- Authentication → Settings → Authorized domains listesinde `atalayarslan.github.io` olmalı.
+- Firebase anahtarının site kısıtlamasında `https://bekleniyor-e16eb.firebaseapp.com/*` de olmalı
+  (Google giriş penceresi bu adresten açılır).
+- Yönetim paneli `config.js` içindeki `yoneticiEposta` hesabına görünür. Asıl yetki kontrolü
+  `database.rules.json` içinde aynı e-postayla yapılır; e-postayı değiştirirsen iki yerde de değiştir.
+- Yönetici ilk kez giriş yaptığında "Ana Oda" (`?oda=ana`) otomatik olarak onun adına kurulur.
+
 ## Bilmen gerekenler
 
 - Odaya linki bilen herkes şarkı ekleyip silebilir; arkadaş sitesi için bilerek böyle bırakıldı.
+- Oda açmak ve tasarlamak Google girişi ister; her hesap en fazla 2 oda açabilir.
+- Aynı arama 7 gün içinde tekrar yapılırsa YouTube'a gidilmez, kayıtlı sonuç kullanılır.
 - YouTube bazı videolarda reklam gösterebilir. Reklam, sağdaki ☰ panelindeki videoda görünür.
 - Sahibi "başka sitelerde oynatılamaz" diye ayarladığı videolar otomatik atlanır.

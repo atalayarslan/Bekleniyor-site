@@ -12,5 +12,7 @@ window.AYARLAR = {
     appId: "1:864370173586:web:00631e2faa23173026a84b"
   },
   // Boş kalırsa sadece YouTube linki yapıştırarak şarkı eklenebilir, isimle arama çalışmaz.
-  youtubeApiKey: "AIzaSyCz1PZYmvVKdcaiWTVc9nt61xkBRuKxb2Y"
+  youtubeApiKey: "AIzaSyCz1PZYmvVKdcaiWTVc9nt61xkBRuKxb2Y",
+  // Yönetim panelini görebilecek Google hesabı. Asıl kontrol database.rules.json içinde de yapılır.
+  yoneticiEposta: "erayaksuhome@outlook.com"
 };
