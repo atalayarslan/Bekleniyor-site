@@ -331,6 +331,31 @@
         ".write": "!data.exists()",
         ".validate": "$k.length <= 100 && newData.isString() && newData.val().length == 11"
       }
+    },
+    "istatistik": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && (auth.uid == $uid || (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')))",
+        ".validate": "newData.hasChildren(['sitede', 'dinleme', 'guncelleme'])",
+        "guncelleme": {
+          ".validate": "newData.val() == now"
+        },
+        "sitede": {
+          ".validate": "newData.isNumber() && ((!data.exists() && newData.val() >= 0 && newData.val() <= 125) || (data.exists() && newData.val() >= data.val() && newData.val() - data.val() <= (now - data.parent().child('guncelleme').val()) / 1000 + 5))"
+        },
+        "dinleme": {
+          ".validate": "newData.isNumber() && ((!data.exists() && newData.val() >= 0 && newData.val() <= 125) || (data.exists() && newData.val() >= data.val() && newData.val() - data.val() <= (now - data.parent().child('guncelleme').val()) / 1000 + 5))"
+        },
+        "ad": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "foto": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        },
+        "$diger": {
+          ".validate": false
+        }
+      }
     }
   }
 }

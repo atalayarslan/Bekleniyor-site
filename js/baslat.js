@@ -14,8 +14,10 @@
     }
   } else {
     lobiyiBaslat();
+    siralamayiBaslat();
     if (sorun) bildir(sorun);
   }
+  istatistikBaslat();
   oturumRozetleriniCiz();
   if (new URLSearchParams(location.search).has("tani")) taniModunuAc();
 })();
