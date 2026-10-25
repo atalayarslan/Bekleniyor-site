@@ -617,7 +617,9 @@ a {
   position: absolute;
   inset: 0 0 var(--alt) 0;
   background: linear-gradient(160deg, var(--arka1), var(--arka2));
-  background-size: cover;
+  /* Resmin tamamı ekrana sığar; kenarda boşluk kalırsa renk geçişi görünür */
+  background-size: contain, cover;
+  background-repeat: no-repeat;
   background-position: center;
 }
 
@@ -626,7 +628,7 @@ a {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .arka-plan.resimli::after {
@@ -1265,6 +1267,51 @@ a {
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
 }
 
+/* Düzen panelinin sağ kenarı: tutup sürükleyince panel genişler/daralır */
+.panel-tutamak {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sol) - 5px);
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 47;
+  display: none;
+  touch-action: none;
+}
+
+.sol-acik .panel-tutamak {
+  display: block;
+}
+
+.panel-tutamak::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 4px;
+  height: 3.5rem;
+  margin-top: -1.75rem;
+  border-radius: 999px;
+  background: #555;
+  transition: background 0.15s, height 0.15s, margin-top 0.15s;
+}
+
+.panel-tutamak:hover::after,
+.boyutlaniyor .panel-tutamak::after {
+  background: linear-gradient(#1db954, #ffd60a, #ff4d88);
+  height: 6rem;
+  margin-top: -3rem;
+}
+
+/* Sürüklerken sahne kaymaları anında olsun, gecikmesin */
+.boyutlaniyor,
+.boyutlaniyor * {
+  transition: none !important;
+  cursor: ew-resize;
+  user-select: none;
+}
+
 .panel-baslik {
   display: flex;
   align-items: center;
@@ -1656,14 +1703,17 @@ a {
   padding: 0;
 }
 
+/* minmax(0, …) ve align-items: start: videonun altındaki hız seçici satırı uzatınca
+   diğer kutular yana doğru büyüyüp paneli taşırmasın */
 .foto-izgara {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: 0.5rem;
 }
 
 .foto-izgara.tek {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .foto-yuvasi {
@@ -1801,6 +1851,61 @@ a {
 
 .pencere-kart {
   max-width: 26rem;
+}
+
+/* ---------- Kırpma penceresi ---------- */
+
+.kirp-perde {
+  z-index: 70;
+}
+
+.kirp-kart {
+  max-width: 40rem;
+}
+
+.kirp-kart h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.2rem;
+}
+
+.kirp-tuval {
+  display: block;
+  width: 100%;
+  border-radius: 0.6rem;
+  margin-top: 0.6rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.kirp-tuval.tutuluyor {
+  cursor: grabbing;
+}
+
+.kirp-arac {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.kirp-kaydirici {
+  flex: 1;
+  accent-color: var(--yesil, #1db954);
+}
+
+.kirp-simge {
+  font-size: 1.35rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.kirp-simge.kucuk {
+  font-size: 0.9rem;
+}
+
+.kirp-dondur {
+  margin-left: 0.4rem;
+  font-size: 1.2rem;
 }
 
 .pencere-kart h2 {
@@ -2020,6 +2125,10 @@ a {
   .yan-panel,
   .yan-panel.sol {
     width: 100%;
+  }
+
+  .sol-acik .panel-tutamak {
+    display: none;
   }
 
   /* Dar ekranda paneller tüm ekranı kaplar; sahne kaymaz. */

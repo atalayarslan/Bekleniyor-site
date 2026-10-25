@@ -80,7 +80,9 @@ function tasarimiUygula(t, fotolar) {
   $("daireYazi").textContent = t.baslik || "";
 
   const arka = fotolar && fotolar.arka;
-  $("arkaPlan").style.backgroundImage = arka && arka.startsWith("data:image/") ? 'url("' + arka + '")' : "";
+  // Resmin altında renk geçişi kalır; resim ekrana tam sığmazsa kenarlarda o görünür
+  $("arkaPlan").style.backgroundImage = arka && arka.startsWith("data:image/")
+    ? 'url("' + arka + '"), linear-gradient(160deg, var(--arka1), var(--arka2))' : "";
   $("arkaPlan").classList.toggle("resimli", !!arka);
   arkaVideosunuCiz(videoMu(arka) ? arka : null, (t.hizlar && t.hizlar.arka) || 1);
 
@@ -349,6 +351,240 @@ async function medyayiHazirla(dosya, buyuk) {
   throw new Error("Bu dosya çok büyük kaldı; daha kısa ya da daha küçük bir video dene.");
 }
 
+// ---------- Kırpma penceresi ----------
+
+// Sahnedeki fotoğraf çerçevelerinin en/boy oranı (stil.css: --fy = --fg * 0.68)
+const FOTO_ORANI = 1 / 0.68;
+
+function arkaPlanOrani() {
+  const kutu = $("arkaPlan");
+  return (kutu.clientWidth || innerWidth) / (kutu.clientHeight || innerHeight);
+}
+
+function resmiAc(dosya) {
+  return new Promise((coz, reddet) => {
+    const resim = new Image();
+    const adres = URL.createObjectURL(dosya);
+    resim.onload = () => { URL.revokeObjectURL(adres); coz(resim); };
+    resim.onerror = () => { URL.revokeObjectURL(adres); reddet(new Error("Resim okunamadı")); };
+    resim.src = adres;
+  });
+}
+
+// Resmi 90° döndürülmüş yeni bir tuvale çizer
+function dondur(kaynak) {
+  const tuval = el("canvas", { width: kaynak.height, height: kaynak.width });
+  const b = tuval.getContext("2d");
+  b.translate(tuval.width, 0);
+  b.rotate(Math.PI / 2);
+  b.drawImage(kaynak, 0, 0);
+  return tuval;
+}
+
+// Discord'daki gibi: sabit oranlı çerçevenin içinde resim sürüklenir, yakınlaştırılır ve döndürülür.
+// En küçük yakınlıkta resmin tamamı çerçeveye sığar (boş kalan yer resmin bulanık hâliyle dolar).
+// Seçilen kısmı Blob olarak döner; vazgeçilirse null.
+async function resmiKirp(dosya, oran) {
+  let kaynak;
+  try {
+    kaynak = await resmiAc(dosya);
+  } catch (e) {
+    bildir(e.message);
+    return null;
+  }
+  return new Promise((coz) => {
+    const tuval = el("canvas", { className: "kirp-tuval" });
+    const kaydirici = el("input", { type: "range", min: 0, max: 1000, value: 0, className: "kirp-kaydirici", title: "Yakınlaştır" });
+    let cerceveG = 0, cerceveY = 0, olcek = 1, enAz = 1, enCok = 1, merkezX = 0, merkezY = 0;
+
+    const sinirla = () => {
+      const g = kaynak.width, y = kaynak.height;
+      const yariG = cerceveG / 2 / olcek, yariY = cerceveY / 2 / olcek;
+      merkezX = g * olcek >= cerceveG ? Math.min(Math.max(merkezX, yariG), g - yariG) : g / 2;
+      merkezY = y * olcek >= cerceveY ? Math.min(Math.max(merkezY, yariY), y - yariY) : y / 2;
+    };
+
+    const ciz = () => {
+      const b = tuval.getContext("2d");
+      const tg = tuval.width, ty = tuval.height;
+      b.setTransform(1, 0, 0, 1, 0, 0);
+      b.fillStyle = "#0b0b0b";
+      b.fillRect(0, 0, tg, ty);
+      b.drawImage(kaynak, tg / 2 - merkezX * olcek, ty / 2 - merkezY * olcek, kaynak.width * olcek, kaynak.height * olcek);
+      // Çerçevenin dışı karartılır
+      const x0 = (tg - cerceveG) / 2, y0 = (ty - cerceveY) / 2;
+      b.fillStyle = "rgba(0, 0, 0, 0.6)";
+      b.beginPath();
+      b.rect(0, 0, tg, ty);
+      b.rect(x0, y0, cerceveG, cerceveY);
+      b.fill("evenodd");
+      // Üçte bir çizgileri ve kenar
+      b.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      b.lineWidth = 1;
+      b.beginPath();
+      for (let i = 1; i < 3; i++) {
+        b.moveTo(x0 + cerceveG * i / 3, y0); b.lineTo(x0 + cerceveG * i / 3, y0 + cerceveY);
+        b.moveTo(x0, y0 + cerceveY * i / 3); b.lineTo(x0 + cerceveG, y0 + cerceveY * i / 3);
+      }
+      b.stroke();
+      b.strokeStyle = "#fff";
+      b.lineWidth = 3;
+      b.strokeRect(x0, y0, cerceveG, cerceveY);
+    };
+
+    const yakinligiAyarla = (yeni) => {
+      olcek = Math.min(Math.max(yeni, enAz), enCok);
+      kaydirici.value = Math.round(Math.log(olcek / enAz) / Math.log(enCok / enAz || 2) * 1000) || 0;
+      sinirla();
+      ciz();
+    };
+
+    // Tuval ve çerçeve boyutu; resim değişince (döndürme) yakınlık baştan hesaplanır
+    const hazirla = () => {
+      const tg = tuval.clientWidth || 600;
+      const ty = Math.round(tg * 0.62);
+      tuval.width = tg;
+      tuval.height = ty;
+      const bosluk = 28;
+      cerceveG = Math.min(tg - bosluk * 2, (ty - bosluk * 2) * oran);
+      cerceveY = cerceveG / oran;
+      const sigdir = Math.min(cerceveG / kaynak.width, cerceveY / kaynak.height);
+      const kapla = Math.max(cerceveG / kaynak.width, cerceveY / kaynak.height);
+      enAz = sigdir;
+      enCok = Math.max(kapla * 5, sigdir * 2);
+      merkezX = kaynak.width / 2;
+      merkezY = kaynak.height / 2;
+      yakinligiAyarla(kapla);
+    };
+
+    kaydirici.addEventListener("input", () => {
+      yakinligiAyarla(enAz * Math.pow(enCok / enAz, kaydirici.value / 1000));
+    });
+
+    let surukleme = null;
+    tuval.addEventListener("pointerdown", (e) => {
+      surukleme = { x: e.clientX, y: e.clientY, mx: merkezX, my: merkezY };
+      tuval.setPointerCapture(e.pointerId);
+      tuval.classList.add("tutuluyor");
+    });
+    tuval.addEventListener("pointermove", (e) => {
+      if (!surukleme) return;
+      // Ekrandaki piksel ile tuval pikseli arasındaki fark (tuval CSS ile küçülmüş olabilir)
+      const oranPiksel = tuval.width / tuval.clientWidth;
+      merkezX = surukleme.mx - (e.clientX - surukleme.x) * oranPiksel / olcek;
+      merkezY = surukleme.my - (e.clientY - surukleme.y) * oranPiksel / olcek;
+      sinirla();
+      ciz();
+    });
+    const birak = () => { surukleme = null; tuval.classList.remove("tutuluyor"); };
+    tuval.addEventListener("pointerup", birak);
+    tuval.addEventListener("pointercancel", birak);
+    tuval.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      yakinligiAyarla(olcek * Math.pow(1.0015, -e.deltaY));
+    }, { passive: false });
+
+    const kapat = (sonuc) => {
+      document.removeEventListener("keydown", tusaBasildi, true);
+      perde.remove();
+      coz(sonuc);
+    };
+
+    const uygula = () => {
+      // Çerçevenin içi, kaynak çözünürlüğünde (en fazla 2400 px) yeni bir tuvale çizilir
+      const kirpG = cerceveG / olcek, kirpY = cerceveY / olcek;
+      const k = Math.min(1, 2400 / Math.max(kirpG, kirpY)); // çıktı pikseli / kaynak pikseli
+      const cikti = el("canvas", { width: Math.max(1, Math.round(kirpG * k)), height: Math.max(1, Math.round(kirpY * k)) });
+      const b = cikti.getContext("2d");
+      const x = (cikti.width / 2) - merkezX * k, y = (cikti.height / 2) - merkezY * k;
+      const g = kaynak.width * k, yk = kaynak.height * k;
+      b.fillStyle = "#000";
+      b.fillRect(0, 0, cikti.width, cikti.height);
+      // Resim çerçeveyi doldurmuyorsa boşluklar resmin bulanık, büyütülmüş hâliyle dolar
+      if (g < cikti.width - 1 || yk < cikti.height - 1) {
+        const kapla = Math.max(cikti.width / kaynak.width, cikti.height / kaynak.height);
+        b.filter = "blur(" + Math.round(Math.max(cikti.width, cikti.height) / 40) + "px) brightness(0.6)";
+        b.drawImage(kaynak, (cikti.width - kaynak.width * kapla) / 2, (cikti.height - kaynak.height * kapla) / 2, kaynak.width * kapla, kaynak.height * kapla);
+        b.filter = "none";
+      }
+      b.drawImage(kaynak, x, y, g, yk);
+      cikti.toBlob((blob) => kapat(blob), "image/jpeg", 0.92);
+    };
+
+    const tusaBasildi = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); kapat(null); }
+      if (e.key === "Enter") { e.preventDefault(); uygula(); }
+      // Space müziği durdurmasın
+      if (e.code === "Space") e.stopPropagation();
+    };
+    document.addEventListener("keydown", tusaBasildi, true);
+
+    const perde = el("div", { className: "perde kirp-perde" },
+      el("div", { className: "kart kirp-kart" },
+        el("h2", {}, "Görünecek kısmı seç"),
+        el("p", { className: "not" }, "Sürükleyerek kaydır, kaydırıcıyla ya da fare tekerleğiyle yakınlaştır. En sola çekersen resmin tamamı sığar."),
+        tuval,
+        el("div", { className: "kirp-arac" },
+          el("span", { className: "kirp-simge kucuk" }, "🖼️"),
+          kaydirici,
+          el("span", { className: "kirp-simge" }, "🖼️"),
+          el("button", {
+            className: "kontrol-tus kucuk kirp-dondur", title: "90° döndür",
+            onclick: () => { kaynak = dondur(kaynak); hazirla(); }
+          }, "⟳")
+        ),
+        el("div", { className: "pencere-tuslari" },
+          el("button", { className: "tus-cerceve", onclick: () => kapat(null) }, "Vazgeç"),
+          el("button", { className: "tus-ana", onclick: uygula }, "Uygula")
+        )
+      )
+    );
+    document.body.append(perde);
+    requestAnimationFrame(hazirla);
+  });
+}
+
+// ---------- Düzen paneli genişliği ----------
+
+// Sol panel kenarından tutulup genişletilir. En dar hâli varsayılan genişlik (24rem);
+// en geniş hâli hazır temaların hepsinin yan yana göründüğü genişlik (ekranın yarısını geçmez).
+function panelBoyutlandirmayiBagla() {
+  const panel = $("duzenPaneli");
+  const tutamak = el("div", { id: "panelTutamak", className: "panel-tutamak", title: "Genişletmek için sürükle" });
+  panel.after(tutamak);
+  const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const enAz = () => 24 * rem();
+  const enCok = () => {
+    const seri = $("temaSeridi");
+    const gereken = panel.offsetWidth + Math.max(0, seri.scrollWidth - seri.clientWidth);
+    return Math.max(enAz(), Math.min(gereken, innerWidth * 0.5));
+  };
+  const ayarla = (piksel) => {
+    const g = Math.round(Math.min(Math.max(piksel, enAz()), enCok()));
+    $("oda").style.setProperty("--sol-genislik", (g / rem()) + "rem");
+    return g;
+  };
+  const kayitli = Number(hafizadanOku("solGenislik"));
+  if (kayitli) $("oda").style.setProperty("--sol-genislik", kayitli + "rem");
+
+  tutamak.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    tutamak.setPointerCapture(e.pointerId);
+    $("oda").classList.add("boyutlaniyor");
+  });
+  tutamak.addEventListener("pointermove", (e) => {
+    if (tutamak.hasPointerCapture(e.pointerId)) ayarla(e.clientX);
+  });
+  const birak = () => {
+    $("oda").classList.remove("boyutlaniyor");
+    hafizayaYaz("solGenislik", String(panel.offsetWidth / rem()));
+  };
+  tutamak.addEventListener("pointerup", birak);
+  tutamak.addEventListener("pointercancel", birak);
+  // Çift tıklayınca varsayılan genişliğe döner
+  tutamak.addEventListener("dblclick", () => { ayarla(0); birak(); });
+}
+
 // ---------- Düzen modu ----------
 
 let duzenAcik = false;
@@ -449,12 +685,18 @@ function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk, hareketliOlabilir) {
       const dosya = await dosyaSec(hareketliOlabilir ? "image/*,video/*" : "image/*");
       if (!dosya) return;
       const hareketli = hareketliOlabilir && (dosya.type === "image/gif" || dosya.type.startsWith("video/"));
+      // Fotoğraflarda önce görünecek kısım seçilir (kırp, yakınlaştır, döndür)
+      let kaynak = dosya;
+      if (!hareketli) {
+        kaynak = await resmiKirp(dosya, anahtar === "arka" ? arkaPlanOrani() : FOTO_ORANI);
+        if (!kaynak) return;
+      }
       try {
         hazirlaniyor = true;
         yuva.classList.add("hazirlaniyor");
         yuva.textContent = hareketli ? "⏳" : "…";
         bildir(hareketli ? "Video hazırlanıyor (en fazla 15 sn sürer)…" : "Fotoğraf hazırlanıyor…");
-        taslakFotolar[anahtar] = hareketli ? await medyayiHazirla(dosya, anahtar === "arka") : await resmiKucult(dosya, enFazlaKenar, enFazlaUzunluk);
+        taslakFotolar[anahtar] = hareketli ? await medyayiHazirla(dosya, anahtar === "arka") : await resmiKucult(kaynak, enFazlaKenar, enFazlaUzunluk);
         bildir((hareketli ? "Video" : "Fotoğraf") + " eklendi, kaydetmeyi unutma");
       } catch (e) {
         bildir(e.message);
@@ -572,6 +814,7 @@ function duzenOlaylariniBagla() {
     if (!taslak.emojiSayisi) taslak.emojiSayisi = 10;
     taslagiUygula();
   });
+  panelBoyutlandirmayiBagla();
   $("duzenTus").addEventListener("click", duzenModunuAc);
   $("duzenKapat").addEventListener("click", duzenModunuKapat);
   $("duzenVazgec").addEventListener("click", duzenModunuKapat);
