@@ -832,6 +832,9 @@ async function youtubeAra(sorgu) {
 
 // YouTube oynatma listesini okur (her 50 şarkı için 1 birim kota; arama 100 birim).
 async function youtubeListesiCek(listeId) {
+  // "RD..." listeleri YouTube'un kendi ürettiği Mix'lerdir; resmi API bunlar için alakasız şarkılar döndürür.
+  // Bu yüzden Mix'ler aracı (spotify-araci/worker.js) üzerinden YouTube'un kendi verisinden okunur.
+  if (/^RD/.test(listeId)) return youtubeMixCek(listeId);
   const bilgi = await youtubeIstegi("playlists", { part: "snippet", id: listeId });
   const ad = (bilgi.items && bilgi.items[0] && bilgi.items[0].snippet.title) || "YouTube listesi";
   const sarkilar = [];
@@ -847,6 +850,21 @@ async function youtubeListesiCek(listeId) {
   } while (sayfa && sarkilar.length < 200);
   if (!sarkilar.length) throw new Error("Listede çalınabilir şarkı bulunamadı");
   return { ad: ad.slice(0, 60), sarkilar };
+}
+
+async function youtubeMixCek(listeId) {
+  if (!AYARLAR.spotifyAraci) throw new Error("YouTube Mix listeleri için aracı tanımlı değil (config.js).");
+  let veri;
+  try {
+    veri = await (await fetch(AYARLAR.spotifyAraci + "?mix=" + encodeURIComponent(listeId))).json();
+  } catch (e) {
+    throw new Error("YouTube Mix okunamadı, biraz sonra tekrar dene.");
+  }
+  if (veri.hata) throw new Error(veri.hata);
+  const sarkilar = (veri.sarkilar || []).filter((s) => gecerliId(s.videoId))
+    .map((s) => sarkiKaydi({ videoId: s.videoId, baslik: s.baslik, kanal: s.sanatci }));
+  if (!sarkilar.length) throw new Error("Mix'te şarkı bulunamadı");
+  return { ad: String(veri.ad || "YouTube Mix").slice(0, 60), sarkilar };
 }
 
 // Spotify liste ya da albümünü Cloudflare'deki aracı üzerinden okur (spotify-araci/worker.js).
