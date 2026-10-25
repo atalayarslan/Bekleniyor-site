@@ -12,11 +12,12 @@ let siralamaTuru = "sitede";
 
 function sureMetni(saniye) {
   saniye = Math.max(0, Math.floor(saniye || 0));
-  if (saniye < 60) return saniye + " sn";
-  const dakika = Math.floor(saniye / 60);
-  if (dakika < 60) return dakika + " dk";
-  const saat = Math.floor(dakika / 60);
-  return saat + " sa " + (dakika % 60) + " dk";
+  const saat = Math.floor(saniye / 3600);
+  const dakika = Math.floor((saniye % 3600) / 60);
+  const sn = saniye % 60;
+  if (saat) return saat + " sa " + dakika + " dk " + sn + " sn";
+  if (dakika) return dakika + " dk " + sn + " sn";
+  return sn + " sn";
 }
 
 // Şu an müzik dinleniyor mu: odaya katılmış, şarkı gerçekten çalıyor ve ses kapalı değil.
@@ -79,13 +80,23 @@ function siralamayiBaslat() {
     siralamayiCiz();
   });
   oturumDegisince(siralamayiCiz);
+  // Kendi süren her saniye canlı artsın
+  setInterval(() => { if (kullanici) siralamayiCiz(); }, 1000);
 }
 
 function siralamayiCiz() {
   const kutu = $("siralama");
   if (!kutu) return;
   $("siralamaSecim").querySelectorAll("button").forEach((b) => b.classList.toggle("secili", b.dataset.tur === siralamaTuru));
-  const kayitlar = Object.entries(siralamaVerisi)
+  const veri = Object.assign({}, siralamaVerisi);
+  // Kendi satırına henüz kaydedilmemiş saniyeler de eklenir
+  if (kullanici) {
+    const ben = Object.assign({ ad: kisaAd() || "Sen", foto: guvenliFoto(kullanici.photoURL), sitede: 0, dinleme: 0 }, veri[kullanici.uid]);
+    ben.sitede += birikenSitede;
+    ben.dinleme += birikenDinleme;
+    veri[kullanici.uid] = ben;
+  }
+  const kayitlar = Object.entries(veri)
     .map(([uid, v]) => Object.assign({ uid }, v))
     .filter((v) => (v[siralamaTuru] || 0) > 0)
     .sort((a, b) => (b[siralamaTuru] || 0) - (a[siralamaTuru] || 0));
