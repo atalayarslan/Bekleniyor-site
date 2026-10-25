@@ -41,7 +41,7 @@ Günlük ücretsiz kota yaklaşık 100 aramaya yeter. Link yapıştırmak kotay�
 1. Değişiklikleri commit'leyip GitHub'a push'la.
 2. GitHub'da repo → **Settings → Pages** → Branch: `main`, klasör: `/ (root)` → **Save**.
 3. Bir iki dakika sonra site şu adreste açılır:
-   `https://atalayarslan.github.io/Bekleniyor-site/bekleniyor.html`
+   `https://atalayarslan.github.io/Bekleniyor-site/`
 
 ## Bilgisayarda denemek
 
@@ -51,7 +51,7 @@ Dosyaya çift tıklayarak açınca YouTube oynatıcısı çalışmaz; küçük b
 python -m http.server 8000
 ```
 
-Sonra tarayıcıda `http://localhost:8000/bekleniyor.html` adresini aç.
+Sonra tarayıcıda `http://localhost:8000/` adresini aç.
 
 ## Bilmen gerekenler
 
