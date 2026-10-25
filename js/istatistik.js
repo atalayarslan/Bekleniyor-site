@@ -11,13 +11,15 @@ let siralamaVerisi = {};
 let siralamaTuru = "sitede";
 
 function sureMetni(saniye) {
+  // Örnek: "1 g 2 sa 10 sn" — sıfır olan birimler yazılmaz
   saniye = Math.max(0, Math.floor(saniye || 0));
-  const saat = Math.floor(saniye / 3600);
-  const dakika = Math.floor((saniye % 3600) / 60);
-  const sn = saniye % 60;
-  if (saat) return saat + " sa " + dakika + " dk " + sn + " sn";
-  if (dakika) return dakika + " dk " + sn + " sn";
-  return sn + " sn";
+  const parcalar = [
+    [Math.floor(saniye / 86400), "g"],
+    [Math.floor((saniye % 86400) / 3600), "sa"],
+    [Math.floor((saniye % 3600) / 60), "dk"],
+    [saniye % 60, "sn"]
+  ].filter(([deger]) => deger > 0).map(([deger, birim]) => deger + " " + birim);
+  return parcalar.length ? parcalar.join(" ") : "0 sn";
 }
 
 // Şu an müzik dinleniyor mu: odaya katılmış, şarkı gerçekten çalıyor ve ses kapalı değil.

@@ -525,6 +525,14 @@ function senkronla() {
     return;
   }
 
+  // Odada kimse yokken şarkı çoktan bitmiş olabilir. Süresinin ötesine sarmaya çalışmak YouTube'da
+  // başa sarmaya dönüşüp şarkıyı 1-2 saniyede bir başa aldığı için doğrudan sıradakine geçilir.
+  const sure = oynatici.getDuration() || 0;
+  if (!simdiki.duraklatildi && sure > 0 && hedef >= sure - 0.5) {
+    sonrakineGec(sarkiKimligi(simdiki));
+    return;
+  }
+
   const durum = oynatici.getPlayerState();
   const fark = Math.abs(oynatici.getCurrentTime() - hedef);
   if (simdiki.duraklatildi) {
