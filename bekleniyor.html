@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bekleniyor</title>
   <style>
+    html {
+      overflow: hidden;
+    }
+
     body {
       margin: 0;
       padding: 0;
@@ -30,24 +34,28 @@
       overflow: hidden;
     }
 
-    .top-right {
-      top: 20px;
-      right: 20px;
-    }
-
     .top-left {
       top: 20px;
       left: 20px;
+      animation: moveTopLeft 10s infinite linear;
+    }
+
+    .top-right {
+      top: 20px;
+      right: 20px;
+      animation: moveTopRight 10s infinite linear;
     }
 
     .bottom-right {
       bottom: 20px;
       right: 20px;
+      animation: moveBottomRight 10s infinite linear;
     }
 
     .bottom-left {
       bottom: 20px;
       left: 20px;
+      animation: moveBottomLeft 10s infinite linear;
     }
 
     .panel img {
@@ -57,22 +65,22 @@
     }
 
     .outer-circle {
-      width: 400px;
-      height: 400px;
+      width: min(400px, 80vw);
+      height: min(400px, 80vw);
       border-radius: 50%;
       display: flex;
       justify-content: center;
       align-items: center;
       position: absolute;
-      top: 28%;
-      left: 39%;
-      transform: translate(-50%, -50%);
+      /* alttaki çalar çubuğunun üstünde kalan alanın ortası */
+      inset: 0 0 84px 0;
+      margin: auto;
       animation: rotate 4s infinite linear, colorChange 5s infinite alternate;
     }
 
     .inner-circle {
-      width: 200px;
-      height: 200px;
+      width: min(200px, 40vw);
+      height: min(200px, 40vw);
       border-radius: 50%;
       background-color: #e74c3c;
       position: absolute;
@@ -167,15 +175,507 @@
         transform: translateY(0) translateX(0) rotate(-45deg);
       }
     }
+
+    @keyframes moveTopLeft {
+      0% {
+        top: 20px;
+        left: 20px;
+      }
+
+      25% {
+        top: 20px;
+        left: calc(100vw - 270px);
+      }
+
+      50% {
+        top: calc(100vh - 190px);
+        left: calc(100vw - 270px);
+      }
+
+      75% {
+        top: calc(100vh - 190px);
+        left: 20px;
+      }
+
+      100% {
+        top: 20px;
+        left: 20px;
+      }
+    }
+
+    @keyframes moveTopRight {
+      0% {
+        top: 20px;
+        right: 20px;
+      }
+
+      25% {
+        top: calc(100vh - 190px);
+        right: 20px;
+      }
+
+      50% {
+        top: calc(100vh - 190px);
+        right: calc(100vw - 270px);
+      }
+
+      75% {
+        top: 20px;
+        right: calc(100vw - 270px);
+      }
+
+      100% {
+        top: 20px;
+        right: 20px;
+      }
+    }
+
+    @keyframes moveBottomRight {
+      0% {
+        bottom: 20px;
+        right: 20px;
+      }
+
+      25% {
+        bottom: 20px;
+        right: calc(100vw - 270px);
+      }
+
+      50% {
+        bottom: calc(100vh - 190px);
+        right: calc(100vw - 270px);
+      }
+
+      75% {
+        bottom: calc(100vh - 190px);
+        right: 20px;
+      }
+
+      100% {
+        bottom: 20px;
+        right: 20px;
+      }
+    }
+
+    @keyframes moveBottomLeft {
+      0% {
+        bottom: 20px;
+        left: 20px;
+      }
+
+      25% {
+        bottom: calc(100vh - 190px);
+        left: 20px;
+      }
+
+      50% {
+        bottom: calc(100vh - 190px);
+        left: calc(100vw - 270px);
+      }
+
+      75% {
+        bottom: 20px;
+        left: calc(100vw - 270px);
+      }
+
+      100% {
+        bottom: 20px;
+        left: 20px;
+      }
+    }
+
+    .firework {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background-color: white;
+      animation: explode 1s ease-in-out forwards;
+    }
+
+    @keyframes explode {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(50);
+        opacity: 0;
+      }
+    }
+
+    /* ---------- Ortak müzik çalar ---------- */
+
+    .calar,
+    .liste-paneli,
+    .katil-ekrani,
+    .bildirim,
+    #endButton {
+      font-family: Arial, sans-serif;
+      box-sizing: border-box;
+    }
+
+    .calar button,
+    .liste-paneli button,
+    .katil-kart button {
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    #endButton {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 999px;
+      background: #fff;
+      color: #000;
+      cursor: pointer;
+      z-index: 20;
+    }
+
+    .calar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 84px;
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 16px;
+      background: #181818;
+      border-top: 1px solid #282828;
+      color: #fff;
+      z-index: 30;
+    }
+
+    .calar-sol {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .calar-sol img {
+      width: 56px;
+      height: 56px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .calar-bilgi {
+      min-width: 0;
+    }
+
+    #sarkiAdi,
+    .sarki-adi {
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #sarkiAlt,
+    .sarki-alt {
+      font-size: 12px;
+      color: #b3b3b3;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .calar-orta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .calar-tuslar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .yuvarlak {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: #fff;
+      color: #000;
+      font-size: 15px;
+    }
+
+    .duz {
+      background: none;
+      border: none;
+      color: #b3b3b3;
+      font-size: 18px;
+      padding: 4px;
+    }
+
+    .duz:hover {
+      color: #fff;
+    }
+
+    .ilerleme-satiri {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      font-size: 11px;
+      color: #b3b3b3;
+    }
+
+    .ilerleme {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: #4d4d4d;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .ilerleme::before {
+      content: "";
+      position: absolute;
+      inset: -6px 0;
+    }
+
+    #ilerlemeDolu {
+      height: 100%;
+      width: 0;
+      border-radius: 2px;
+      background: #1db954;
+    }
+
+    .calar-sag {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      font-size: 12px;
+      color: #b3b3b3;
+    }
+
+    #sesAyari {
+      width: 90px;
+      accent-color: #1db954;
+    }
+
+    .liste-paneli {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 84px;
+      width: 380px;
+      max-width: 100%;
+      padding: 16px;
+      overflow-y: auto;
+      background: #121212;
+      border-left: 1px solid #282828;
+      color: #fff;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 25;
+    }
+
+    .liste-paneli.acik {
+      transform: translateX(0);
+    }
+
+    .video-kutu {
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .video-kutu iframe {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #aramaKutusu {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: none;
+      background: #242424;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    #aramaKutusu:focus {
+      outline: 2px solid #fff;
+    }
+
+    .liste-paneli h3 {
+      font-size: 16px;
+      margin: 20px 0 8px;
+    }
+
+    .not {
+      font-size: 12px;
+      color: #b3b3b3;
+      margin: 8px 4px;
+    }
+
+    .sarki-satiri {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px;
+      border-radius: 6px;
+    }
+
+    .sarki-satiri:hover {
+      background: #2a2a2a;
+    }
+
+    .sarki-satiri img {
+      width: 64px;
+      height: 36px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .sarki-bilgi {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sarki-satiri button {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #727272;
+      background: none;
+      color: #fff;
+      font-size: 12px;
+    }
+
+    .sarki-satiri button:hover {
+      border-color: #fff;
+    }
+
+    .katil-ekrani {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 50;
+    }
+
+    .katil-ekrani[hidden] {
+      display: none;
+    }
+
+    .katil-kart {
+      width: 100%;
+      max-width: 340px;
+      padding: 28px 24px;
+      border-radius: 12px;
+      background: #181818;
+      color: #fff;
+      text-align: center;
+    }
+
+    .katil-kart h2 {
+      margin: 0 0 8px;
+    }
+
+    .katil-kart p {
+      color: #b3b3b3;
+      font-size: 14px;
+    }
+
+    #isimKutusu {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 6px;
+      border: 1px solid #3e3e3e;
+      background: #242424;
+      color: #fff;
+      font-size: 15px;
+      text-align: center;
+    }
+
+    #katilTus {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 999px;
+      background: #1db954;
+      color: #000;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .bildirim {
+      position: fixed;
+      left: 50%;
+      bottom: 150px;
+      transform: translateX(-50%);
+      max-width: calc(100% - 32px);
+      padding: 10px 16px;
+      border-radius: 8px;
+      background: #fff;
+      color: #000;
+      font-size: 14px;
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .bildirim.gorunur {
+      opacity: 1;
+    }
+
+    @media (max-width: 700px) {
+      .calar {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 10px;
+      }
+
+      .ilerleme-satiri,
+      #sesAyari,
+      #kisiSayisi {
+        display: none;
+      }
+
+      .liste-paneli {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 
 <body>
 
-  <button onclick="document.getElementById('elevatorMusic').play()">Müziği Başlat</button>
+  <!-- Sırada şarkı yokken çalan yedek müzik -->
   <audio id="elevatorMusic" loop>
-    <source src="asansor.mp3" type="audio/mp3">
-    <source src="asansor.mp3" type="audio/ogg">
+    <source src="asansor.mp3" type="audio/mpeg">
     Tarayıcınız audio etiketini desteklemiyor.
   </audio>
   <div class="outer-circle">
@@ -183,21 +683,578 @@
     <div class="text">Bekleniyor</div>
   </div>
 
-  <div class="panel top-right"><img src="1.png" alt="Resim 1"></div>
-  <div class="panel top-left"><img src="2.png" alt="Resim 2"></div>
+  <div class="panel top-left"><img src="1.png" alt="Resim 1"></div>
+  <div class="panel top-right"><img src="2.png" alt="Resim 2"></div>
   <div class="panel bottom-right"><img src="3.png" alt="Resim 3"></div>
   <div class="panel bottom-left"><img src="4.png" alt="Resim 4"></div>
 
-  <button id="playButton"
-    style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; font-size: 16px; cursor: pointer;">Müziği
-    Başlat</button>
+  <button id="endButton">Sonunda 🎉</button>
+
+  <audio id="successSound">
+    <source src="success.mp3" type="audio/mpeg">
+    Tarayıcınız audio etiketini desteklemiyor.
+  </audio>
+
+  <!-- Arama ve sıra paneli; YouTube oynatıcısı da burada görünür -->
+  <aside id="listePaneli" class="liste-paneli">
+    <div class="video-kutu">
+      <div id="ytOynatici"></div>
+    </div>
+    <form id="aramaFormu">
+      <input id="aramaKutusu" type="search" autocomplete="off"
+        placeholder="Şarkı ara ya da YouTube / Spotify linki yapıştır">
+    </form>
+    <div id="aramaNotu" class="not"></div>
+    <div id="sonuclar"></div>
+    <h3>Sıradakiler</h3>
+    <div id="sira"></div>
+  </aside>
+
+  <div class="calar">
+    <div class="calar-sol">
+      <img id="kapak" src="1.png" alt="">
+      <div class="calar-bilgi">
+        <div id="sarkiAdi">Asansör müziği</div>
+        <div id="sarkiAlt">Sırada şarkı yok — ☰ ile ekle</div>
+      </div>
+    </div>
+    <div class="calar-orta">
+      <div class="calar-tuslar">
+        <button id="oynatTus" class="yuvarlak" title="Oynat / duraklat">▶</button>
+        <button id="atlaTus" class="duz" title="Sonraki şarkı">⏭</button>
+      </div>
+      <div class="ilerleme-satiri">
+        <span id="gecenSure">0:00</span>
+        <div id="ilerleme" class="ilerleme">
+          <div id="ilerlemeDolu"></div>
+        </div>
+        <span id="toplamSure">0:00</span>
+      </div>
+    </div>
+    <div class="calar-sag">
+      <span id="kisiSayisi"></span>
+      <input id="sesAyari" type="range" min="0" max="100" value="80" title="Ses">
+      <button id="listeTus" class="duz" title="Arama ve sıra">☰</button>
+    </div>
+  </div>
+
+  <div id="katilEkrani" class="katil-ekrani">
+    <div class="katil-kart">
+      <h2>Bekleme odası</h2>
+      <p>Odadaki herkes aynı şarkıyı aynı anda dinliyor.</p>
+      <input id="isimKutusu" maxlength="20" placeholder="Adın">
+      <button id="katilTus">Odaya katıl 🎧</button>
+      <p id="kurulumUyarisi" hidden></p>
+    </div>
+  </div>
+
+  <div id="bildirim" class="bildirim"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="config.js"></script>
 
   <script>
-    document.getElementById("playButton").addEventListener("click", function () {
-      document.getElementById("elevatorMusic").play();
+    const AYARLAR = window.AYARLAR || {};
+    const asansor = document.getElementById("elevatorMusic");
+    const basariSesi = document.getElementById("successSound");
+    const $ = (id) => document.getElementById(id);
+
+    let odaRef = null;            // Firebase'deki "oda" düğümü; null ise sadece yerel mod
+    let sunucuFarki = 0;          // yerel saat ile Firebase saati arasındaki fark (ms)
+    let simdiki = null;           // odada şu an çalan şarkı
+    let oynatici = null;
+    let oynaticiHazir = false;
+    let yuklenenId = null;        // YouTube oynatıcısına yüklü video
+    let katildi = false;
+    let asansorSustur = false;
+    let isim = "Misafir";
+    let benimKaydim = null;
+
+    // ---------- Yardımcılar ----------
+
+    function sunucuZamani() {
+      return Date.now() + sunucuFarki;
+    }
+
+    function konumHesapla(sarki) {
+      if (!sarki) return 0;
+      if (sarki.duraklatildi) return sarki.konum || 0;
+      return Math.max(0, (sunucuZamani() - sarki.baslangic) / 1000);
+    }
+
+    function gecerliId(id) {
+      return typeof id === "string" && /^[\w-]{11}$/.test(id);
+    }
+
+    function kapakAdresi(id) {
+      return gecerliId(id) ? "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg" : "1.png";
+    }
+
+    function sureYaz(saniye) {
+      if (!isFinite(saniye) || saniye < 0) saniye = 0;
+      return Math.floor(saniye / 60) + ":" + String(Math.floor(saniye % 60)).padStart(2, "0");
+    }
+
+    function htmlCoz(metin) {
+      return new DOMParser().parseFromString(metin, "text/html").documentElement.textContent;
+    }
+
+    let bildirimZamanlayici;
+    function bildir(metin) {
+      const kutu = $("bildirim");
+      kutu.textContent = metin;
+      kutu.classList.add("gorunur");
+      clearTimeout(bildirimZamanlayici);
+      bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur"), 3000);
+    }
+
+    function hafizadanOku(anahtar) {
+      try { return localStorage.getItem(anahtar); } catch (e) { return null; }
+    }
+
+    function hafizayaYaz(anahtar, deger) {
+      try { localStorage.setItem(anahtar, deger); } catch (e) { }
+    }
+
+    // ---------- Firebase bağlantısı ----------
+
+    function firebaseBaslat() {
+      const fb = AYARLAR.firebase || {};
+      if (!fb.apiKey || !fb.databaseURL) {
+        return "config.js henüz doldurulmamış. Müzik sadece bu cihazda asansör müziği olarak çalacak.";
+      }
+      if (typeof firebase === "undefined") {
+        return "Firebase yüklenemedi (internet bağlantısını kontrol et). Şimdilik yerel moddayız.";
+      }
+      try {
+        firebase.initializeApp(fb);
+        const db = firebase.database();
+        odaRef = db.ref("oda");
+
+        db.ref(".info/serverTimeOffset").on("value", (s) => { sunucuFarki = s.val() || 0; });
+        db.ref(".info/connected").on("value", (s) => {
+          if (s.val() && katildi) varliginiBildir();
+        });
+
+        odaRef.child("simdiki").on("value", (s) => {
+          simdiki = s.val();
+          arayuzuGuncelle();
+          senkronla();
+        });
+        odaRef.child("sira").on("value", (s) => siraCiz(s.val()));
+        odaRef.child("katilanlar").on("value", (s) => {
+          $("kisiSayisi").textContent = s.numChildren() + " kişi bekliyor";
+        });
+
+        let ilkKutlama = true;
+        odaRef.child("kutlama").on("value", (s) => {
+          if (ilkKutlama) { ilkKutlama = false; return; }
+          if (s.val()) kutla();
+        });
+        return null;
+      } catch (e) {
+        odaRef = null;
+        return "Firebase ayarlarında sorun var: " + e.message;
+      }
+    }
+
+    function varliginiBildir() {
+      if (!odaRef) return;
+      if (!benimKaydim) benimKaydim = odaRef.child("katilanlar").push();
+      benimKaydim.onDisconnect().remove();
+      benimKaydim.set(isim);
+    }
+
+    // ---------- Oda işlemleri (herkese yansır) ----------
+
+    function sarkiEkle(sarki) {
+      if (!odaRef) { bildir("Ortak oda kurulmadan şarkı eklenemiyor (config.js)"); return; }
+      const kayit = { videoId: sarki.videoId, baslik: sarki.baslik.slice(0, 200), kanal: (sarki.kanal || "").slice(0, 100), ekleyen: isim };
+      const yeniAnahtar = odaRef.child("sira").push().key;
+      odaRef.transaction((oda) => {
+        oda = oda || {};
+        if (!oda.simdiki) {
+          oda.simdiki = Object.assign({}, kayit, { baslangic: sunucuZamani(), duraklatildi: false, konum: 0 });
+        } else {
+          oda.sira = oda.sira || {};
+          oda.sira[yeniAnahtar] = kayit;
+        }
+        return oda;
+      }).then(() => bildir("Eklendi: " + kayit.baslik))
+        .catch((e) => bildir("Eklenemedi: " + e.message));
+    }
+
+    // Sadece biten şarkı hâlâ çalıyorsa ilerler; böylece birden fazla kişi aynı anda tetiklese de tek şarkı atlanır.
+    function sonrakineGec(bitenId) {
+      if (!odaRef) return;
+      odaRef.transaction((oda) => {
+        if (!oda) return oda;
+        if (!oda.simdiki || oda.simdiki.videoId !== bitenId) return;
+        const anahtarlar = Object.keys(oda.sira || {}).sort();
+        if (!anahtarlar.length) {
+          oda.simdiki = null;
+          return oda;
+        }
+        const sonraki = oda.sira[anahtarlar[0]];
+        delete oda.sira[anahtarlar[0]];
+        oda.simdiki = Object.assign({}, sonraki, { baslangic: sunucuZamani(), duraklatildi: false, konum: 0 });
+        return oda;
+      });
+    }
+
+    function simdikiniDegistir(degistir) {
+      if (!odaRef) return;
+      odaRef.child("simdiki").transaction((s) => {
+        if (!s) return s;
+        degistir(s);
+        return s;
+      });
+    }
+
+    function duraklat() {
+      simdikiniDegistir((s) => {
+        if (s.duraklatildi) return;
+        s.konum = konumHesapla(s);
+        s.duraklatildi = true;
+      });
+    }
+
+    function devamEt() {
+      simdikiniDegistir((s) => {
+        if (!s.duraklatildi) return;
+        s.baslangic = sunucuZamani() - (s.konum || 0) * 1000;
+        s.duraklatildi = false;
+      });
+    }
+
+    function konumaGit(saniye) {
+      simdikiniDegistir((s) => {
+        if (s.duraklatildi) s.konum = saniye;
+        else s.baslangic = sunucuZamani() - saniye * 1000;
+      });
+    }
+
+    // ---------- Bu cihazdaki oynatıcıyı odaya uydurma ----------
+
+    function senkronla() {
+      if (!katildi) return;
+
+      if (!simdiki) {
+        if (oynaticiHazir && yuklenenId) {
+          oynatici.stopVideo();
+          yuklenenId = null;
+        }
+        if (asansorSustur) asansor.pause();
+        else asansor.play().catch(() => { });
+        return;
+      }
+
+      asansor.pause();
+      if (!oynaticiHazir) return;
+
+      const hedef = konumHesapla(simdiki);
+      if (simdiki.videoId !== yuklenenId) {
+        yuklenenId = simdiki.videoId;
+        if (simdiki.duraklatildi) oynatici.cueVideoById({ videoId: yuklenenId, startSeconds: hedef });
+        else oynatici.loadVideoById({ videoId: yuklenenId, startSeconds: hedef });
+        return;
+      }
+
+      const durum = oynatici.getPlayerState();
+      const fark = Math.abs(oynatici.getCurrentTime() - hedef);
+      if (simdiki.duraklatildi) {
+        if (durum === YT.PlayerState.PLAYING || durum === YT.PlayerState.BUFFERING) oynatici.pauseVideo();
+        if (fark > 1) oynatici.seekTo(hedef, true);
+      } else {
+        if (fark > 2.5) oynatici.seekTo(hedef, true);
+        if (durum !== YT.PlayerState.PLAYING && durum !== YT.PlayerState.BUFFERING && durum !== YT.PlayerState.ENDED) {
+          oynatici.playVideo();
+        }
+      }
+    }
+
+    function onYouTubeIframeAPIReady() {
+      const ayarlar = { controls: 0, disablekb: 1, rel: 0, playsinline: 1 };
+      if (location.protocol.startsWith("http")) ayarlar.origin = location.origin;
+      oynatici = new YT.Player("ytOynatici", {
+        width: "100%",
+        height: "100%",
+        playerVars: ayarlar,
+        events: {
+          onReady: () => {
+            oynaticiHazir = true;
+            oynatici.setVolume(Number($("sesAyari").value));
+            senkronla();
+          },
+          onStateChange: (e) => {
+            if (e.data === YT.PlayerState.ENDED && simdiki && simdiki.videoId === yuklenenId) {
+              sonrakineGec(simdiki.videoId);
+            }
+          },
+          onError: () => {
+            if (!simdiki) return;
+            bildir("Bu video sitede çalınamıyor, sıradakine geçiliyor");
+            sonrakineGec(simdiki.videoId);
+          }
+        }
+      });
+    }
+
+    setInterval(senkronla, 3000);
+
+    // ---------- Arayüz ----------
+
+    function arayuzuGuncelle() {
+      if (simdiki) {
+        $("kapak").src = kapakAdresi(simdiki.videoId);
+        $("sarkiAdi").textContent = simdiki.baslik || "Bilinmeyen şarkı";
+        $("sarkiAlt").textContent = (simdiki.kanal ? simdiki.kanal + " · " : "") + "ekleyen: " + (simdiki.ekleyen || "?");
+        $("oynatTus").textContent = simdiki.duraklatildi ? "▶" : "⏸";
+      } else {
+        $("kapak").src = "1.png";
+        $("sarkiAdi").textContent = "Asansör müziği";
+        $("sarkiAlt").textContent = odaRef ? "Sırada şarkı yok — ☰ ile ekle" : "Ortak oda kurulmadı";
+        $("oynatTus").textContent = katildi && !asansorSustur ? "⏸" : "▶";
+        $("gecenSure").textContent = "0:00";
+        $("toplamSure").textContent = "0:00";
+        $("ilerlemeDolu").style.width = "0";
+      }
+    }
+
+    setInterval(() => {
+      if (!simdiki || !oynaticiHazir) return;
+      const sure = oynatici.getDuration() || 0;
+      const gecen = Math.min(konumHesapla(simdiki), sure || Infinity);
+      $("gecenSure").textContent = sureYaz(gecen);
+      $("toplamSure").textContent = sureYaz(sure);
+      $("ilerlemeDolu").style.width = sure ? (gecen / sure * 100) + "%" : "0";
+    }, 500);
+
+    function sarkiSatiri(sarki, altYazi, tusYazisi, tusIsi) {
+      const satir = document.createElement("div");
+      satir.className = "sarki-satiri";
+
+      const resim = document.createElement("img");
+      resim.src = kapakAdresi(sarki.videoId);
+      resim.alt = "";
+
+      const bilgi = document.createElement("div");
+      bilgi.className = "sarki-bilgi";
+      const ad = document.createElement("div");
+      ad.className = "sarki-adi";
+      ad.textContent = sarki.baslik;
+      const alt = document.createElement("div");
+      alt.className = "sarki-alt";
+      alt.textContent = altYazi;
+      bilgi.append(ad, alt);
+
+      const tus = document.createElement("button");
+      tus.type = "button";
+      tus.textContent = tusYazisi;
+      tus.addEventListener("click", tusIsi);
+
+      satir.append(resim, bilgi, tus);
+      return satir;
+    }
+
+    function siraCiz(sira) {
+      const kutu = $("sira");
+      kutu.replaceChildren();
+      const anahtarlar = Object.keys(sira || {}).sort();
+      if (!anahtarlar.length) {
+        const bos = document.createElement("div");
+        bos.className = "not";
+        bos.textContent = "Sıra boş. Yukarıdan şarkı ekle.";
+        kutu.append(bos);
+        return;
+      }
+      anahtarlar.forEach((anahtar) => {
+        const s = sira[anahtar];
+        kutu.append(sarkiSatiri(s, "ekleyen: " + (s.ekleyen || "?"), "✕", () => odaRef.child("sira/" + anahtar).remove()));
+      });
+    }
+
+    function sonuclariGoster(liste) {
+      const kutu = $("sonuclar");
+      kutu.replaceChildren();
+      liste.forEach((s) => {
+        kutu.append(sarkiSatiri(s, s.kanal || "", "+ Ekle", () => sarkiEkle(s)));
+      });
+    }
+
+    // ---------- Arama ve link çözme ----------
+
+    function youtubeIdBul(metin) {
+      const m = metin.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    async function youtubeLinkiniCoz(id) {
+      const adres = "https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + id);
+      const yanit = await fetch(adres);
+      if (!yanit.ok) throw new Error("Video bulunamadı ya da gizli");
+      const veri = await yanit.json();
+      return { videoId: id, baslik: veri.title, kanal: veri.author_name };
+    }
+
+    // Spotify sesi dışarı vermiyor; Discord botları gibi şarkının adını alıp YouTube'da arıyoruz.
+    async function spotifyAdiniBul(link) {
+      const yanit = await fetch("https://open.spotify.com/oembed?url=" + encodeURIComponent(link));
+      if (!yanit.ok) throw new Error("Spotify linki okunamadı");
+      const veri = await yanit.json();
+      return veri.title;
+    }
+
+    async function youtubeAra(sorgu) {
+      if (!AYARLAR.youtubeApiKey) {
+        throw new Error("İsimle arama için config.js'e YouTube API anahtarı eklenmeli. Şimdilik YouTube linki yapıştırabilirsin.");
+      }
+      const parametreler = new URLSearchParams({
+        part: "snippet",
+        type: "video",
+        videoEmbeddable: "true",
+        maxResults: "8",
+        q: sorgu,
+        key: AYARLAR.youtubeApiKey
+      });
+      const yanit = await fetch("https://www.googleapis.com/youtube/v3/search?" + parametreler);
+      const veri = await yanit.json();
+      if (veri.error) throw new Error("YouTube araması başarısız: " + veri.error.message);
+      return veri.items.map((v) => ({
+        videoId: v.id.videoId,
+        baslik: htmlCoz(v.snippet.title),
+        kanal: htmlCoz(v.snippet.channelTitle)
+      }));
+    }
+
+    $("aramaFormu").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const metin = $("aramaKutusu").value.trim();
+      if (!metin) return;
+      const not = $("aramaNotu");
+      not.textContent = "Aranıyor…";
+      $("sonuclar").replaceChildren();
+
+      try {
+        const ytId = youtubeIdBul(metin);
+        if (ytId) {
+          sarkiEkle(await youtubeLinkiniCoz(ytId));
+          not.textContent = "";
+          $("aramaKutusu").value = "";
+          return;
+        }
+
+        if (/spotify\.(com|link)\//.test(metin)) {
+          if (!/open\.spotify\.com\/(intl-[\w-]+\/)?track\//.test(metin)) {
+            throw new Error("Spotify'dan sadece tek şarkı linki açılabiliyor (liste ve albüm değil).");
+          }
+          const ad = await spotifyAdiniBul(metin);
+          $("aramaKutusu").value = ad;
+          const sonuc = await youtubeAra(ad);
+          not.textContent = "Spotify'daki “" + ad + "” için YouTube sonuçları. Doğru olanı ekle:";
+          sonuclariGoster(sonuc);
+          return;
+        }
+
+        const sonuc = await youtubeAra(metin);
+        not.textContent = sonuc.length ? "" : "Sonuç bulunamadı.";
+        sonuclariGoster(sonuc);
+      } catch (hata) {
+        not.textContent = hata.message;
+      }
     });
-  </script>
-  <script>
+
+    // ---------- Düğmeler ----------
+
+    $("listeTus").addEventListener("click", () => $("listePaneli").classList.toggle("acik"));
+
+    $("oynatTus").addEventListener("click", () => {
+      if (simdiki) {
+        if (simdiki.duraklatildi) devamEt();
+        else duraklat();
+      } else {
+        asansorSustur = !asansorSustur;
+        senkronla();
+        arayuzuGuncelle();
+      }
+    });
+
+    $("atlaTus").addEventListener("click", () => {
+      if (simdiki) sonrakineGec(simdiki.videoId);
+    });
+
+    $("ilerleme").addEventListener("click", (e) => {
+      if (!simdiki || !oynaticiHazir) return;
+      const kutu = e.currentTarget.getBoundingClientRect();
+      const oran = Math.min(1, Math.max(0, (e.clientX - kutu.left) / kutu.width));
+      konumaGit(oran * (oynatici.getDuration() || 0));
+    });
+
+    $("sesAyari").addEventListener("input", (e) => {
+      const ses = Number(e.target.value);
+      asansor.volume = ses / 100;
+      if (oynaticiHazir) oynatici.setVolume(ses);
+      hafizayaYaz("ses", ses);
+    });
+
+    $("endButton").addEventListener("click", function () {
+      if (odaRef) {
+        if (simdiki && !simdiki.duraklatildi) duraklat();
+        odaRef.child("kutlama").set(firebase.database.ServerValue.TIMESTAMP);
+      } else {
+        kutla();
+      }
+    });
+
+    function kutla() {
+      asansorSustur = true;
+      asansor.pause();
+      basariSesi.currentTime = 0;
+      basariSesi.play().catch(() => { });
+      createFireworks();
+      arayuzuGuncelle();
+    }
+
+    $("katilTus").addEventListener("click", () => {
+      isim = $("isimKutusu").value.trim().slice(0, 20) || "Misafir";
+      hafizayaYaz("isim", isim);
+      katildi = true;
+      $("katilEkrani").hidden = true;
+      varliginiBildir();
+      senkronla();
+      arayuzuGuncelle();
+    });
+
+    // ---------- Başlangıç ----------
+
+    $("isimKutusu").value = hafizadanOku("isim") || "";
+    const kayitliSes = hafizadanOku("ses");
+    if (kayitliSes !== null) $("sesAyari").value = kayitliSes;
+    asansor.volume = Number($("sesAyari").value) / 100;
+
+    const kurulumSorunu = firebaseBaslat();
+    if (kurulumSorunu) {
+      $("kurulumUyarisi").textContent = kurulumSorunu;
+      $("kurulumUyarisi").hidden = false;
+    }
+    arayuzuGuncelle();
+    siraCiz(null);
+
+    function createFireworks() {
+      for (let i = 0; i < 20; i++) {
+        let firework = document.createElement("div");
+        firework.classList.add("firework");
+        firework.style.top = Math.random() * 100 + "vh";
+        firework.style.left = Math.random() * 100 + "vw";
+        document.body.appendChild(firework);
+
+        setTimeout(() => {
+          firework.remove();
+        }, 1000);
+      }
+    }
+
     function createHeart() {
       let heart = document.createElement("div");
       heart.classList.add("heart");
@@ -211,6 +1268,7 @@
       createHeart();
     }
   </script>
+  <script src="https://www.youtube.com/iframe_api"></script>
 
 </body>
 

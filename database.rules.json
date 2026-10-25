@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "oda": {
+      ".read": true,
+      ".write": true,
+      "simdiki": {
+        "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+        "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" }
+      },
+      "sira": {
+        "$id": {
+          "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+          "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+          "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" }
+        }
+      },
+      "katilanlar": {
+        "$id": { ".validate": "newData.isString() && newData.val().length <= 20" }
+      }
+    }
+  }
+}
