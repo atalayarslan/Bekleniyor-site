@@ -156,6 +156,9 @@
           "radyoKapali": {
             ".validate": "newData.isBoolean()"
           },
+          "sonAyrilma": {
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
           "$diger": {
             ".validate": false
           }

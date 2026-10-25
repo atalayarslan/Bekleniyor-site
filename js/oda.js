@@ -20,6 +20,7 @@ let asansorSustur = false;
 let isim = "Misafir";
 let benimKaydim = null;
 let odadakiler = [];          // [{ ad, foto }] şu an odada olanlar
+let katilanlarYuklendi = false;
 const asansor = $("elevatorMusic");
 const basariSesi = $("successSound");
 
@@ -100,6 +101,7 @@ function odayiBaslat(id) {
 
   odaRef.child("katilanlar").on("value", (s) => {
     odadakiler = katilanListesi(s.val());
+    katilanlarYuklendi = true;
     $("kisiSayisi").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 3), odadakiler.length + " kişi bekliyor"] : []));
   });
 
@@ -179,6 +181,8 @@ function varliginiBildir() {
   if (!odaRef) return;
   if (!benimKaydim) benimKaydim = odaRef.child("katilanlar").push();
   benimKaydim.onDisconnect().remove();
+  // Sekme kapansa bile ayrılma zamanı yazılır; odaya sonra giren, son kişinin ne zaman çıktığını bilir
+  muzikRef.child("sonAyrilma").onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
   // Giriş yapmışsa profil fotoğrafı da görünür; misafirler sadece adla
   const kayit = { ad: isim };
   if (kullanici && guvenliFoto(kullanici.photoURL)) kayit.foto = guvenliFoto(kullanici.photoURL);
@@ -190,10 +194,26 @@ function odayaKatil() {
   hafizayaYaz("isim", isim);
   katildi = true;
   $("katilEkrani").hidden = true;
+  // Odada kimse yokken müzik durmuş sayılır: otomatik başlamaz, ▶ ile kaldığı yerden devam eder
+  if (katilanlarYuklendi && !odadakiler.length) bosOdadaDuraklat();
   varliginiBildir();
   senkronla();
   arayuzuGuncelle();
   muzikBakimi();
+}
+
+// Son kişinin çıktığı andaki konumda şarkıyı duraklatır.
+function bosOdadaDuraklat() {
+  if (!muzikRef || !simdiki || simdiki.duraklatildi) return;
+  muzikRef.transaction((m) => {
+    if (!m || !m.simdiki || m.simdiki.duraklatildi) return;
+    const ayrilma = m.sonAyrilma && m.sonAyrilma > m.simdiki.baslangic ? m.sonAyrilma : sunucuZamani();
+    m.simdiki.konum = Math.max(0, (ayrilma - m.simdiki.baslangic) / 1000);
+    m.simdiki.duraklatildi = true;
+    return m;
+  }).then((sonuc) => {
+    if (sonuc.committed) bildir("Odada kimse yokken müzik durdu. Devam etmek için ▶'ye bas");
+  }).catch(() => { });
 }
 
 // Spotify şarkısını bulma, sıradakini hazırlama ve sıra bitince benzer şarkı ekleme.
