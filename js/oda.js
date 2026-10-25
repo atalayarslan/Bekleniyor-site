@@ -8,7 +8,9 @@ let odaTasarim = null;
 let odaFotolar = null;
 let simdiki = null;           // odada şu an çalan şarkı
 let siraVerisi = {};
+let oncekiListesi = [];       // geri düğmesi için son çalınan şarkılar
 let gecmisListesi = [];
+let ilerlemeSurukleniyor = false;
 let oynatici = null;
 let oynaticiHazir = false;
 let yuklenenId = null;        // YouTube oynatıcısına yüklü video
@@ -78,6 +80,7 @@ function odayiBaslat(id) {
     const m = s.val() || {};
     simdiki = m.simdiki || null;
     siraVerisi = m.sira || {};
+    oncekiListesi = Object.values(m.onceki || {});
     arayuzuGuncelle();
     siraCiz();
     senkronla();
@@ -227,6 +230,7 @@ function sonrakineGec(bitenId) {
     baslayan = null;
     if (!m) return m;
     if (!m.simdiki || m.simdiki.videoId !== bitenId) return;
+    m.onceki = oncekiyeEkle(m.onceki, m.simdiki);
     const anahtarlar = Object.keys(m.sira || {}).sort();
     if (!anahtarlar.length) {
       m.simdiki = null;
@@ -235,6 +239,66 @@ function sonrakineGec(bitenId) {
     const sonraki = m.sira[anahtarlar[0]];
     delete m.sira[anahtarlar[0]];
     m.simdiki = Object.assign({}, sonraki, { baslangic: sunucuZamani(), duraklatildi: false, konum: 0 });
+    baslayan = m.simdiki;
+    return m;
+  }).then((sonuc) => {
+    if (sonuc.committed && baslayan) gecmiseYaz(baslayan);
+  }).catch(() => { });
+}
+
+// Geri düğmesi için odada son 5 şarkı tutulur.
+const ONCEKI_SINIRI = 5;
+
+function oncekiyeEkle(onceki, sarki) {
+  const liste = Object.values(onceki || {});
+  liste.push(Object.assign(sarkiKaydi(sarki), { ekleyen: String(sarki.ekleyen || "").slice(0, 40) }));
+  return liste.slice(-ONCEKI_SINIRI);
+}
+
+// Sıranın en başına eklenecek şarkı için, mevcut anahtarların hepsinden önce sıralanan bir anahtar.
+function sirabasiAnahtari() {
+  return "!" + String(9e15 - Date.now()).padStart(16, "0");
+}
+
+// Seçilen şarkıyı hemen çalar; çalan şarkı kapanır, sıra olduğu gibi devam eder.
+// Şarkı sıradan seçildiyse sıradan çıkarılır.
+function hemenCal(sarki, siraAnahtari) {
+  if (!muzikRef || !gecerliId(sarki.videoId)) return;
+  const kayit = Object.assign(sarkiKaydi(sarki), { ekleyen: String(sarki.ekleyen || isim).slice(0, 40) });
+  let baslayan = null;
+  muzikRef.transaction((m) => {
+    m = m || {};
+    if (m.simdiki) m.onceki = oncekiyeEkle(m.onceki, m.simdiki);
+    if (siraAnahtari && m.sira) delete m.sira[siraAnahtari];
+    m.simdiki = Object.assign({}, kayit, { baslangic: sunucuZamani(), duraklatildi: false, konum: 0 });
+    baslayan = m.simdiki;
+    return m;
+  }).then((sonuc) => {
+    if (!sonuc.committed) return;
+    gecmiseYaz(baslayan);
+    bildir("Şimdi çalıyor: " + kayit.baslik);
+  }).catch((e) => bildir("Çalınamadı: " + e.message));
+}
+
+// Spotify gibi: şarkı 3 saniyeyi geçtiyse başa sarar, değilse önceki şarkıya döner.
+// Çalan şarkı kaybolmasın diye sıranın en başına geri konur.
+function geriGit() {
+  if (!muzikRef || !simdiki) return;
+  if (konumHesapla(simdiki) > 3 || !oncekiListesi.length) {
+    konumaGit(0);
+    return;
+  }
+  let baslayan = null;
+  muzikRef.transaction((m) => {
+    baslayan = null;
+    if (!m || !m.simdiki) return m;
+    const liste = Object.values(m.onceki || {});
+    if (!liste.length) return;
+    const onceki = liste.pop();
+    m.onceki = liste.length ? liste : null;
+    m.sira = m.sira || {};
+    m.sira[sirabasiAnahtari()] = Object.assign(sarkiKaydi(m.simdiki), { ekleyen: String(m.simdiki.ekleyen || "").slice(0, 40) });
+    m.simdiki = Object.assign({}, onceki, { baslangic: sunucuZamani(), duraklatildi: false, konum: 0 });
     baslayan = m.simdiki;
     return m;
   }).then((sonuc) => {
@@ -353,44 +417,133 @@ setInterval(senkronla, 3000);
 
 // ---------- Arayüz ----------
 
+const SIMGE_OYNAT = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+const SIMGE_DURAKLAT = '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
+
+function oynatSimgesi(caliyor) {
+  const tus = $("oynatTus");
+  const yeni = caliyor ? "duraklat" : "oynat";
+  if (tus.dataset.simge === yeni) return;
+  tus.dataset.simge = yeni;
+  tus.innerHTML = caliyor ? SIMGE_DURAKLAT : SIMGE_OYNAT;
+  tus.title = caliyor ? "Duraklat" : "Oynat";
+}
+
 function arayuzuGuncelle() {
   if (!$("oda") || $("oda").hidden) return;
   if (simdiki) {
     $("kapak").src = kapakAdresi(simdiki.videoId);
     $("sarkiAdi").textContent = simdiki.baslik || "Bilinmeyen şarkı";
     $("sarkiAlt").textContent = (simdiki.kanal ? simdiki.kanal + " · " : "") + "ekleyen: " + (simdiki.ekleyen || "?");
-    $("oynatTus").textContent = simdiki.duraklatildi ? "▶" : "⏸";
+    oynatSimgesi(!simdiki.duraklatildi);
     $("simdikiListeye").hidden = false;
   } else {
     $("kapak").src = odaId === ANA_ODA ? "1.png" : BOS_KAPAK;
     $("sarkiAdi").textContent = "Asansör müziği";
     $("sarkiAlt").textContent = "Sırada şarkı yok — ☰ ile ekle";
-    $("oynatTus").textContent = katildi && !asansorSustur ? "⏸" : "▶";
+    oynatSimgesi(katildi && !asansorSustur);
     $("gecenSure").textContent = "0:00";
     $("toplamSure").textContent = "0:00";
-    $("ilerlemeDolu").style.width = "0";
+    ilerlemeyiCiz(0);
     $("simdikiListeye").hidden = true;
   }
+  $("geriTus").disabled = !simdiki;
+  $("atlaTus").disabled = !simdiki;
+  $("geriTus").title = oncekiListesi.length ? "Önceki şarkı (çalan şarkı 3 sn'yi geçtiyse başa sarar)" : "Başa sar";
+}
+
+function sesiAyarla(ses) {
+  $("sesAyari").value = ses;
+  $("sesAyari").style.setProperty("--dolu", ses + "%");
+  $("sesTus").textContent = ses === 0 ? "🔇" : ses < 50 ? "🔉" : "🔊";
+  asansor.volume = ses / 100;
+  if (oynaticiHazir) oynatici.setVolume(ses);
+  hafizayaYaz("ses", ses);
+}
+
+function ilerlemeyiCiz(oran) {
+  const yuzde = Math.max(0, Math.min(1, oran)) * 100 + "%";
+  $("ilerlemeDolu").style.width = yuzde;
+  $("ilerlemeTopu").style.left = yuzde;
+}
+
+function sarkiSuresi() {
+  return simdiki && oynaticiHazir ? oynatici.getDuration() || 0 : 0;
 }
 
 setInterval(() => {
-  if (!simdiki || !oynaticiHazir) return;
-  const sure = oynatici.getDuration() || 0;
+  if (!simdiki || !oynaticiHazir || ilerlemeSurukleniyor) return;
+  const sure = sarkiSuresi();
   const gecen = Math.min(konumHesapla(simdiki), sure || Infinity);
   $("gecenSure").textContent = sureYaz(gecen);
   $("toplamSure").textContent = sureYaz(sure);
-  $("ilerlemeDolu").style.width = sure ? (gecen / sure * 100) + "%" : "0";
-}, 500);
+  ilerlemeyiCiz(sure ? gecen / sure : 0);
+}, 250);
 
-// dugmeler: [{ yazi, baslik, is(olay) }]
-function sarkiSatiri(sarki, altYazi, dugmeler) {
-  return el("div", { className: "sarki-satiri" },
-    el("img", { src: kapakAdresi(sarki.videoId), alt: "", loading: "lazy" }),
+// İlerleme çubuğu: üzerinde gezerken baloncukta süreyi gösterir, tıklayınca ya da sürükleyince oraya sarar.
+function ilerlemeOlaylariniBagla() {
+  const cubuk = $("ilerleme");
+  const balon = $("ilerlemeBalonu");
+  const oranBul = (e) => {
+    const kutu = cubuk.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - kutu.left) / kutu.width));
+  };
+  const balonuGoster = (oran) => {
+    const sure = sarkiSuresi();
+    if (!sure) { balon.hidden = true; return; }
+    balon.hidden = false;
+    balon.textContent = sureYaz(oran * sure);
+    balon.style.left = (oran * 100) + "%";
+  };
+  cubuk.addEventListener("pointermove", (e) => {
+    const oran = oranBul(e);
+    balonuGoster(oran);
+    if (ilerlemeSurukleniyor) {
+      ilerlemeyiCiz(oran);
+      $("gecenSure").textContent = sureYaz(oran * sarkiSuresi());
+    }
+  });
+  cubuk.addEventListener("pointerleave", () => { if (!ilerlemeSurukleniyor) balon.hidden = true; });
+  cubuk.addEventListener("pointerdown", (e) => {
+    if (!simdiki || !sarkiSuresi()) return;
+    ilerlemeSurukleniyor = true;
+    cubuk.classList.add("surukleniyor");
+    cubuk.setPointerCapture(e.pointerId);
+    ilerlemeyiCiz(oranBul(e));
+    balonuGoster(oranBul(e));
+  });
+  const birak = (e) => {
+    if (!ilerlemeSurukleniyor) return;
+    ilerlemeSurukleniyor = false;
+    cubuk.classList.remove("surukleniyor");
+    if (e.type === "pointerup") konumaGit(oranBul(e) * sarkiSuresi());
+    if (!cubuk.matches(":hover")) balon.hidden = true;
+  };
+  cubuk.addEventListener("pointerup", birak);
+  cubuk.addEventListener("pointercancel", birak);
+}
+
+// dugmeler: [{ yazi, baslik, is(olay) }]; tikla verilirse satırın kendisine tıklamak onu çalar.
+function sarkiSatiri(sarki, altYazi, dugmeler, tikla) {
+  const caliyor = simdiki && simdiki.videoId === sarki.videoId;
+  const satir = el("div", { className: "sarki-satiri" + (tikla ? " tiklanir" : "") + (caliyor ? " caliyor" : "") },
+    el("div", { className: "kapak-kutu" },
+      el("img", { src: kapakAdresi(sarki.videoId), alt: "", loading: "lazy" }),
+      tikla ? el("span", { className: "kapak-oynat" }, "▶") : null),
     el("div", { className: "sarki-bilgi" },
       el("div", { className: "sarki-adi", title: sarki.baslik }, sarki.baslik),
       el("div", { className: "sarki-alt" }, altYazi)),
-    el("div", { className: "sarki-tuslari" }, dugmeler.map((d) => el("button", { type: "button", title: d.baslik, onclick: d.is }, d.yazi)))
+    el("div", { className: "sarki-tuslari" }, dugmeler.map((d) => el("button", {
+      type: "button", title: d.baslik, onclick: (e) => { e.stopPropagation(); d.is(e); }
+    }, d.yazi)))
   );
+  if (tikla) {
+    satir.title = "Hemen çal";
+    satir.tabIndex = 0;
+    satir.addEventListener("click", tikla);
+    satir.addEventListener("keydown", (e) => { if (e.key === "Enter") tikla(); });
+  }
+  return satir;
 }
 
 function listeDugmesi(sarki) {
@@ -409,7 +562,7 @@ function siraCiz() {
   kutu.replaceChildren(...sira.map((s, i) => sarkiSatiri(s, (i + 1) + ". · ekleyen: " + (s.ekleyen || "?"), [
     listeDugmesi(s),
     { yazi: "✕", baslik: "Sıradan çıkar", is: () => muzikRef.child("sira/" + s.anahtar).remove() }
-  ])));
+  ], () => hemenCal(s, s.anahtar))));
 }
 
 function gecmisCiz() {
@@ -424,7 +577,7 @@ function gecmisCiz() {
     ...gecmisListesi.map((s) => sarkiSatiri(s, tarihYaz(s.zaman) + (s.ekleyen ? " · " + s.ekleyen : ""), [
       listeDugmesi(s),
       { yazi: "+", baslik: "Sıraya ekle", is: () => sarkilariEkle([s]) }
-    ])));
+    ], () => hemenCal(Object.assign({}, s, { ekleyen: isim })))));
 }
 
 function sonuclariGoster(liste, ust) {
@@ -433,7 +586,7 @@ function sonuclariGoster(liste, ust) {
     ...liste.map((s) => sarkiSatiri(s, s.kanal || "", [
       listeDugmesi(s),
       { yazi: "+", baslik: "Sıraya ekle", is: () => sarkilariEkle([s]) }
-    ])));
+    ], () => hemenCal(s))));
 }
 
 function sekmeSec(ad) {
@@ -623,20 +776,18 @@ function odaOlaylariniBagla() {
   });
 
   $("atlaTus").addEventListener("click", () => { if (simdiki) sonrakineGec(simdiki.videoId); });
+  $("geriTus").addEventListener("click", geriGit);
 
-  $("ilerleme").addEventListener("click", (e) => {
-    if (!simdiki || !oynaticiHazir) return;
-    const kutu = e.currentTarget.getBoundingClientRect();
-    const oran = Math.min(1, Math.max(0, (e.clientX - kutu.left) / kutu.width));
-    konumaGit(oran * (oynatici.getDuration() || 0));
-  });
+  ilerlemeOlaylariniBagla();
 
-  $("sesAyari").addEventListener("input", (e) => {
-    const ses = Number(e.target.value);
-    asansor.volume = ses / 100;
-    if (oynaticiHazir) oynatici.setVolume(ses);
-    hafizayaYaz("ses", ses);
+  let sessizOncesi = 80;
+  $("sesAyari").addEventListener("input", (e) => sesiAyarla(Number(e.target.value)));
+  $("sesTus").addEventListener("click", () => {
+    const ses = Number($("sesAyari").value);
+    if (ses > 0) { sessizOncesi = ses; sesiAyarla(0); }
+    else sesiAyarla(sessizOncesi || 80);
   });
+  sesiAyarla(Number($("sesAyari").value));
 
   $("simdikiListeye").addEventListener("click", (e) => { if (simdiki) listeyeEkleMenusu(simdiki, e.currentTarget); });
 

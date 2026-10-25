@@ -59,7 +59,7 @@ function listelerCiz() {
         ? el("div", {}, sarkilar.map((s) => sarkiSatiri(s, s.kanal || "", [
           { yazi: "+", baslik: "Sıraya ekle", is: () => sarkilariEkle([s]) },
           { yazi: "✕", baslik: "Listeden çıkar", is: () => listelerRef.child(acikListe + "/sarkilar/" + s.anahtar).remove() }
-        ])))
+        ], () => hemenCal(s))))
         : el("p", { className: "not" }, "Liste boş. Arama sonuçlarında, sırada ya da geçmişte ☆ düğmesine basarak şarkı ekleyebilirsin.")
     );
     return;

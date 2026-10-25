@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Nunito:wght@400;700;800&family=Pacifico&family=Press+Start+2P&display=swap">
-  <link rel="stylesheet" href="stil.css?v=5">
+  <link rel="stylesheet" href="stil.css?v=6">
 </head>
 
 <body>
@@ -185,21 +185,33 @@
       </div>
       <div class="calar-orta">
         <div class="calar-tuslar">
-          <button id="oynatTus" class="yuvarlak" title="Oynat / duraklat">▶</button>
-          <button id="atlaTus" class="duz" title="Sonraki şarkı">⏭</button>
+          <button id="geriTus" class="kontrol-tus" title="Önceki şarkı">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="2.4" height="14" rx="1"/><path d="M19 6.2v11.6a1 1 0 0 1-1.55.83L9.4 13.2a1.45 1.45 0 0 1 0-2.4l8.05-5.43A1 1 0 0 1 19 6.2z"/></svg>
+          </button>
+          <button id="oynatTus" class="oynat-tus" title="Oynat"></button>
+          <button id="atlaTus" class="kontrol-tus" title="Sonraki şarkı">
+            <svg viewBox="0 0 24 24"><rect x="16.6" y="5" width="2.4" height="14" rx="1"/><path d="M5 6.2v11.6a1 1 0 0 0 1.55.83l8.05-5.43a1.45 1.45 0 0 0 0-2.4L6.55 5.37A1 1 0 0 0 5 6.2z"/></svg>
+          </button>
         </div>
         <div class="ilerleme-satiri">
           <span id="gecenSure">0:00</span>
           <div id="ilerleme" class="ilerleme">
-            <div id="ilerlemeDolu"></div>
+            <div class="ilerleme-iz">
+              <div id="ilerlemeDolu"></div>
+            </div>
+            <div id="ilerlemeTopu" class="ilerleme-topu"></div>
+            <div id="ilerlemeBalonu" class="ilerleme-balonu" hidden>0:00</div>
           </div>
           <span id="toplamSure">0:00</span>
         </div>
       </div>
       <div class="calar-sag">
-        <span id="kisiSayisi" class="soluk"></span>
-        <input id="sesAyari" type="range" min="0" max="100" value="80" title="Ses">
-        <button id="listeTus" class="duz" title="Arama, sıra ve listeler">☰</button>
+        <span id="kisiSayisi" class="kisi-rozeti"></span>
+        <button id="sesTus" class="kontrol-tus kucuk" title="Sesi kapat / aç">🔊</button>
+        <input id="sesAyari" class="ses-cubugu" type="range" min="0" max="100" value="80" title="Ses">
+        <button id="listeTus" class="kontrol-tus kucuk" title="Arama, sıra ve listeler">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="2.2" rx="1"/><rect x="3" y="10.9" width="13" height="2.2" rx="1"/><rect x="3" y="16.8" width="8" height="2.2" rx="1"/><path d="M18 9.5v8.2a2.3 2.3 0 1 1-1.6-2.2V8.2a.9.9 0 0 1 1.17-.86l3 .9a.9.9 0 0 1-.52 1.73z"/></svg>
+        </button>
       </div>
     </div>
 
@@ -244,14 +256,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="config.js?v=5"></script>
-  <script src="js/temel.js?v=5"></script>
-  <script src="js/tasarim.js?v=5"></script>
-  <script src="js/listeler.js?v=5"></script>
-  <script src="js/oda.js?v=5"></script>
-  <script src="js/lobi.js?v=5"></script>
-  <script src="js/yonetim.js?v=5"></script>
-  <script src="js/baslat.js?v=5"></script>
+  <script src="config.js?v=6"></script>
+  <script src="js/temel.js?v=6"></script>
+  <script src="js/tasarim.js?v=6"></script>
+  <script src="js/listeler.js?v=6"></script>
+  <script src="js/oda.js?v=6"></script>
+  <script src="js/lobi.js?v=6"></script>
+  <script src="js/yonetim.js?v=6"></script>
+  <script src="js/baslat.js?v=6"></script>
 </body>
 
 </html>

@@ -52,6 +52,16 @@
               "$diger": { ".validate": false }
             }
           },
+          "onceki": {
+            "$i": {
+              ".validate": "newData.hasChildren(['videoId', 'baslik'])",
+              "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
+              "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
+              "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+              "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "$diger": { ".validate": false }
+            }
+          },
           "kutlama": { ".validate": "newData.isNumber()" },
           "$diger": { ".validate": false }
         },
