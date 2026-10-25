@@ -4,20 +4,31 @@
       ".read": true,
       ".write": true,
       "simdiki": {
+        ".validate": "newData.hasChildren(['videoId', 'baslik', 'baslangic', 'duraklatildi'])",
         "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
         "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
-        "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" }
+        "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+        "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "baslangic": { ".validate": "newData.isNumber()" },
+        "duraklatildi": { ".validate": "newData.isBoolean()" },
+        "konum": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "$diger": { ".validate": false }
       },
       "sira": {
         "$id": {
+          ".validate": "newData.hasChildren(['videoId', 'baslik'])",
           "videoId": { ".validate": "newData.isString() && newData.val().length == 11" },
           "baslik": { ".validate": "newData.isString() && newData.val().length <= 200" },
-          "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" }
+          "kanal": { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "ekleyen": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "$diger": { ".validate": false }
         }
       },
       "katilanlar": {
         "$id": { ".validate": "newData.isString() && newData.val().length <= 20" }
-      }
+      },
+      "kutlama": { ".validate": "newData.isNumber()" },
+      "$diger": { ".validate": false }
     }
   }
 }
