@@ -1853,6 +1853,163 @@ a {
   max-width: 26rem;
 }
 
+/* ---------- Mini oynatıcı (lobiye göz atarken) ----------
+   Oda görünmez olur ama içindeki YouTube videosu sağ alta taşınıp çalmaya devam eder.
+   #miniCalar videonun tam üstünde durur: tıklamaları o alır, altındaki çubukta şarkı ve tuşlar var. */
+:root {
+  --mini-g: min(20rem, 62vw);
+  --mini-alt: 3.4rem;
+}
+
+.mini-calar {
+  display: none;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: var(--mini-g);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  z-index: 55;
+  color: #fff;
+  font-family: 'Nunito', Arial, sans-serif;
+  animation: miniGel 0.25s cubic-bezier(.2, .8, .2, 1);
+}
+
+@keyframes miniGel {
+  from {
+    transform: translateY(1.5rem);
+    opacity: 0;
+  }
+}
+
+.mini-mod .mini-calar {
+  display: block;
+}
+
+.mini-mod #oda {
+  visibility: hidden;
+}
+
+.mini-mod #listePaneli {
+  transform: none;
+  transition: none;
+  box-shadow: none;
+}
+
+.mini-mod #listePaneli .video-kutu {
+  visibility: visible;
+  position: fixed;
+  right: 1rem;
+  bottom: calc(1rem + var(--mini-alt));
+  width: var(--mini-g);
+  margin: 0;
+  border-radius: 0;
+  z-index: 54;
+}
+
+.mini-goruntu {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  cursor: pointer;
+  background: transparent center / cover no-repeat;
+}
+
+.mini-goruntu.kapakli {
+  background-color: #111;
+}
+
+.mini-don {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  font-weight: 800;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.mini-goruntu:hover .mini-don {
+  opacity: 1;
+}
+
+.mini-alt {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: var(--mini-alt);
+  box-sizing: border-box;
+  padding: 0 0.5rem 0 0.75rem;
+  background: #181818;
+}
+
+.mini-bilgi {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.mini-bilgi .soluk {
+  font-weight: 400;
+  font-size: 0.72rem;
+}
+
+/* Lobide şu an dinlenen oda */
+.oda-karti.dinlenen {
+  outline: 2px solid #1db954;
+  outline-offset: 2px;
+}
+
+.kart-rozet {
+  align-self: flex-start;
+  margin-bottom: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #1db954;
+  color: #000;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.kart-kisiler {
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.kart-kisiler:hover span {
+  text-decoration: underline;
+}
+
+/* Sıradaki şarkıların sürükleme tutamağı */
+.tutma-yeri {
+  flex-shrink: 0;
+  width: 1.1rem;
+  text-align: center;
+  color: #777;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  font-size: 1rem;
+}
+
+.tutma-yeri:hover {
+  color: #fff;
+}
+
+.sarki-satiri.tasiniyor {
+  background: #2f2f2f;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), inset 0 0 0 1px #1db954;
+  position: relative;
+  z-index: 1;
+}
+
+.sarki-satiri.tasiniyor .tutma-yeri {
+  cursor: grabbing;
+  color: #1db954;
+}
+
 /* ---------- Kırpma penceresi ---------- */
 
 .kirp-perde {

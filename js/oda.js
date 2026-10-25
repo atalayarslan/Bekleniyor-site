@@ -228,7 +228,45 @@ function odaBasligiCiz() {
   const ad = (odaBilgi && odaBilgi.ad) || odaVarsayilanAdi();
   $("odaAdi").textContent = ad;
   $("katilBaslik").textContent = ad;
-  document.title = ad + " · Bekleniyor";
+  $("miniAlt").textContent = ad;
+  document.title = document.body.classList.contains("mini-mod") ? "Bekleniyor" : ad + " · Bekleniyor";
+}
+
+// ---------- Lobiye göz atma (mini oynatıcı) ----------
+// Odaya katıldıktan sonra "← Lobi"ye basınca sayfa yenilenmez: müzik çalmaya devam eder,
+// lobi açılır ve sağ altta küçük bir oynatıcı görünür. Ona basınca odaya geri dönülür.
+let lobiAcildi = false;
+
+function lobiyeGozAt(adresiDegistir = true) {
+  if (!katildi) return false;
+  if (!lobiAcildi) {
+    lobiAcildi = true;
+    lobiyiBaslat();
+    siralamayiBaslat();
+  }
+  menuKapat();
+  document.body.classList.add("mini-mod");
+  $("lobi").hidden = false;
+  $("lobi").scrollTop = 0;
+  if (adresiDegistir) history.pushState(null, "", "./");
+  odaBasligiCiz();
+  arayuzuGuncelle();
+  return true;
+}
+
+function odayaGeriDon(adresiDegistir = true) {
+  document.body.classList.remove("mini-mod");
+  $("lobi").hidden = true;
+  if (adresiDegistir) history.pushState(null, "", "?oda=" + odaId);
+  odaBasligiCiz();
+}
+
+function miniyiGuncelle() {
+  $("miniBaslik").textContent = simdiki ? simdiki.baslik || "Bilinmeyen şarkı" : "Asansör müziği";
+  // Şarkı yokken (ya da henüz YouTube'da bulunmadıysa) video yerine kapak görünür
+  const kapakli = !simdiki || !gecerliId(simdiki.videoId);
+  $("miniGoruntu").classList.toggle("kapakli", kapakli);
+  $("miniGoruntu").style.backgroundImage = kapakli ? 'url("' + $("kapak").src + '")' : "";
 }
 
 function yetkileriGuncelle() {
@@ -662,12 +700,13 @@ const SIMGE_OYNAT = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.8
 const SIMGE_DURAKLAT = '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
 
 function oynatSimgesi(caliyor) {
-  const tus = $("oynatTus");
   const yeni = caliyor ? "duraklat" : "oynat";
-  if (tus.dataset.simge === yeni) return;
-  tus.dataset.simge = yeni;
-  tus.innerHTML = caliyor ? SIMGE_DURAKLAT : SIMGE_OYNAT;
-  tus.title = caliyor ? "Duraklat" : "Oynat";
+  for (const tus of [$("oynatTus"), $("miniOynat")]) {
+    if (tus.dataset.simge === yeni) continue;
+    tus.dataset.simge = yeni;
+    tus.innerHTML = caliyor ? SIMGE_DURAKLAT : SIMGE_OYNAT;
+    tus.title = caliyor ? "Duraklat" : "Oynat";
+  }
 }
 
 function arayuzuGuncelle() {
@@ -689,6 +728,7 @@ function arayuzuGuncelle() {
     ilerlemeyiCiz(0);
     $("simdikiListeye").hidden = true;
   }
+  miniyiGuncelle();
   $("geriTus").disabled = !simdiki;
   $("atlaTus").disabled = !simdiki;
   $("geriTus").title = oncekiListesi.length ? "Önceki şarkı (çalan şarkı 3 sn'yi geçtiyse başa sarar)" : "Başa sar";
@@ -792,9 +832,71 @@ function listeDugmesi(sarki) {
   return { yazi: "☆", baslik: "Listeye ekle", is: (e) => listeyeEkleMenusu(sarki, e.currentTarget) };
 }
 
+// Sıradaki bir şarkıyı yeni yerine taşır. Sıra anahtar sırasıyla çaldığı için
+// şarkılar yeni sırayla, giderek büyüyen yeni anahtarlara yazılır.
+function siradaTasi(anahtar, yeniYer) {
+  if (!muzikRef) return;
+  const siraRef = muzikRef.child("sira");
+  muzikRef.transaction((m) => {
+    if (!m || !m.sira || !m.sira[anahtar]) return;
+    const anahtarlar = Object.keys(m.sira).sort();
+    const liste = anahtarlar.map((k) => m.sira[k]);
+    const [sarki] = liste.splice(anahtarlar.indexOf(anahtar), 1);
+    liste.splice(Math.min(yeniYer, liste.length), 0, sarki);
+    m.sira = {};
+    liste.forEach((s) => { m.sira[siraRef.push().key] = s; });
+    return m;
+  }).catch((e) => bildir("Taşınamadı: " + e.message));
+}
+
+// Satırın solundaki ⠿ tutamağından tutulup yukarı/aşağı sürüklenir; bırakınca yeni yeri herkese yansır.
+let siraSurukleniyor = false;
+
+function siraSuruklemesiEkle(satir, anahtar, kutu) {
+  const tutamak = el("span", { className: "tutma-yeri", title: "Tutup sürükleyerek yerini değiştir" }, "⠿");
+  satir.prepend(tutamak);
+  tutamak.addEventListener("click", (e) => e.stopPropagation());
+  tutamak.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    siraSurukleniyor = true;
+    satir.classList.add("tasiniyor");
+    const eskiYer = [...kutu.children].indexOf(satir);
+    const panel = $("listePaneli");
+    const tasi = (ev) => {
+      // Fare hangi satırın ortasının üstündeyse satır onun önüne geçer
+      const once = [...kutu.children].find((s) => {
+        if (s === satir) return false;
+        const r = s.getBoundingClientRect();
+        return ev.clientY < r.top + r.height / 2;
+      });
+      if (once) { if (satir.nextSibling !== once) kutu.insertBefore(satir, once); }
+      else if (kutu.lastElementChild !== satir) kutu.append(satir);
+      // Panelin kenarına gelince liste kayar
+      const p = panel.getBoundingClientRect();
+      if (ev.clientY < p.top + 60) panel.scrollTop -= 12;
+      else if (ev.clientY > p.bottom - 60) panel.scrollTop += 12;
+    };
+    // Satır DOM'da yer değiştirince fare yakalaması (pointer capture) düşer; bu yüzden pencere dinlenir
+    const birak = () => {
+      removeEventListener("pointermove", tasi);
+      removeEventListener("pointerup", birak);
+      removeEventListener("pointercancel", birak);
+      siraSurukleniyor = false;
+      satir.classList.remove("tasiniyor");
+      const yeniYer = [...kutu.children].indexOf(satir);
+      if (yeniYer !== eskiYer) siradaTasi(anahtar, yeniYer);
+      else siraCiz();
+    };
+    addEventListener("pointermove", tasi);
+    addEventListener("pointerup", birak);
+    addEventListener("pointercancel", birak);
+  });
+}
+
 function siraCiz() {
   const kutu = $("sira");
-  if (!kutu) return;
+  if (!kutu || siraSurukleniyor) return;
   const sira = siraListesi();
   $("siraSayisi").textContent = sira.length || "";
   $("radyoTus").textContent = "📻 Benzer şarkılar: " + (radyoKapali ? "Kapalı" : "Açık");
@@ -805,10 +907,14 @@ function siraCiz() {
       : "Sıra boş. Şarkı eklemezsen çalan şarkıya benzer şarkılar otomatik eklenir."));
     return;
   }
-  kutu.replaceChildren(...sira.map((s, i) => sarkiSatiri(s, (i + 1) + ". · " + (gecerliId(s.videoId) ? "" : "Spotify · ") + "ekleyen: " + (s.ekleyen || "?"), [
-    listeDugmesi(s),
-    { yazi: "✕", baslik: "Sıradan çıkar", is: () => muzikRef.child("sira/" + s.anahtar).remove() }
-  ], () => hemenCal(s, s.anahtar))));
+  kutu.replaceChildren(...sira.map((s, i) => {
+    const satir = sarkiSatiri(s, (i + 1) + ". · " + (gecerliId(s.videoId) ? "" : "Spotify · ") + "ekleyen: " + (s.ekleyen || "?"), [
+      listeDugmesi(s),
+      { yazi: "✕", baslik: "Sıradan çıkar", is: () => muzikRef.child("sira/" + s.anahtar).remove() }
+    ], () => hemenCal(s, s.anahtar));
+    siraSuruklemesiEkle(satir, s.anahtar, kutu);
+    return satir;
+  }));
 }
 
 function gecmisCiz() {
@@ -1116,12 +1222,24 @@ function odaOlaylariniBagla() {
   $("listeKapat").addEventListener("click", () => $("listePaneli").classList.remove("acik"));
 
   // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
-  $("kisiSayisi").addEventListener("click", (e) => {
-    if (!odadakiler.length) return;
-    menuAc(e.currentTarget, [
-      { baslik: "Şu an odada (" + odadakiler.length + ")" },
-      ...odadakiler.map((k) => ({ dugum: el("div", { className: "kisi-satiri" }, avatarOgesi(k), el("span", {}, k.ad)) }))
-    ]);
+  $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler));
+
+  // "← Lobi": odaya katıldıysa sayfa yenilenmez, müzik mini oynatıcıda sürer
+  $("oda").querySelector(".geri-tus").addEventListener("click", (e) => { if (lobiyeGozAt()) e.preventDefault(); });
+  $("lobi").querySelector(".logo").addEventListener("click", (e) => {
+    if (!document.body.classList.contains("mini-mod")) return;
+    e.preventDefault();
+    $("lobi").scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("miniGoruntu").addEventListener("click", () => odayaGeriDon());
+  $("miniOynat").addEventListener("click", () => $("oynatTus").click());
+  $("miniKapat").addEventListener("click", () => { location.href = "./"; });
+  addEventListener("popstate", () => {
+    const istenen = new URLSearchParams(location.search).get("oda");
+    const mini = document.body.classList.contains("mini-mod");
+    if (istenen === odaId) { if (mini) odayaGeriDon(false); }
+    else if (!istenen && katildi) { if (!mini) lobiyeGozAt(false); }
+    else location.reload();
   });
 
   $("oynatTus").addEventListener("click", () => {

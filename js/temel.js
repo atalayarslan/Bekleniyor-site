@@ -165,6 +165,15 @@ function avatarYigini(kisiler, enFazla) {
   return el("span", { className: "avatar-yigini" }, kisiler.slice(0, enFazla).map(avatarOgesi));
 }
 
+// Bir odadakileri fotoğraf ve isimleriyle açılır menüde listeler
+function kisileriGoster(hedef, kisiler) {
+  if (!kisiler.length) return;
+  menuAc(hedef, [
+    { baslik: "Şu an odada (" + kisiler.length + ")" },
+    ...kisiler.map((k) => ({ dugum: el("div", { className: "kisi-satiri" }, avatarOgesi(k), el("span", {}, k.ad)) }))
+  ]);
+}
+
 // ---------- Pencereler ----------
 
 function pencereAc(baslik, icerik, dugmeler) {

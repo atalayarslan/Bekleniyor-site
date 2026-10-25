@@ -11,7 +11,7 @@ function lobiyiBaslat() {
   }
   db.ref("odalar").on("value", (s) => { tumOdalar = s.val() || {}; lobiyiCiz(); });
   let slotRef = null;
-  oturumDegisince(() => {
+  const oturumaGore = () => {
     if (slotRef) slotRef.off();
     slotRef = null;
     benimSlotlarim = {};
@@ -24,7 +24,10 @@ function lobiyiBaslat() {
       });
     }
     lobiyiCiz();
-  });
+  };
+  oturumDegisince(oturumaGore);
+  // Lobi odadan sonra açıldıysa (mini oynatıcı) oturum zaten bellidir
+  if (kullanici) oturumaGore();
   $("lobiYonetimTus").addEventListener("click", yonetimiAc);
   lobiyiCiz();
 }
@@ -36,12 +39,22 @@ function odaKarti(id, oda) {
   const calan = oda.muzik && oda.muzik.simdiki;
   // İçeridekiler: ilk 5 kişinin fotoğrafı ve isimleri
   const isimler = icerdekiler.slice(0, 3).map((k) => k.ad).join(", ") + (icerdekiler.length > 3 ? " +" + (icerdekiler.length - 3) : "");
-  const kart = el("a", { className: "oda-karti", href: "?oda=" + id },
+  // Mini oynatıcıda dinlenen oda: kartına basınca sayfa yenilenmeden odaya dönülür
+  const dinlenen = typeof katildi !== "undefined" && katildi && id === odaId;
+  const kart = el("a", {
+    className: "oda-karti" + (dinlenen ? " dinlenen" : ""), href: "?oda=" + id,
+    onclick: (e) => { if (dinlenen) { e.preventDefault(); odayaGeriDon(); } }
+  },
+    dinlenen ? el("div", { className: "kart-rozet" }, "🎧 Buradasın") : null,
     el("div", { className: "kart-emoji" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
     el("h3", {}, bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
     el("div", { className: "kart-alt" },
       (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + (icerdekiler.length ? icerdekiler.length + " kişi içeride" : "şu an boş")),
-    icerdekiler.length ? el("div", { className: "kart-kisiler" }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null,
+    // Kişilere basınca odaya girilmez, içeridekilerin listesi açılır
+    icerdekiler.length ? el("div", {
+      className: "kart-kisiler", title: "Kimler var?",
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); kisileriGoster(e.currentTarget, icerdekiler); }
+    }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null,
     calan ? el("div", { className: "kart-calan" }, "♪ " + calan.baslik) : null);
   kart.style.setProperty("--k1", tasarim.arka2 === tasarim.arka1 ? tasarim.daire1 : tasarim.arka1);
   kart.style.setProperty("--k2", tasarim.arka2 === tasarim.arka1 ? tasarim.daire2 : tasarim.arka2);
