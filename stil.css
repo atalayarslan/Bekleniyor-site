@@ -1198,6 +1198,11 @@ a {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
+/* Katılma ekranı üst çubuğun altında kalır; giriş, davet ve düzen düğmeleri tıklanabilir olsun. */
+#katilEkrani {
+  z-index: 39;
+}
+
 .katil-kart {
   max-width: 22rem;
   text-align: center;
