@@ -97,8 +97,8 @@ function emojileriCiz(emoji, sayi) {
     katman.append(el("div", {
       className: "ucusan",
       style: {
-        left: (Math.random() * 92) + "vw",
-        top: (8 + Math.random() * 78) + "vh",
+        left: (Math.random() * 92) + "%",
+        top: (8 + Math.random() * 78) + "%",
         animationDuration: (Math.random() * 4 + 4) + "s",
         animationDelay: (-Math.random() * 6) + "s",
         fontSize: (1.6 + Math.random() * 1.6) + "rem"

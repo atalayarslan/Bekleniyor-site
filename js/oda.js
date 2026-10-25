@@ -117,6 +117,7 @@ function odayiBaslat(id) {
 
   odaOlaylariniBagla();
   duzenOlaylariniBagla();
+  sahneyiPanellereBagla();
   listelerCiz();
   siraCiz();
   gecmisCiz();
@@ -125,6 +126,18 @@ function odayiBaslat(id) {
   const betik = document.createElement("script");
   betik.src = "https://www.youtube.com/iframe_api";
   document.body.append(betik);
+}
+
+// Bir yan panel açılıp kapandığında sahneyi (daire, fotoğraflar, üst çubuk) kalan alana kaydırır.
+function sahneyiPanellereBagla() {
+  const guncelle = () => {
+    $("oda").classList.toggle("sag-acik", $("listePaneli").classList.contains("acik"));
+    $("oda").classList.toggle("sol-acik", $("duzenPaneli").classList.contains("acik"));
+  };
+  const gozlemci = new MutationObserver(guncelle);
+  gozlemci.observe($("listePaneli"), { attributes: true, attributeFilter: ["class"] });
+  gozlemci.observe($("duzenPaneli"), { attributes: true, attributeFilter: ["class"] });
+  guncelle();
 }
 
 function odaBulunamadi() {
@@ -595,6 +608,8 @@ function odaOlaylariniBagla() {
     $("duzenPaneli").classList.contains("acik") && duzenModunuKapat();
     $("listePaneli").classList.toggle("acik");
   });
+
+  $("listeKapat").addEventListener("click", () => $("listePaneli").classList.remove("acik"));
 
   $("oynatTus").addEventListener("click", () => {
     if (simdiki) {
