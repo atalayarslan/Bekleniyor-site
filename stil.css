@@ -1395,10 +1395,15 @@ a {
   margin-bottom: 0.75rem;
 }
 
+/* YouTube oynatıcısı her zaman küçük (320x180) kalır; panelde, mini oynatıcıda ve tam ekranda
+   sadece görüntüsü CSS ile büyütülür. Böylece YouTube oynatıcıyı hep küçük sanar. */
 .video-kutu iframe {
-  width: 100%;
-  height: 100%;
-  display: block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 320px;
+  height: 180px;
+  transform: translate(-50%, -50%) scale(var(--video-olcek, 1));
 }
 
 /* Videonun üstündeki perde: YouTube'un kendi bağlantıları ve düğmeleri çıkmaz, tıklamayı site alır */

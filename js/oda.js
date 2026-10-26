@@ -86,6 +86,7 @@ function odayiBaslat(id) {
     oncekiListesi = Object.values(m.onceki || {});
     radyoKapali = m.radyoKapali === true;
     sarkiDegisinceCubuguGoster();
+    ekraniAcikTut();
     arayuzuGuncelle();
     siraCiz();
     senkronla();
@@ -199,6 +200,36 @@ function sarkiDegisinceCubuguGoster() {
   if (!ilk && !$("calar").matches(":hover")) cubuguAc(4000);
 }
 
+// ---------- Telefonda ekran kapanınca ----------
+// Telefon tarayıcıları ekran kapanınca ya da sayfa arka plana geçince videoları durdurur; YouTube da gömülü
+// oynatıcıda arka planda çalmaya izin vermez (Premium özelliği). Yapılabilenler:
+//  - müzik çalarken telefon ekranının kendiliğinden kararmasını engellemek (Wake Lock),
+//  - sayfa arka plana geçince oynatmayı bir kez daha denemek (bazı Android tarayıcılarında işe yarar),
+//  - sayfaya geri dönülünce beklemeden odadaki yere yetişmek.
+let ekranKilidi = null;
+
+async function ekraniAcikTut() {
+  const gerekli = katildi && !!simdiki && !simdiki.duraklatildi && document.visibilityState === "visible" &&
+    matchMedia("(hover: none)").matches;
+  if (gerekli && !ekranKilidi && navigator.wakeLock) {
+    try {
+      ekranKilidi = await navigator.wakeLock.request("screen");
+      ekranKilidi.addEventListener("release", () => { ekranKilidi = null; });
+    } catch (e) { }
+  } else if (!gerekli && ekranKilidi) {
+    ekranKilidi.release().catch(() => { });
+    ekranKilidi = null;
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") senkronla();
+  else if (katildi && oynaticiHazir && simdiki && !simdiki.duraklatildi) {
+    setTimeout(() => { try { oynatici.playVideo(); } catch (e) { } }, 400);
+  }
+  ekraniAcikTut();
+});
+
 // Space: oynat / duraklat (yazı kutularında yazarken çalışmaz)
 function klavyeKisayollariniBagla() {
   document.addEventListener("keydown", (e) => {
@@ -300,6 +331,7 @@ function odayaKatil() {
   senkronla();
   arayuzuGuncelle();
   muzikBakimi();
+  ekraniAcikTut();
 }
 
 // Son kişinin çıktığı andaki konumda şarkıyı duraklatır.
@@ -1226,6 +1258,14 @@ function odaOlaylariniBagla() {
 
   // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
   $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler));
+
+  // Kutu büyüyüp küçüldükçe (panel, mini oynatıcı, tam ekran) küçük oynatıcının görüntüsü ona sığacak kadar ölçeklenir
+  if (window.ResizeObserver) {
+    new ResizeObserver(([g]) => {
+      const { width, height } = g.contentRect;
+      if (width && height) $("videoKutu").style.setProperty("--video-olcek", Math.min(width / 320, height / 180));
+    }).observe($("videoKutu"));
+  }
 
   // Videoya tıklamak oynat/duraklat; sağ alttaki tuş ve çift tıklama tam ekran
   // Tarayıcı gerçek tam ekrana izin vermezse video sayfanın tamamını kaplar
