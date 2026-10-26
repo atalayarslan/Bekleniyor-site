@@ -2116,6 +2116,21 @@ a {
   display: block;
 }
 
+/* Lobinin üst çubuğunda, odadan tamamen çıkma tuşu (sadece mini oynatıcı açıkken) */
+.odadan-cik {
+  display: none;
+  border-color: rgba(229, 72, 77, 0.6);
+}
+
+.odadan-cik:hover {
+  background: #e5484d;
+  border-color: #e5484d;
+}
+
+.mini-mod .odadan-cik {
+  display: inline-block;
+}
+
 .mini-mod #oda {
   visibility: hidden;
 }

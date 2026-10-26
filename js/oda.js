@@ -229,6 +229,7 @@ function odaBasligiCiz() {
   $("odaAdi").textContent = ad;
   $("katilBaslik").textContent = ad;
   $("miniAlt").textContent = ad;
+  $("odadanCikTus").title = "“" + ad + "” odasından çık (müzik durur)";
   document.title = document.body.classList.contains("mini-mod") ? "Bekleniyor" : ad + " · Bekleniyor";
 }
 
@@ -1271,6 +1272,7 @@ function odaOlaylariniBagla() {
   $("miniGoruntu").addEventListener("click", () => odayaGeriDon());
   $("miniOynat").addEventListener("click", () => $("oynatTus").click());
   $("miniKapat").addEventListener("click", () => { location.href = "./"; });
+  $("odadanCikTus").addEventListener("click", () => { location.href = "./"; });
   addEventListener("popstate", () => {
     const istenen = new URLSearchParams(location.search).get("oda");
     const mini = document.body.classList.contains("mini-mod");
