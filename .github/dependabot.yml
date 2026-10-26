@@ -1,0 +1,12 @@
+# Dependabot: kullanılan araçların yeni (güvenlik düzeltmeli) sürümleri çıkınca güncelleme PR'ı açar.
+# PR'lar kendiliğinden birleşmez; gözden geçirip onaylamak gerekir.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /akis-sunucusu
+    schedule:
+      interval: weekly

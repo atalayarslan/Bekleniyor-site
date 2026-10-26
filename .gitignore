@@ -131,3 +131,6 @@ dist
 
 # Playwright MCP test çıktıları
 .playwright-mcp/
+
+# Akış sunucusunun indirdiği şarkılar
+akis-sunucusu/onbellek/

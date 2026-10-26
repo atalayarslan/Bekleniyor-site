@@ -1,0 +1,49 @@
+# Güvenlik taraması: her push'ta, PR'da ve haftada bir çalışır. Sadece bulur, hiçbir şeyi değiştirmez.
+#  - Semgrep: kod desenlerinden açık arar (XSS, güvensiz eval, vb.)
+#  - Trivy: bağımlılık açıkları ve koda yanlışlıkla konmuş gizli anahtarlar
+# Bulgular GitHub'da repo > Security > Code scanning altında görünür.
+name: Güvenlik taraması
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.181.1
+    steps:
+      - uses: actions/checkout@v7
+      - run: semgrep scan --config auto --sarif --output semgrep.sarif --metrics off || true
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: trivy.sarif
+          exit-code: "0"
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
