@@ -23,7 +23,8 @@ jobs:
       image: semgrep/semgrep:1.181.1
     steps:
       - uses: actions/checkout@v7
-      - run: semgrep scan --config auto --sarif --output semgrep.sarif --metrics off || true
+      # "--config auto" kullanım istatistiği gönderilmesini şart koşuyor; onun yerine hazır kural setleri
+      - run: semgrep scan --config p/default --config p/javascript --config p/python --config p/secrets --sarif --output semgrep.sarif --metrics off || true
       - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
