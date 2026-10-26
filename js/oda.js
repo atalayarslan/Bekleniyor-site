@@ -681,7 +681,7 @@ function senkronla() {
 
   const hedef = konumHesapla(simdiki);
   // Reklam sırasında sarmak ya da oynatmak reklamı bozabilir; reklam bitince odaya yetişilir
-  if (reklamVar && simdiki.videoId === yuklenenId) return;
+  if (reklamKesin && simdiki.videoId === yuklenenId) return;
   if (simdiki.videoId !== yuklenenId) {
     yuklenenId = simdiki.videoId;
     if (simdiki.duraklatildi) oynatici.cueVideoById({ videoId: yuklenenId, startSeconds: hedef });
@@ -841,6 +841,7 @@ function karmaOynatici(yt) {
 
   return {
     get mod() { return mod; },
+    get yt() { return yt; },
     loadVideoById: (s) => yukle(s, true),
     cueVideoById: (s) => yukle(s, false),
     playVideo: () => (mod === "medya" ? medya.play().catch(() => { }) : yt.playVideo()),
@@ -933,29 +934,65 @@ setInterval(senkronla, 3000);
 // Oda çalarken bu cihazdaki şarkı süresi 3 saniye boyunca hiç ilerlemiyorsa reklam (ya da uzun bir
 // yüklenme) var sayılır: video perdesi tıklamaları YouTube'a geçirir ki "Reklamı atla"ya basılabilsin,
 // altta da küçük bir uyarı çıkar. Süre yeniden ilerleyince her şey eski hâline döner.
+// Birkaç ipucuna birden bakılır:
+//  1) şarkı süresi 3 sn boyunca hiç ilerlemiyor (oynatıcı hangi durumu bildirirse bildirsin),
+//  2) oynatıcının bildirdiği video yüklenen şarkı değil (reklamın kendi videosu),
+//  3) oynatıcı modu boş değil (reklamsızken boş döner),
+//  4) süre ilerliyor ama 4 sn'dir odanın 3 sn'den fazla gerisinde (reklamın süresi işliyor olabilir).
+// 1-3'te site videoyu sarmaya çalışmaz; 4'te sarmaya devam eder (reklam bitince odaya yetişsin).
+// ?tani=reklam ile bu değerler video kutusunun köşesinde canlı görünür.
 let reklamVar = false;
+let reklamKesin = false;
 let sonOkunanSure = -1;
 let durgunSure = 0;
+let geridekiSure = 0;
+const REKLAM_TANI = new URLSearchParams(location.search).get("tani") === "reklam";
+
+function reklamIpuclari() {
+  const yt = oynatici.yt;
+  const ipucu = { durum: oynatici.getPlayerState(), sn: +(oynatici.getCurrentTime() || 0).toFixed(1),
+    sure: Math.round(oynatici.getDuration() || 0), oda: +konumHesapla(simdiki).toFixed(1), vid: "", mod: null };
+  try { ipucu.vid = (yt.getVideoData() || {}).video_id || ""; } catch (e) { }
+  try { ipucu.mod = yt.getPlayerMode ? yt.getPlayerMode() : null; } catch (e) { }
+  return ipucu;
+}
 
 setInterval(() => {
-  let simdiReklam = false;
+  let ipucu = null;
+  let kesin = false;
+  let geride = false;
   if (katildi && oynaticiHazir && oynatici.mod !== "medya" && simdiki && !simdiki.duraklatildi &&
     gecerliId(simdiki.videoId) && yuklenenId === simdiki.videoId && document.visibilityState === "visible") {
-    const sn = oynatici.getCurrentTime() || 0;
-    const durum = oynatici.getPlayerState();
-    const bekliyor = durum !== YT.PlayerState.PAUSED && durum !== YT.PlayerState.ENDED && durum !== YT.PlayerState.CUED;
-    durgunSure = bekliyor && Math.abs(sn - sonOkunanSure) < 0.05 ? durgunSure + 0.5 : 0;
-    sonOkunanSure = sn;
-    simdiReklam = durgunSure >= 3;
+    ipucu = reklamIpuclari();
+    durgunSure = ipucu.durum !== YT.PlayerState.ENDED && Math.abs(ipucu.sn - sonOkunanSure) < 0.05 ? durgunSure + 0.5 : 0;
+    sonOkunanSure = ipucu.sn;
+    geridekiSure = ipucu.oda - ipucu.sn > 3 ? geridekiSure + 0.5 : 0;
+    const modDolu = ipucu.mod && typeof ipucu.mod === "object" && Object.keys(ipucu.mod).length > 0;
+    kesin = durgunSure >= 3 || (!!ipucu.vid && ipucu.vid !== yuklenenId) || modDolu;
+    geride = geridekiSure >= 4;
   } else {
     durgunSure = 0;
+    geridekiSure = 0;
     sonOkunanSure = -1;
   }
+  if (REKLAM_TANI) reklamTanisiniGoster(ipucu, kesin, geride);
+  reklamKesin = kesin;
+  const simdiReklam = kesin || geride;
   if (simdiReklam === reklamVar) return;
   reklamVar = simdiReklam;
   document.body.classList.toggle("reklam-var", reklamVar);
   if (!reklamVar) senkronla();
 }, 500);
+
+function reklamTanisiniGoster(ipucu, kesin, geride) {
+  let kutu = $("reklamTanisi");
+  if (!kutu) {
+    kutu = el("pre", { id: "reklamTanisi", className: "reklam-tanisi" });
+    $("videoKutu").append(kutu);
+  }
+  kutu.textContent = "reklam: " + (kesin ? "KESİN" : geride ? "geride" : "yok") + "\n" +
+    (ipucu ? JSON.stringify(ipucu, null, 1) : "mod: " + (oynatici ? oynatici.mod : "-"));
+}
 
 // ---------- Arayüz ----------
 
