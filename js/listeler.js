@@ -24,7 +24,7 @@ function listeSarkilari(liste) {
 
 function listeKapagi(liste, buyuk) {
   const ilk = listeSarkilari(liste)[0];
-  return el("div", { className: "liste-kapak" }, ilk ? el("img", { src: kapakAdresi(ilk.videoId), alt: "" }) : (buyuk ? "🎵" : "♪"));
+  return el("div", { className: "liste-kapak" }, ilk ? kapakResmi(ilk) : (buyuk ? "🎵" : "♪"));
 }
 
 function listelerCiz() {

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Nunito:wght@400;700;800&family=Pacifico&family=Press+Start+2P&display=swap">
-  <link rel="stylesheet" href="stil.css?v=18">
+  <link rel="stylesheet" href="stil.css?v=19">
 </head>
 
 <body>
@@ -85,8 +85,19 @@
         <h2>🎵 Müzik</h2>
         <button id="listeKapat" class="duz" title="Kapat">✕</button>
       </div>
-      <div class="video-kutu">
+      <div id="videoKutu" class="video-kutu">
         <div id="ytOynatici"></div>
+        <!-- Videonun üstündeki perde: tıklamaları YouTube yerine site alır (oynat/duraklat herkese yansır) -->
+        <div id="videoPerdesi" class="video-perdesi" title="Oynat / duraklat (çift tıkla: tam ekran)">
+          <div class="perde-simge"><svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></div>
+          <div class="perde-alt">
+            <span id="perdeBaslik" class="tek-satir"></span>
+            <button id="tamEkranTus" class="video-tus" title="Tam ekran">
+              <svg class="buyut" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
+              <svg class="kucult" viewBox="0 0 24 24"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
       <nav class="sekmeler" id="panelSekmeleri">
         <button data-sekme="ara" class="secili">🔍 Ara</button>
@@ -288,15 +299,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="config.js?v=18"></script>
-  <script src="js/temel.js?v=18"></script>
-  <script src="js/tasarim.js?v=18"></script>
-  <script src="js/listeler.js?v=18"></script>
-  <script src="js/oda.js?v=18"></script>
-  <script src="js/lobi.js?v=18"></script>
-  <script src="js/yonetim.js?v=18"></script>
-  <script src="js/istatistik.js?v=18"></script>
-  <script src="js/baslat.js?v=18"></script>
+  <script src="config.js?v=19"></script>
+  <script src="js/temel.js?v=19"></script>
+  <script src="js/tasarim.js?v=19"></script>
+  <script src="js/listeler.js?v=19"></script>
+  <script src="js/oda.js?v=19"></script>
+  <script src="js/lobi.js?v=19"></script>
+  <script src="js/yonetim.js?v=19"></script>
+  <script src="js/istatistik.js?v=19"></script>
+  <script src="js/baslat.js?v=19"></script>
 </body>
 
 </html>

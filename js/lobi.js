@@ -78,7 +78,8 @@ function lobiyiCiz() {
     const yoneticiOdalari = yonetici ? Object.keys(tumOdalar).filter((id) =>
       tumOdalar[id].bilgi && tumOdalar[id].bilgi.sahip === kullanici.uid && !benim.includes(id)) : [];
     const hepsi = [...yoneticiOdalari, ...benim];
-    $("odaHakki").textContent = benim.length + " / " + ODA_HAKKI + " oda";
+    // Yöneticinin oda sınırı yok; ona kendi odalarının sayısı gösterilir
+    $("odaHakki").textContent = yonetici ? hepsi.length + " oda" : benim.length + " / " + ODA_HAKKI + " oda";
     const kartlar = hepsi.map((id) => odaKarti(id, tumOdalar[id]));
     if (yasakli) {
       kartlar.push(el("div", { className: "bos-kutu" }, "Hesabın oda açmaya kapatılmış."));

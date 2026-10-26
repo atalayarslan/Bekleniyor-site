@@ -101,6 +101,8 @@ function emojileriCiz(emoji, sayi) {
   for (let i = 0; i < sayi; i++) {
     katman.append(el("div", {
       className: "ucusan",
+      title: "Patlat!",
+      onpointerdown: (e) => { e.preventDefault(); patlat(e.currentTarget); },
       style: {
         left: (Math.random() * 92) + "%",
         top: (8 + Math.random() * 78) + "%",
@@ -109,6 +111,127 @@ function emojileriCiz(emoji, sayi) {
         fontSize: (1.6 + Math.random() * 1.6) + "rem"
       }
     }, emoji));
+  }
+}
+
+// ---------- Uçuşanları patlatma ----------
+// Uçuşan emojiye basınca emoji kendi parçalarına bölünüp havai fişek gibi her yöne saçılır;
+// parçalar yerçekimiyle kavis çizerek düşer ve söner. Birkaç saniye sonra emoji başka bir yerde yeniden belirir.
+const parcaciklar = [];
+let patlamaTuvali = null;
+let patlamaCalisiyor = false;
+
+function patlamaTuvaliniHazirla() {
+  if (!patlamaTuvali) {
+    patlamaTuvali = el("canvas", { className: "patlama-tuvali" });
+    document.body.append(patlamaTuvali);
+  }
+  const oran = devicePixelRatio || 1;
+  if (patlamaTuvali.width !== Math.round(innerWidth * oran) || patlamaTuvali.height !== Math.round(innerHeight * oran)) {
+    patlamaTuvali.width = Math.round(innerWidth * oran);
+    patlamaTuvali.height = Math.round(innerHeight * oran);
+  }
+  return oran;
+}
+
+function patlat(oge) {
+  if (oge.classList.contains("patladi")) return;
+  const kutu = oge.getBoundingClientRect();
+  const yazi = getComputedStyle(oge).fontSize;
+  const oran = patlamaTuvaliniHazirla();
+  // Emoji ayrı bir tuvale çizilir, sonra küçük karelere bölünür
+  const boyut = Math.ceil(Math.max(kutu.width, kutu.height) * 1.3);
+  const kaynak = el("canvas", { width: Math.ceil(boyut * oran), height: Math.ceil(boyut * oran) });
+  const b = kaynak.getContext("2d");
+  b.scale(oran, oran);
+  b.font = yazi + ' "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  b.textAlign = "center";
+  b.textBaseline = "middle";
+  b.fillText(oge.textContent, boyut / 2, boyut / 2);
+  const pikseller = b.getImageData(0, 0, kaynak.width, kaynak.height).data;
+  const merkezX = kutu.left + kutu.width / 2, merkezY = kutu.top + kutu.height / 2;
+
+  const BOLUM = 11; // 11x11 kare; boş (saydam) kareler atlanır
+  const kare = boyut / BOLUM;
+  const renkler = [];
+  for (let sy = 0; sy < BOLUM; sy++) {
+    for (let sx = 0; sx < BOLUM; sx++) {
+      const px = Math.floor((sx + 0.5) * kare * oran), py = Math.floor((sy + 0.5) * kare * oran);
+      const i = (py * kaynak.width + px) * 4;
+      if (pikseller[i + 3] < 40) continue;
+      renkler.push("rgb(" + pikseller[i] + "," + pikseller[i + 1] + "," + pikseller[i + 2] + ")");
+      const dx = (sx + 0.5) * kare - boyut / 2, dy = (sy + 0.5) * kare - boyut / 2;
+      const aci = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.9;
+      const hiz = 2.2 + Math.random() * 4.5;
+      parcaciklar.push({
+        tur: "parca", kaynak, sx: sx * kare * oran, sy: sy * kare * oran, k: kare * oran, boy: kare,
+        x: merkezX + dx, y: merkezY + dy,
+        vx: Math.cos(aci) * hiz, vy: Math.sin(aci) * hiz - 2.2,
+        don: Math.random() * Math.PI, vdon: (Math.random() - 0.5) * 0.35,
+        omur: 0, sure: 55 + Math.random() * 45
+      });
+    }
+  }
+  // Havai fişek kıvılcımları: emojinin kendi renklerinde, daha hızlı ve her yöne eşit dağılan küçük noktalar
+  const kivilcim = 46;
+  for (let i = 0; i < kivilcim && renkler.length; i++) {
+    const aci = (i / kivilcim) * Math.PI * 2 + Math.random() * 0.12;
+    const hiz = 5 + Math.random() * 3.5;
+    parcaciklar.push({
+      tur: "kivilcim", renk: renkler[(Math.random() * renkler.length) | 0],
+      x: merkezX, y: merkezY, vx: Math.cos(aci) * hiz, vy: Math.sin(aci) * hiz - 1.5,
+      r: 1.3 + Math.random() * 1.6, omur: 0, sure: 50 + Math.random() * 35
+    });
+  }
+
+  oge.classList.add("patladi");
+  setTimeout(() => {
+    // Başka bir yerde yeniden belirir
+    oge.style.left = (Math.random() * 92) + "%";
+    oge.style.top = (8 + Math.random() * 78) + "%";
+    oge.classList.remove("patladi");
+  }, 2800 + Math.random() * 2200);
+
+  if (!patlamaCalisiyor) {
+    patlamaCalisiyor = true;
+    let onceki = performance.now();
+    const kare_ = (simdi) => {
+      const adim = Math.min(3, (simdi - onceki) / 16.67); // kare hızından bağımsız
+      onceki = simdi;
+      const c = patlamaTuvali.getContext("2d");
+      const o = devicePixelRatio || 1;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, patlamaTuvali.width, patlamaTuvali.height);
+      for (let i = parcaciklar.length - 1; i >= 0; i--) {
+        const p = parcaciklar[i];
+        p.omur += adim;
+        if (p.omur >= p.sure) { parcaciklar.splice(i, 1); continue; }
+        const surtunme = Math.pow(p.tur === "kivilcim" ? 0.965 : 0.978, adim);
+        p.vx *= surtunme;
+        p.vy = p.vy * surtunme + 0.13 * adim; // yerçekimi: yollar havai fişek gibi aşağı kıvrılır
+        p.x += p.vx * adim;
+        p.y += p.vy * adim;
+        const kalan = 1 - p.omur / p.sure;
+        c.globalAlpha = Math.min(1, kalan * 2.2);
+        if (p.tur === "parca") {
+          p.don += p.vdon * adim;
+          const olcek = 0.55 + 0.45 * kalan;
+          c.setTransform(o * olcek, 0, 0, o * olcek, p.x * o, p.y * o);
+          c.rotate(p.don);
+          c.drawImage(p.kaynak, p.sx, p.sy, p.k, p.k, -p.boy / 2, -p.boy / 2, p.boy, p.boy);
+        } else {
+          c.setTransform(o, 0, 0, o, 0, 0);
+          c.fillStyle = p.renk;
+          c.beginPath();
+          c.arc(p.x, p.y, p.r * (0.4 + 0.6 * kalan), 0, Math.PI * 2);
+          c.fill();
+        }
+      }
+      c.globalAlpha = 1;
+      if (parcaciklar.length) requestAnimationFrame(kare_);
+      else patlamaCalisiyor = false;
+    };
+    requestAnimationFrame(kare_);
   }
 }
 
@@ -713,6 +836,27 @@ function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk, hareketliOlabilir) {
     } else {
       yuva.style.backgroundImage = 'url("' + deger + '")';
     }
+    // Yüklenmiş fotoğrafın görünen kısmı sonradan da değiştirilebilir (kırp, yakınlaştır, döndür)
+    if (!videoMu(deger)) yuva.append(el("button", {
+      className: "duzenle", title: "Görünen kısmı düzenle",
+      onclick: async (e) => {
+        e.stopPropagation();
+        if (hazirlaniyor) return;
+        let kirpilan;
+        try {
+          kirpilan = await resmiKirp(await (await fetch(deger)).blob(), anahtar === "arka" ? arkaPlanOrani() : FOTO_ORANI);
+          if (!kirpilan) return;
+          hazirlaniyor = true;
+          taslakFotolar[anahtar] = await resmiKucult(kirpilan, enFazlaKenar, enFazlaUzunluk);
+          bildir("Fotoğraf düzenlendi, kaydetmeyi unutma");
+        } catch (h) {
+          bildir("Fotoğraf açılamadı: " + h.message);
+        } finally {
+          hazirlaniyor = false;
+          if (kirpilan) { fotoYuvalariniCiz(); taslagiUygula(); }
+        }
+      }
+    }, "✎"));
     yuva.append(el("button", {
       className: "sil", title: "Kaldır",
       onclick: (e) => {

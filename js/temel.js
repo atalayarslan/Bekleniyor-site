@@ -36,6 +36,92 @@ function kapakAdresi(id) {
   return gecerliId(id) ? "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg" : BOS_KAPAK;
 }
 
+// ---------- Spotify şarkılarının kapakları ----------
+// YouTube karşılığı henüz bilinmeyen (Spotify'dan gelen) şarkılar için kapak: önce odalarda daha önce
+// bulunmuş YouTube videosunun resmi ("eslesmeler"), yoksa Apple Music aramasından albüm kapağı.
+// Sadece ekranda görünen satırlar sorulur; sonuç tarayıcıda saklanır, aynı şarkı bir daha sorulmaz.
+
+function eslesmeAnahtari(metin) {
+  return guvenliAnahtar(String(metin).toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_";
+}
+
+function kapakResmi(sarki, ozellikler) {
+  const resim = el("img", Object.assign({ src: kapakAdresi(sarki.videoId), alt: "", loading: "lazy" }, ozellikler));
+  if (!gecerliId(sarki.videoId) && sarki.arama && "IntersectionObserver" in window) {
+    resim.dataset.arama = sarki.arama;
+    kapakGozlemcisi().observe(resim);
+  }
+  return resim;
+}
+
+let kapakGozlemci = null;
+function kapakGozlemcisi() {
+  if (!kapakGozlemci) {
+    kapakGozlemci = new IntersectionObserver((girdiler) => girdiler.forEach((g) => {
+      if (!g.isIntersecting) return;
+      kapakGozlemci.unobserve(g.target);
+      kapakBul(g.target.dataset.arama).then((adres) => { if (adres) g.target.src = adres; });
+    }), { rootMargin: "200px" });
+  }
+  return kapakGozlemci;
+}
+
+const kapakOnbellegi = new Map();
+
+function kapakBul(arama) {
+  const anahtar = eslesmeAnahtari(arama);
+  if (kapakOnbellegi.has(anahtar)) return kapakOnbellegi.get(anahtar);
+  const is = (async () => {
+    const kayitli = hafizadanOku("kapak:" + anahtar);
+    if (kayitli !== null) return kayitli || null;
+    let adres = null;
+    try {
+      const videoId = db ? (await db.ref("eslesmeler/" + anahtar).get()).val() : null;
+      if (gecerliId(videoId)) adres = kapakAdresi(videoId);
+    } catch (e) { }
+    if (!adres) adres = await itunesKapagi(arama);
+    // undefined: istek başarısız oldu, sonra yeniden denensin
+    if (adres === undefined) { kapakOnbellegi.delete(anahtar); return null; }
+    hafizayaYaz("kapak:" + anahtar, adres || "");
+    return adres;
+  })();
+  kapakOnbellegi.set(anahtar, is);
+  return is;
+}
+
+// Apple'ın arama hizmeti dakikada ~20 istek kabul ettiği için istekler sırayla, aralıklı gider.
+const itunesKuyrugu = [];
+let itunesCalisiyor = false;
+const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function itunesKapagi(arama) {
+  return new Promise((coz) => {
+    itunesKuyrugu.push({ arama, coz });
+    itunesKuyrugunuIsle();
+  });
+}
+
+async function itunesKuyrugunuIsle() {
+  if (itunesCalisiyor) return;
+  itunesCalisiyor = true;
+  while (itunesKuyrugu.length) {
+    const { arama, coz } = itunesKuyrugu.shift();
+    try {
+      const yanit = await fetch("https://itunes.apple.com/search?entity=song&limit=1&country=TR&term=" +
+        encodeURIComponent(arama.replace(/\s+-\s+/g, " ")));
+      if (!yanit.ok) throw new Error(yanit.status);
+      const sonuc = ((await yanit.json()).results || [])[0];
+      const adres = sonuc && String(sonuc.artworkUrl100 || "");
+      coz(adres && adres.startsWith("https://") ? adres.replace("100x100bb", "200x200bb") : null);
+    } catch (e) {
+      coz(undefined);
+      await bekle(20000); // sınır aşılmış olabilir, biraz dinlen
+    }
+    await bekle(900);
+  }
+  itunesCalisiyor = false;
+}
+
 function sureYaz(saniye) {
   if (!isFinite(saniye) || saniye < 0) saniye = 0;
   return Math.floor(saniye / 60) + ":" + String(Math.floor(saniye % 60)).padStart(2, "0");

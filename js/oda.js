@@ -464,7 +464,7 @@ function geriGit() {
 async function sarkiyiCoz(sarki) {
   if (gecerliId(sarki.videoId)) return sarki;
   const metin = sarki.arama || ((sarki.kanal ? sarki.kanal + " - " : "") + sarki.baslik);
-  const anahtar = guvenliAnahtar(metin.toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_";
+  const anahtar = eslesmeAnahtari(metin);
   let videoId = null;
   try { videoId = (await db.ref("eslesmeler/" + anahtar).get()).val(); } catch (e) { }
   if (!gecerliId(videoId)) {
@@ -729,6 +729,8 @@ function arayuzuGuncelle() {
     $("simdikiListeye").hidden = true;
   }
   miniyiGuncelle();
+  $("perdeBaslik").textContent = simdiki ? simdiki.baslik || "" : "";
+  $("videoPerdesi").classList.toggle("durdu", !!simdiki && !!simdiki.duraklatildi);
   $("geriTus").disabled = !simdiki;
   $("atlaTus").disabled = !simdiki;
   $("geriTus").title = oncekiListesi.length ? "Önceki şarkı (çalan şarkı 3 sn'yi geçtiyse başa sarar)" : "Başa sar";
@@ -810,7 +812,7 @@ function sarkiSatiri(sarki, altYazi, dugmeler, tikla) {
   const caliyor = simdiki && simdiki.videoId === sarki.videoId;
   const satir = el("div", { className: "sarki-satiri" + (tikla ? " tiklanir" : "") + (caliyor ? " caliyor" : "") },
     el("div", { className: "kapak-kutu" },
-      el("img", { src: kapakAdresi(sarki.videoId), alt: "", loading: "lazy" }),
+      kapakResmi(sarki),
       tikla ? el("span", { className: "kapak-oynat" }, "▶") : null),
     el("div", { className: "sarki-bilgi" },
       el("div", { className: "sarki-adi", title: sarki.baslik }, sarki.baslik),
@@ -1223,6 +1225,41 @@ function odaOlaylariniBagla() {
 
   // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
   $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler));
+
+  // Videoya tıklamak oynat/duraklat; sağ alttaki tuş ve çift tıklama tam ekran
+  // Tarayıcı gerçek tam ekrana izin vermezse video sayfanın tamamını kaplar
+  const sayfayiKapla = (acik) => {
+    $("videoKutu").classList.toggle("tam-ekran", acik);
+    $("videoKutu").classList.toggle("sayfayi-kapla", acik);
+    $("tamEkranTus").title = acik ? "Küçült" : "Tam ekran";
+  };
+  const tamEkran = () => {
+    const kutu = $("videoKutu");
+    if (document.fullscreenElement) return document.exitFullscreen();
+    if (kutu.classList.contains("sayfayi-kapla")) return sayfayiKapla(false);
+    (kutu.requestFullscreen ? kutu.requestFullscreen() : Promise.reject()).catch(() => sayfayiKapla(true));
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("videoKutu").classList.contains("sayfayi-kapla")) sayfayiKapla(false);
+  });
+  let tekTik = null;
+  $("videoPerdesi").addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    // Çift tıklamada şarkı bir durup bir başlamasın diye tek tıklama biraz beklenir
+    clearTimeout(tekTik);
+    tekTik = setTimeout(() => $("oynatTus").click(), 220);
+  });
+  $("videoPerdesi").addEventListener("dblclick", (e) => {
+    if (e.target.closest("button")) return;
+    clearTimeout(tekTik);
+    tamEkran();
+  });
+  $("tamEkranTus").addEventListener("click", tamEkran);
+  document.addEventListener("fullscreenchange", () => {
+    const acik = document.fullscreenElement === $("videoKutu");
+    $("videoKutu").classList.toggle("tam-ekran", acik);
+    $("tamEkranTus").title = acik ? "Küçült" : "Tam ekran";
+  });
 
   // "← Lobi": odaya katıldıysa sayfa yenilenmez, müzik mini oynatıcıda sürer
   $("oda").querySelector(".geri-tus").addEventListener("click", (e) => { if (lobiyeGozAt()) e.preventDefault(); });
