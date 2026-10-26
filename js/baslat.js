@@ -18,9 +18,28 @@
     if (sorun) bildir(sorun);
   }
   istatistikBaslat();
+  akisAdresiniKaydet();
   oturumRozetleriniCiz();
   if (new URLSearchParams(location.search).has("tani")) taniModunuAc();
 })();
+
+// Reklamsız akış sunucusu açılınca ("Bekleniyor akışı başlat.bat") yöneticinin tarayıcısında
+// ?akis=<tünel adresi> ile site açılır; adres Firebase'e yazılır ve bütün odalar onu kullanır.
+function akisAdresiniKaydet() {
+  const adres = new URLSearchParams(location.search).get("akis");
+  if (!adres || !db) return;
+  if (!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(adres)) return bildir("Akış sunucusu adresi geçersiz");
+  let bitti = false;
+  oturumDegisince(() => {
+    if (bitti) return;
+    if (!kullanici || !yonetici) return bildir("Akış sunucusunu açmak için yönetici hesabıyla Google'dan giriş yap");
+    bitti = true;
+    db.ref("ayarlar/akis").set({ adres, zaman: firebase.database.ServerValue.TIMESTAMP }).then(() => {
+      bildir("Reklamsız akış açıldı ✓ Odalarda şarkılar artık reklamsız çalacak");
+      history.replaceState(null, "", location.pathname);
+    }).catch((e) => bildir("Akış adresi kaydedilemedi: " + e.message));
+  });
+}
 
 // ?tani=1 ile açılır: sayfanın aldığı tıklamaları ve farenin altındaki öğeyi sol alta yazar.
 // Tıklamanın sayfaya hiç ulaşıp ulaşmadığını görmek için kullanılır.

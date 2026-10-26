@@ -1,12 +1,17 @@
 # Dependabot: kullanılan araçların yeni (güvenlik düzeltmeli) sürümleri çıkınca güncelleme PR'ı açar.
 # PR'lar kendiliğinden birleşmez; gözden geçirip onaylamak gerekir.
+# cooldown: yeni çıkan sürüm 7 gün beklenir (bozuk ya da kötü niyetli bir sürüm hemen alınmasın).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: pip
     directory: /akis-sunucusu
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7

@@ -127,7 +127,9 @@ function odayiBaslat(id) {
   if (kayitliSes !== null) $("sesAyari").value = kayitliSes;
   asansor.volume = Number($("sesAyari").value) / 100;
 
+  akisAdresiniDinle();
   odaOlaylariniBagla();
+  medyaTuslariniBagla();
   duzenOlaylariniBagla();
   sahneyiPanellereBagla();
   cubukDavranisiniBagla();
@@ -355,6 +357,7 @@ function muzikBakimi() {
   simdikiyiCoz();
   siradakiniHazirla();
   radyoyuDoldur();
+  akisiOncedenHazirla();
 }
 
 setInterval(muzikBakimi, 5000);
@@ -371,11 +374,13 @@ function gecmiseYaz(sarki) {
 
 // Bir ya da daha fazla şarkıyı sıraya ekler; oda boşsa ilki hemen çalmaya başlar.
 // Spotify'dan gelen (henüz YouTube karşılığı olmayan) şarkılar da eklenebilir; çalma sırası gelince aranır.
-function sarkilariEkle(liste, ekleyen) {
+async function sarkilariEkle(liste, ekleyen) {
   if (!muzikRef) return;
   const kayitlar = liste.filter((s) => gecerliId(s.videoId) || s.arama || s.baslik)
     .map((s) => Object.assign(sarkiKaydi(s), { ekleyen: String(ekleyen || isim).slice(0, 40) }));
   if (!kayitlar.length) return;
+  // Oda sessizse ilk şarkı hemen başlayacak: önce sunucuda hazır olsun
+  if (!simdiki) await akisaHazirla(kayitlar[0].videoId);
   const anahtarlar = kayitlar.map(() => muzikRef.child("sira").push().key);
   let baslayan = null;
   return muzikRef.transaction((m) => {
@@ -398,8 +403,10 @@ function sarkilariEkle(liste, ekleyen) {
 }
 
 // Sadece biten şarkı hâlâ çalıyorsa ilerler; böylece birden fazla kişi aynı anda tetiklese de tek şarkı atlanır.
-function sonrakineGec(bitenKimlik) {
+async function sonrakineGec(bitenKimlik) {
   if (!muzikRef) return;
+  const siradaki = siraListesi()[0];
+  if (siradaki) await akisaHazirla(siradaki.videoId);
   let baslayan = null;
   muzikRef.transaction((m) => {
     baslayan = null;
@@ -449,6 +456,7 @@ async function hemenCal(sarki, siraAnahtari) {
     }
   }
   const kayit = Object.assign(sarkiKaydi(sarki), { ekleyen: String(sarki.ekleyen || isim).slice(0, 40) });
+  await akisaHazirla(kayit.videoId);
   let baslayan = null;
   muzikRef.transaction((m) => {
     m = m || {};
@@ -466,12 +474,13 @@ async function hemenCal(sarki, siraAnahtari) {
 
 // Spotify gibi: şarkı 3 saniyeyi geçtiyse başa sarar, değilse önceki şarkıya döner.
 // Çalan şarkı kaybolmasın diye sıranın en başına geri konur.
-function geriGit() {
+async function geriGit() {
   if (!muzikRef || !simdiki) return;
   if (konumHesapla(simdiki) > 3 || !oncekiListesi.length) {
     konumaGit(0);
     return;
   }
+  await akisaHazirla(oncekiListesi[oncekiListesi.length - 1].videoId);
   let baslayan = null;
   muzikRef.transaction((m) => {
     baslayan = null;
@@ -523,6 +532,7 @@ async function simdikiyiCoz() {
   if (!simdiki || sarkiKimligi(simdiki) !== kimlik) return;
   try {
     const bulunan = await sarkiyiCoz(simdiki);
+    await akisaHazirla(bulunan.videoId);
     await muzikRef.child("simdiki").transaction((s) => {
       if (!s || sarkiKimligi(s) !== kimlik) return;
       s.videoId = bulunan.videoId;
@@ -700,10 +710,198 @@ function senkronla() {
   }
 }
 
+// ---------- Reklamsız akış ----------
+// Odanın sahibi bilgisayarında akış sunucusunu (akis-sunucusu/, "Bekleniyor akışı başlat.bat") açtıysa
+// adresi Firebase'de "ayarlar/akis" altında durur. Sunucu cevap veriyorsa şarkılar YouTube oynatıcısı
+// yerine o sunucudan, sitenin kendi <video> öğesiyle çalınır: reklam çıkmaz. Telefonlarda sadece ses
+// (<audio>) çalınır; böylece ekran kapalıyken de çalabilir. Sunucu kapalıysa ya da bir şarkıda sorun
+// çıkarsa o şarkı her zamanki gibi YouTube'dan çalar.
+const TELEFON = matchMedia("(hover: none)").matches;
+const AKIS_ADRESI = /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/;
+let akisAdresi = null;
+let akisCalisiyor = false;
+const akistanCalmayanlar = new Set(); // bu oturumda sunucudan çalınamayan şarkılar
+
+async function akisSunucusunuDene() {
+  if (!akisAdresi) {
+    akisCalisiyor = false;
+    return;
+  }
+  const iptal = new AbortController();
+  const zaman = setTimeout(() => iptal.abort(), 4000);
+  try {
+    const yanit = await fetch(akisAdresi + "/saglik", { signal: iptal.signal, cache: "no-store" });
+    akisCalisiyor = yanit.ok && (await yanit.json()).ok === true;
+  } catch (e) {
+    akisCalisiyor = false;
+  }
+  clearTimeout(zaman);
+}
+
+setInterval(akisSunucusunuDene, 60000);
+
+function akisAdresiniDinle() {
+  db.ref("ayarlar/akis").on("value", (s) => {
+    const v = s.val();
+    // Kendi bilgisayarında denerken (localhost) yerel sunucu kullanılır
+    akisAdresi = v && AKIS_ADRESI.test(v.adres) ? v.adres
+      : location.hostname === "localhost" ? "http://127.0.0.1:8790" : null;
+    akisSunucusunuDene();
+  });
+}
+
+function akisTuru() {
+  return TELEFON ? "ses" : "video";
+}
+
+// Sıradaki 3 şarkının sadece başı sunucuda önceden indirilir (atlanabilecekleri için tamamı değil);
+// şarkı değişince hemen çalmaya başlar.
+const oncedenHazirlananlar = new Set();
+function akisiOncedenHazirla() {
+  if (!akisCalisiyor) return;
+  for (const sarki of siraListesi().slice(0, 3)) {
+    if (!gecerliId(sarki.videoId) || oncedenHazirlananlar.has(sarki.videoId)) continue;
+    oncedenHazirlananlar.add(sarki.videoId);
+    fetch(akisAdresi + "/hazirla?kismi=1&v=" + sarki.videoId + "&tur=" + akisTuru(), { cache: "no-store" }).catch(() => { });
+  }
+}
+
+// YouTube her şarkıyı vermeden önce birkaç saniye bekletiyor. Şarkı odada başlatılmadan (saat işlemeye
+// başlamadan) önce sunucuda çalmaya hazır olması beklenir; böylece kimse şarkının ilk saniyelerini kaçırmaz.
+// Bu sırada çalan şarkı çalmaya devam eder. Sunucu yoksa ya da 20 saniyede hazır olmazsa beklenmez.
+async function akisaHazirla(videoId) {
+  if (!akisCalisiyor || !gecerliId(videoId) || akistanCalmayanlar.has(videoId)) return;
+  // Telefonlar sadece sesi çaldığı için onun da başı hazırlansın
+  const diger = akisTuru() === "video" ? "ses" : "video";
+  fetch(akisAdresi + "/hazirla?kismi=1&v=" + videoId + "&tur=" + diger, { cache: "no-store" }).catch(() => { });
+  const iptal = new AbortController();
+  const zaman = setTimeout(() => iptal.abort(), 20000);
+  const uyari = setTimeout(() => bildir("Şarkı hazırlanıyor…"), 900);
+  try {
+    await fetch(akisAdresi + "/hazirla?bekle=1&v=" + videoId + "&tur=" + akisTuru(), { signal: iptal.signal, cache: "no-store" });
+  } catch (e) { }
+  clearTimeout(zaman);
+  clearTimeout(uyari);
+}
+
+// YouTube oynatıcısıyla aynı yöntemleri sunan karma oynatıcı: o anki şarkıyı ya akış sunucusundan
+// (kendi <video>/<audio> öğemiz) ya da YouTube'dan çalar. Sitenin geri kalanı farkı bilmez.
+function karmaOynatici(yt) {
+  const medya = TELEFON ? new Audio() : $("akisVideo");
+  medya.preload = "auto";
+  let mod = "yt";
+  let yedekZamanlayici = null;
+
+  const moduAyarla = (akis) => {
+    mod = akis ? "medya" : "yt";
+    $("videoKutu").classList.toggle("akis-modu", akis);
+    $("videoKutu").classList.toggle("sadece-ses", akis && TELEFON);
+  };
+  const medyayiBosalt = () => {
+    clearTimeout(yedekZamanlayici);
+    moduAyarla(false);
+    medya.pause();
+    medya.removeAttribute("src");
+    medya.load();
+  };
+  // Sunucudan çalınamayan şarkı YouTube'dan, odanın o anki yerinden devam eder
+  const youtubeaDon = (kimlik, oynat) => {
+    akistanCalmayanlar.add(kimlik);
+    medyayiBosalt();
+    akisSunucusunuDene();
+    const secenek = { videoId: kimlik, startSeconds: simdiki ? konumHesapla(simdiki) : 0 };
+    if (oynat) yt.loadVideoById(secenek);
+    else yt.cueVideoById(secenek);
+  };
+  const yukle = (secenek, oynat) => {
+    clearTimeout(yedekZamanlayici);
+    const kimlik = secenek.videoId;
+    if (!akisCalisiyor || akistanCalmayanlar.has(kimlik)) {
+      if (mod === "medya") medyayiBosalt();
+      return oynat ? yt.loadVideoById(secenek) : yt.cueVideoById(secenek);
+    }
+    yt.stopVideo();
+    moduAyarla(true);
+    medya.onerror = () => { if (mod === "medya") youtubeaDon(kimlik, oynat); };
+    medya.onloadedmetadata = () => {
+      const bas = simdiki ? konumHesapla(simdiki) : secenek.startSeconds || 0;
+      if (bas > 0.5) medya.currentTime = bas;
+    };
+    medya.src = akisAdresi + "/akis?v=" + kimlik + "&tur=" + akisTuru();
+    if (oynat) medya.play().catch(() => { });
+    // Sunucu 20 saniyede şarkıyı veremezse YouTube'a dönülür
+    yedekZamanlayici = setTimeout(() => {
+      if (mod === "medya" && medya.readyState < 2) youtubeaDon(kimlik, oynat);
+    }, 20000);
+  };
+
+  medya.addEventListener("ended", () => {
+    if (simdiki && simdiki.videoId === yuklenenId) sonrakineGec(sarkiKimligi(simdiki));
+  });
+
+  return {
+    get mod() { return mod; },
+    loadVideoById: (s) => yukle(s, true),
+    cueVideoById: (s) => yukle(s, false),
+    playVideo: () => (mod === "medya" ? medya.play().catch(() => { }) : yt.playVideo()),
+    pauseVideo: () => (mod === "medya" ? medya.pause() : yt.pauseVideo()),
+    stopVideo: () => {
+      if (mod === "medya") medyayiBosalt();
+      yt.stopVideo();
+    },
+    seekTo: (sn, izin) => {
+      if (mod === "medya") medya.currentTime = sn;
+      else yt.seekTo(sn, izin);
+    },
+    getCurrentTime: () => (mod === "medya" ? medya.currentTime : yt.getCurrentTime()),
+    getDuration: () => (mod === "medya" ? (isFinite(medya.duration) ? medya.duration : 0) : yt.getDuration()),
+    getPlayerState: () => {
+      if (mod !== "medya") return yt.getPlayerState();
+      if (medya.ended) return YT.PlayerState.ENDED;
+      if (medya.paused) return medya.readyState ? YT.PlayerState.PAUSED : YT.PlayerState.CUED;
+      return medya.readyState < 3 || medya.seeking ? YT.PlayerState.BUFFERING : YT.PlayerState.PLAYING;
+    },
+    setVolume: (ses) => {
+      medya.volume = Math.max(0, Math.min(1, ses / 100));
+      yt.setVolume(ses);
+    }
+  };
+}
+
+// Telefonun kilit ekranında ve bildirimlerde şarkı adı ve oynat/duraklat/atla tuşları
+function medyaOturumunuGuncelle() {
+  if (!("mediaSession" in navigator) || !window.MediaMetadata) return;
+  if (!simdiki) {
+    navigator.mediaSession.metadata = null;
+    return;
+  }
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: simdiki.baslik || "",
+    artist: simdiki.kanal || "",
+    album: (odaBilgi && odaBilgi.ad) || "Bekleniyor",
+    artwork: gecerliId(simdiki.videoId)
+      ? [{ src: "https://i.ytimg.com/vi/" + simdiki.videoId + "/hqdefault.jpg", sizes: "480x360", type: "image/jpeg" }] : []
+  });
+  navigator.mediaSession.playbackState = simdiki.duraklatildi ? "paused" : "playing";
+}
+
+function medyaTuslariniBagla() {
+  if (!("mediaSession" in navigator)) return;
+  const tuslar = {
+    play: () => simdiki && simdiki.duraklatildi && devamEt(),
+    pause: () => simdiki && !simdiki.duraklatildi && duraklat(),
+    nexttrack: () => $("atlaTus").click(),
+    previoustrack: () => $("geriTus").click()
+  };
+  for (const [olay, is] of Object.entries(tuslar)) {
+    try { navigator.mediaSession.setActionHandler(olay, is); } catch (e) { }
+  }
+}
+
 function onYouTubeIframeAPIReady() {
   const ayarlar = { controls: 0, disablekb: 1, rel: 0, playsinline: 1 };
   if (location.protocol.startsWith("http")) ayarlar.origin = location.origin;
-  oynatici = new YT.Player("ytOynatici", {
+  const yt = new YT.Player("ytOynatici", {
     width: "100%",
     height: "100%",
     playerVars: ayarlar,
@@ -719,12 +917,13 @@ function onYouTubeIframeAPIReady() {
         }
       },
       onError: () => {
-        if (!simdiki) return;
+        if (!simdiki || oynatici.mod === "medya") return;
         bildir("Bu video sitede çalınamıyor, sıradakine geçiliyor");
         sonrakineGec(sarkiKimligi(simdiki));
       }
     }
   });
+  oynatici = karmaOynatici(yt);
 }
 
 setInterval(senkronla, 3000);
@@ -740,8 +939,8 @@ let durgunSure = 0;
 
 setInterval(() => {
   let simdiReklam = false;
-  if (katildi && oynaticiHazir && simdiki && !simdiki.duraklatildi && gecerliId(simdiki.videoId) &&
-    yuklenenId === simdiki.videoId && document.visibilityState === "visible") {
+  if (katildi && oynaticiHazir && oynatici.mod !== "medya" && simdiki && !simdiki.duraklatildi &&
+    gecerliId(simdiki.videoId) && yuklenenId === simdiki.videoId && document.visibilityState === "visible") {
     const sn = oynatici.getCurrentTime() || 0;
     const durum = oynatici.getPlayerState();
     const bekliyor = durum !== YT.PlayerState.PAUSED && durum !== YT.PlayerState.ENDED && durum !== YT.PlayerState.CUED;
@@ -793,6 +992,10 @@ function arayuzuGuncelle() {
     $("simdikiListeye").hidden = true;
   }
   miniyiGuncelle();
+  medyaOturumunuGuncelle();
+  // Telefonda sadece ses çalarken video kutusunda şarkının kapağı görünür
+  $("videoKutu").style.setProperty("--kapak", simdiki && gecerliId(simdiki.videoId)
+    ? 'url("https://i.ytimg.com/vi/' + simdiki.videoId + '/hqdefault.jpg")' : "none");
   $("perdeBaslik").textContent = simdiki ? simdiki.baslik || "" : "";
   $("videoPerdesi").classList.toggle("durdu", !!simdiki && !!simdiki.duraklatildi);
   $("geriTus").disabled = !simdiki;

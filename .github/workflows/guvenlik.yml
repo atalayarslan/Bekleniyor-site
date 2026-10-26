@@ -2,6 +2,7 @@
 #  - Semgrep: kod desenlerinden açık arar (XSS, güvensiz eval, vb.)
 #  - Trivy: bağımlılık açıkları ve koda yanlışlıkla konmuş gizli anahtarlar
 # Bulgular GitHub'da repo > Security > Code scanning altında görünür.
+# Eylemler değişmez commit kimliğine sabitlidir (etiket sonradan başka koda taşınamasın); Dependabot günceller.
 name: Güvenlik taraması
 
 on:
@@ -18,24 +19,24 @@ permissions:
 
 jobs:
   semgrep:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container:
       image: semgrep/semgrep:1.181.1
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # "--config auto" kullanım istatistiği gönderilmesini şart koşuyor; onun yerine hazır kural setleri
       - run: semgrep scan --config p/default --config p/javascript --config p/python --config p/secrets --sarif --output semgrep.sarif --metrics off || true
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
         if: always()
         with:
           sarif_file: semgrep.sarif
           category: semgrep
 
   trivy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: aquasecurity/trivy-action@v0.36.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -43,7 +44,7 @@ jobs:
           format: sarif
           output: trivy.sarif
           exit-code: "0"
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
         if: always()
         with:
           sarif_file: trivy.sarif

@@ -8,13 +8,15 @@
 # Adresler:
 #   /saglik                                  -> {"ok": true}
 #   /akis?v=<11 haneli kimlik>&tur=video|ses -> şarkının kendisi (Range destekli)
-#   /hazirla?v=<kimlik>&tur=video|ses        -> sıradaki şarkıyı önceden indirir
+#   /hazirla?v=<kimlik>&tur=video|ses        -> şarkıyı önceden indirir
+#            &kismi=1  sadece başını (sıradaki şarkılar)   &bekle=1  çalmaya hazır olunca cevap verir
 # Başka hiçbir dosyaya ya da adrese erişmez. Sadece 127.0.0.1'de dinler; dışarıya Cloudflare
 # tüneliyle açılır (baslat.bat).
 
 import json
 import os
 import re
+import sys
 import threading
 import time
 import urllib.parse
@@ -23,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import yt_dlp
 
 PORT = 8790
-SURUM = "2"
+SURUM = "3"
 # yt-dlp, YouTube'un şifreli parametrelerini çözmek için Node.js kullanır
 NODE = os.environ.get("BEKLENIYOR_NODE") or os.path.expandvars(r"%LOCALAPPDATA%\Programs\nodejs\node.exe")
 ONBELLEK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "onbellek") \
@@ -47,47 +49,102 @@ def log(*parca):
     print(time.strftime("%H:%M:%S"), *parca, flush=True)
 
 
+# Sıradaki şarkılar önceden sadece bu kadar indirilir (atlanabilecekleri için tamamı inmez; yaklaşık ilk dakika)
+KISMI_SINIR = {"video": 2_500_000, "ses": 1_000_000}
+
+
+class KismiBitti(Exception):
+    pass
+
+
+def paylasimli_ac(yol):
+    """Dosyayı okumak için açar. Windows'ta okunurken yeniden adlandırılabilsin diye FILE_SHARE_DELETE ile."""
+    if os.name != "nt":
+        return open(yol, "rb")
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+    CreateFileW = ctypes.windll.kernel32.CreateFileW
+    CreateFileW.restype = wintypes.HANDLE
+    CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                            wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    tutamac = CreateFileW(yol, 0x80000000, 0x1 | 0x2 | 0x4, None, 3, 0x80, None)  # okuma; paylaşım okuma|yazma|silme
+    if tutamac in (None, wintypes.HANDLE(-1).value):
+        raise OSError("açılamadı: " + yol)
+    return os.fdopen(msvcrt.open_osfhandle(tutamac, os.O_RDONLY | os.O_BINARY), "rb")
+
+
 class Indirme:
-    """Bir şarkının (video ya da ses) önbelleğe inişi. Okuyucular dosya büyüdükçe okuyabilir."""
+    """Bir şarkının (video ya da ses) önbelleğe inişi. İner inmez okunabilir; önce sadece başı (kısmi)
+    inebilir, gerekince kaldığı yerden tamamlanır. İnerken <yol>.part, bitince <yol> adındadır."""
 
     def __init__(self, kimlik, tur):
         self.kimlik, self.tur = kimlik, tur
         self.yol = os.path.join(ONBELLEK, "%s.%s.%s" % (kimlik, tur, "mp4" if tur == "video" else "m4a"))
+        self.parca = self.yol + ".part"
         self.toplam = None   # bayt
         self.bitti = False
         self.hata = None
+        self.calisiyor = False
+        self.sinir = None    # kısmi indirmede durulacak bayt; None = tamamı
         self.degisti = threading.Condition()
         if os.path.exists(self.yol) and os.path.exists(self.yol + ".tamam"):
             self.toplam = os.path.getsize(self.yol)
             self.bitti = True
             os.utime(self.yol)
-        else:
-            threading.Thread(target=self.indir, daemon=True).start()
+        elif os.path.exists(self.yol):
+            # Yarıda kalmış eski bir dosya; yt-dlp onu "zaten inmiş" sanmasın
+            os.remove(self.yol)
+
+    def dosya(self):
+        return self.yol if self.bitti else self.parca
 
     def indirilen(self):
-        try:
-            return os.path.getsize(self.yol)
-        except OSError:
-            return 0
+        for yol in (self.yol, self.parca) if self.bitti else (self.parca, self.yol):
+            try:
+                return os.path.getsize(yol)
+            except OSError:
+                pass
+        return 0
+
+    def baslat(self, tam):
+        """tam=False: sadece başını indir; tam=True: tamamını (kısmi indirme sürüyorsa sınırı kaldırır)."""
+        with self.degisti:
+            if self.bitti:
+                return
+            if tam:
+                self.sinir = None
+            if self.calisiyor:
+                return
+            if not tam:
+                if self.toplam and self.indirilen() >= min(KISMI_SINIR[self.tur], self.toplam):
+                    return  # başı zaten inmiş
+                self.sinir = KISMI_SINIR[self.tur]
+            self.hata = None
+            self.calisiyor = True
+        threading.Thread(target=self.indir, daemon=True).start()
 
     def kanca(self, d):
-        if d.get("status") == "downloading" and self.toplam is None:
-            toplam = d.get("total_bytes") or d.get("total_bytes_estimate")
-            if toplam:
-                with self.degisti:
+        if d.get("status") != "downloading":
+            return
+        with self.degisti:
+            if self.toplam is None:
+                toplam = d.get("total_bytes") or d.get("total_bytes_estimate")
+                if toplam:
                     self.toplam = int(toplam)
-                    self.degisti.notify_all()
+                    log("başladı", self.kimlik, self.tur, "%.1f sn" % (time.time() - self.bas))
+            self.degisti.notify_all()
+            if self.sinir and (d.get("downloaded_bytes") or 0) >= self.sinir:
+                raise KismiBitti()
 
     def indir(self):
         with indirme_sayaci:
-            bas = time.time()
+            self.bas = time.time()
             try:
-                if os.path.exists(self.yol):
-                    os.remove(self.yol)
                 ayar = {"quiet": True, "no_warnings": True, "noprogress": True,
                         "format": BICIM[self.tur], "outtmpl": {"default": self.yol},
-                        # .part dosyası olmadan doğrudan son adına yazılır; okuyucular büyüyen dosyayı okur
-                        "nopart": True, "continuedl": False, "overwrites": True,
+                        # İnen kısım <yol>.part'ta kalır; sonraki indirme kaldığı yerden devam eder
+                        "continuedl": True, "overwrites": False,
                         "js_runtimes": {"node": {"path": NODE}},
                         "progress_hooks": [self.kanca]}
                 with yt_dlp.YoutubeDL(ayar) as y:
@@ -97,14 +154,23 @@ class Indirme:
                 with self.degisti:
                     self.toplam = os.path.getsize(self.yol)
                     self.bitti = True
+                    self.calisiyor = False
                     self.degisti.notify_all()
-                log("indi", self.kimlik, self.tur, "%.1f sn" % (time.time() - bas), "%.1f MB" % (self.toplam / 1e6))
+                log("indi", self.kimlik, self.tur, "%.1f sn" % (time.time() - self.bas), "%.1f MB" % (self.toplam / 1e6))
                 onbellegi_temizle()
             except Exception as h:
-                log("indirilemedi", self.kimlik, self.tur, str(h)[:200])
                 with self.degisti:
-                    self.hata = str(h)[:200]
+                    self.calisiyor = False
+                    kismi = self.sinir and self.indirilen() >= self.sinir
+                    if kismi:
+                        log("başı indi", self.kimlik, self.tur, "%.1f MB" % (self.indirilen() / 1e6))
+                    else:
+                        log("indirilemedi", self.kimlik, self.tur, str(h)[:200])
+                        self.hata = str(h)[:200]
                     self.degisti.notify_all()
+                # Kısmi iniş sürerken biri şarkının tamamını istediyse (sınır kaldırıldıysa) devam et
+                if kismi and self.sinir is None:
+                    self.baslat(True)
 
     def bekle(self, kosul, sure):
         son = time.time() + sure
@@ -114,12 +180,13 @@ class Indirme:
         return kosul()
 
 
-def indirme_al(kimlik, tur, yeniden=False):
+def indirme_al(kimlik, tur, tam):
     with kilit:
         i = indirmeler.get((kimlik, tur))
-        if i is None or (yeniden and i.hata) or (i.bitti and not os.path.exists(i.yol)):
+        if i is None or (i.bitti and not os.path.exists(i.yol)):
             i = indirmeler[(kimlik, tur)] = Indirme(kimlik, tur)
-        return i
+    i.baslat(tam)
+    return i
 
 
 def onbellegi_temizle():
@@ -194,12 +261,18 @@ class Isleyici(BaseHTTPRequestHandler):
         if not KIMLIK.match(kimlik) or tur not in BICIM:
             return self.yanitla(400, {"hata": "geçersiz istek"})
         if adres.path == "/hazirla":
-            indirme_al(kimlik, tur, yeniden=True)
-            return self.yanitla(200, {"ok": True})
+            # kismi=1: sadece başını indir (sıradaki şarkılar). bekle=1: çalmaya yetecek kadarı inene kadar
+            # bekleyip öyle cevap ver (site şarkıyı odada ancak o zaman başlatır, kimse ilk saniyeleri kaçırmaz)
+            ind = indirme_al(kimlik, tur, tam=not sorgu.get("kismi"))
+            hazir = True
+            if sorgu.get("bekle"):
+                hazir = ind.bekle(lambda: ind.bitti or (ind.toplam is not None and
+                                                         ind.indirilen() >= min(400_000, ind.toplam)), 25)
+            return self.yanitla(200 if not ind.hata else 502, {"ok": not ind.hata, "hazir": hazir})
         if not akis_sayaci.acquire(blocking=False):
             return self.yanitla(503, {"hata": "meşgul"})
         try:
-            self.aktar(indirme_al(kimlik, tur, yeniden=True))
+            self.aktar(indirme_al(kimlik, tur, tam=True))
         finally:
             akis_sayaci.release()
 
@@ -235,7 +308,9 @@ class Isleyici(BaseHTTPRequestHandler):
         self.end_headers()
         konum = bas
         try:
-            with open(ind.yol, "rb") as f:
+            if not ind.bekle(lambda: ind.indirilen() > 0, 30):
+                return
+            with paylasimli_ac(ind.dosya()) as f:
                 while konum <= son:
                     # İndirme bu noktaya gelmediyse biraz bekle
                     if not ind.bitti and ind.indirilen() <= konum:
@@ -254,9 +329,16 @@ class Isleyici(BaseHTTPRequestHandler):
             pass  # tarayıcı ileri sardı ya da şarkıyı değiştirdi
 
 
+class Sunucu(ThreadingHTTPServer):
+    def handle_error(self, istek, adres):
+        # Tarayıcı bağlantıyı kendisi kestiğinde (ileri sarma, şarkı değişimi) uzun hata dökümü basma
+        if not isinstance(sys.exc_info()[1], (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)):
+            super().handle_error(istek, adres)
+
+
 if __name__ == "__main__":
     os.makedirs(ONBELLEK, exist_ok=True)
-    sunucu = ThreadingHTTPServer(("127.0.0.1", PORT), Isleyici)
+    sunucu = Sunucu(("127.0.0.1", PORT), Isleyici)
     sunucu.daemon_threads = True
     log("Bekleniyor akış sunucusu çalışıyor: http://127.0.0.1:%d (kapatmak için bu pencereyi kapat)" % PORT)
     try:

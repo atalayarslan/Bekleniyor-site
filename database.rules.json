@@ -344,6 +344,22 @@
         ".validate": "$k.length <= 100 && newData.isString() && newData.val().length == 11"
       }
     },
+    "ayarlar": {
+      ".read": true,
+      "akis": {
+        ".write": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+        ".validate": "newData.hasChildren(['adres', 'zaman'])",
+        "adres": {
+          ".validate": "newData.isString() && newData.val().matches(/^https:\\/\\/[a-z0-9-]+\\.trycloudflare\\.com$/)"
+        },
+        "zaman": {
+          ".validate": "newData.val() == now"
+        },
+        "$diger": {
+          ".validate": false
+        }
+      }
+    },
     "istatistik": {
       ".read": true,
       "$uid": {

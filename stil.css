@@ -1406,6 +1406,34 @@ a {
   transform: translate(-50%, -50%) scale(var(--video-olcek, 1));
 }
 
+/* Reklamsız akış: şarkı sitenin kendi videosunda çalarken YouTube oynatıcısı gizlenir */
+.akis-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: none;
+}
+
+.akis-modu .akis-video {
+  display: block;
+}
+
+.akis-modu iframe {
+  visibility: hidden;
+}
+
+/* Telefonda sadece ses çalar; kutuda şarkının kapağı görünür */
+.video-kutu.sadece-ses {
+  background: #000 var(--kapak, none) center / cover no-repeat;
+}
+
+.sadece-ses .akis-video {
+  display: none;
+}
+
 /* Videonun üstündeki perde: YouTube'un kendi bağlantıları ve düğmeleri çıkmaz, tıklamayı site alır */
 .video-perdesi {
   position: absolute;
