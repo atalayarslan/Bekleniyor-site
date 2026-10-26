@@ -21,6 +21,7 @@ let isim = "Misafir";
 let benimKaydim = null;
 let odadakiler = [];          // [{ ad, foto }] şu an odada olanlar
 let katilanlarYuklendi = false;
+let odadakiHamSayi = 0;          // görünmeyen eski kayıtlar dahil
 const asansor = $("elevatorMusic");
 const basariSesi = $("successSound");
 
@@ -103,6 +104,7 @@ function odayiBaslat(id) {
 
   odaRef.child("katilanlar").on("value", (s) => {
     odadakiler = katilanListesi(s.val());
+    odadakiHamSayi = Object.keys(s.val() || {}).length;
     katilanlarYuklendi = true;
     $("kisiSayisi").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 3), odadakiler.length + " kişi bekliyor"] : []));
   });
@@ -317,18 +319,82 @@ function varliginiBildir() {
   // Sekme kapansa bile ayrılma zamanı yazılır; odaya sonra giren, son kişinin ne zaman çıktığını bilir
   muzikRef.child("sonAyrilma").onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
   // Giriş yapmışsa profil fotoğrafı da görünür; misafirler sadece adla
-  const kayit = { ad: isim };
+  const kayit = { ad: isim, zaman: firebase.database.ServerValue.TIMESTAMP };
   if (kullanici && guvenliFoto(kullanici.photoURL)) kayit.foto = guvenliFoto(kullanici.photoURL);
   benimKaydim.set(kayit);
+  aktifOturumuYaz();
+}
+
+// Odadaki kayıt dakikada bir tazelenir; tazelenmeyen kayıt 3 dakika sonra listelerden düşer (temel.js)
+setInterval(() => {
+  if (katildi && benimKaydim) benimKaydim.child("zaman").set(firebase.database.ServerValue.TIMESTAMP).catch(() => { });
+}, 60000);
+
+// ---------- Tek oda kuralı ----------
+// Bir kişi aynı anda tek bir yerde odada sayılır. Aynı tarayıcıda başka bir sekmede ya da (Google ile
+// girdiyse) başka bir cihazda bir odaya girerse, eski sekme odadan çıkar ve oradaki müzik durur.
+// Böylece tarayıcının arka planda açık tuttuğu eski sekmeler insanları başka odalarda göstermez.
+const SEKME = Math.random().toString(36).slice(2, 12);
+const sekmeKanali = "BroadcastChannel" in window ? new BroadcastChannel("bekleniyor") : null;
+let katilmaZamani = 0;
+let aktifOturumUid = null;
+
+if (sekmeKanali) {
+  sekmeKanali.onmessage = (e) => {
+    if (katildi && e.data && e.data.tur === "katildim" && e.data.sekme !== SEKME) {
+      odadanCikarildi("Bu tarayıcıda başka bir sekmede odaya girdin, burada müzik durdu. Burada dinlemek için tekrar katıl.");
+    }
+  };
+}
+
+// Sadece gerçekten katılınca (ya da odadayken Google ile giriş yapınca) yazılır; bağlantı kopup
+// gelince yazılmaz, yoksa geri uyanan eski bir sekme yeni sekmeyi odadan atardı.
+function aktifOturumuYaz() {
+  if (!kullanici || aktifOturumUid === kullanici.uid) return;
+  aktifOturumUid = kullanici.uid;
+  const ref = db.ref("aktifOturum/" + kullanici.uid);
+  ref.set({ sekme: SEKME, oda: String(odaId).slice(0, 60), zaman: firebase.database.ServerValue.TIMESTAMP }).catch(() => { });
+  ref.on("value", (s) => {
+    const v = s.val();
+    if (katildi && v && v.sekme !== SEKME && v.zaman > katilmaZamani) {
+      odadanCikarildi("Hesabınla başka bir yerde (başka sekme ya da cihaz) bir odaya girdin, burada müzik durdu. Burada dinlemek için tekrar katıl.");
+    }
+  });
+}
+
+function odadanCikarildi(mesaj) {
+  katildi = false;
+  if (benimKaydim) {
+    benimKaydim.onDisconnect().cancel();
+    benimKaydim.remove().catch(() => { });
+    benimKaydim = null;
+  }
+  muzikRef.child("sonAyrilma").onDisconnect().cancel();
+  muzikRef.child("sonAyrilma").set(firebase.database.ServerValue.TIMESTAMP).catch(() => { });
+  if (aktifOturumUid) db.ref("aktifOturum/" + aktifOturumUid).off();
+  aktifOturumUid = null;
+  try { oynatici.stopVideo(); } catch (e) { }
+  yuklenenId = null;
+  asansor.pause();
+  if (document.body.classList.contains("mini-mod")) odayaGeriDon();
+  $("kurulumUyarisi").textContent = mesaj;
+  $("kurulumUyarisi").hidden = false;
+  $("katilEkrani").hidden = false;
+  arayuzuGuncelle();
 }
 
 function odayaKatil() {
   isim = $("isimKutusu").value.trim().slice(0, 20) || kisaAd() || "Misafir";
   hafizayaYaz("isim", isim);
   katildi = true;
+  katilmaZamani = sunucuZamani() - 1000;
+  aktifOturumUid = null;
+  $("kurulumUyarisi").hidden = true;
   $("katilEkrani").hidden = true;
-  // Odada kimse yokken müzik durmuş sayılır: otomatik başlamaz, ▶ ile kaldığı yerden devam eder
-  if (katilanlarYuklendi && !odadakiler.length) bosOdadaDuraklat();
+  if (sekmeKanali) sekmeKanali.postMessage({ tur: "katildim", sekme: SEKME });
+  // Odada kimse yokken müzik durmuş sayılır: otomatik başlamaz, ▶ ile kaldığı yerden devam eder.
+  // (Görünmeyen eski kayıtlar da sayılır; yoksa güncellenmemiş bir sekmedeki biri yokmuş sanılıp müzik dururdu)
+  if (katilanlarYuklendi && !odadakiHamSayi) bosOdadaDuraklat();
   varliginiBildir();
   senkronla();
   arayuzuGuncelle();

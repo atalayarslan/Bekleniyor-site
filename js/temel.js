@@ -228,9 +228,15 @@ function bildir(metin) {
   bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur"), 3200);
 }
 
-// Odadakiler listesi: eski kayıtlar sadece isim (metin), yenileri { ad, foto }
+// Odadakiler listesi. Her kayıt { ad, foto, zaman }; "zaman" odadaki sekme açık kaldıkça dakikada bir
+// yenilenir. 3 dakikadır yenilenmeyen kayıtlar (kapanmamış eski sekme, kopmuş bağlantı) ve zamanı
+// olmayan eski biçimli kayıtlar gösterilmez; böylece kimse girmediği bir odada görünmez.
+const VARLIK_ESKIME = 3 * 60 * 1000;
+
 function katilanListesi(veri) {
-  return Object.values(veri || {}).map((k) => typeof k === "string" ? { ad: k } : { ad: k.ad || "Misafir", foto: k.foto || "" });
+  const sinir = sunucuZamani() - VARLIK_ESKIME;
+  return Object.values(veri || {}).filter((k) => k && typeof k === "object" && k.zaman > sinir)
+    .map((k) => ({ ad: k.ad || "Misafir", foto: k.foto || "" }));
 }
 
 // Sadece Google profil fotoğrafı adresleri gösterilir; başka bir sunucuya istek atılıp

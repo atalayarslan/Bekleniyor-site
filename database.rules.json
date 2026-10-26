@@ -173,6 +173,9 @@
             "foto": {
               ".validate": "newData.isString() && (newData.val() == '' || (newData.val().beginsWith('https://lh') && newData.val().contains('.googleusercontent.com/') && newData.val().length <= 500))"
             },
+            "zaman": {
+              ".validate": "newData.val() == now"
+            },
             "$diger": {
               ".validate": false
             }
@@ -342,6 +345,25 @@
       "$k": {
         ".write": "auth != null && !data.exists()",
         ".validate": "$k.length <= 100 && newData.isString() && newData.val().length == 11"
+      }
+    },
+    "aktifOturum": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['sekme', 'oda', 'zaman'])",
+        "sekme": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "oda": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "zaman": {
+          ".validate": "newData.val() == now"
+        },
+        "$diger": {
+          ".validate": false
+        }
       }
     },
     "ayarlar": {
