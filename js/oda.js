@@ -670,6 +670,8 @@ function senkronla() {
   }
 
   const hedef = konumHesapla(simdiki);
+  // Reklam sırasında sarmak ya da oynatmak reklamı bozabilir; reklam bitince odaya yetişilir
+  if (reklamVar && simdiki.videoId === yuklenenId) return;
   if (simdiki.videoId !== yuklenenId) {
     yuklenenId = simdiki.videoId;
     if (simdiki.duraklatildi) oynatici.cueVideoById({ videoId: yuklenenId, startSeconds: hedef });
@@ -726,6 +728,35 @@ function onYouTubeIframeAPIReady() {
 }
 
 setInterval(senkronla, 3000);
+
+// ---------- YouTube reklamları ----------
+// Gömülü oynatıcı reklam oynattığını siteye bildirmez (YouTube'un API'sinde böyle bir bilgi yok).
+// Oda çalarken bu cihazdaki şarkı süresi 3 saniye boyunca hiç ilerlemiyorsa reklam (ya da uzun bir
+// yüklenme) var sayılır: video perdesi tıklamaları YouTube'a geçirir ki "Reklamı atla"ya basılabilsin,
+// altta da küçük bir uyarı çıkar. Süre yeniden ilerleyince her şey eski hâline döner.
+let reklamVar = false;
+let sonOkunanSure = -1;
+let durgunSure = 0;
+
+setInterval(() => {
+  let simdiReklam = false;
+  if (katildi && oynaticiHazir && simdiki && !simdiki.duraklatildi && gecerliId(simdiki.videoId) &&
+    yuklenenId === simdiki.videoId && document.visibilityState === "visible") {
+    const sn = oynatici.getCurrentTime() || 0;
+    const durum = oynatici.getPlayerState();
+    const bekliyor = durum !== YT.PlayerState.PAUSED && durum !== YT.PlayerState.ENDED && durum !== YT.PlayerState.CUED;
+    durgunSure = bekliyor && Math.abs(sn - sonOkunanSure) < 0.05 ? durgunSure + 0.5 : 0;
+    sonOkunanSure = sn;
+    simdiReklam = durgunSure >= 3;
+  } else {
+    durgunSure = 0;
+    sonOkunanSure = -1;
+  }
+  if (simdiReklam === reklamVar) return;
+  reklamVar = simdiReklam;
+  document.body.classList.toggle("reklam-var", reklamVar);
+  if (!reklamVar) senkronla();
+}, 500);
 
 // ---------- Arayüz ----------
 
@@ -1247,6 +1278,13 @@ function odaOlaylariniBagla() {
   $("panelSekmeleri").addEventListener("click", (e) => {
     const tus = e.target.closest("button");
     if (tus) sekmeSec(tus.dataset.sekme);
+  });
+
+  // Reklam uyarısı: video görünmüyorsa (panel kapalı) paneli açar ki "Reklamı atla" görülsün
+  $("reklamUyari").addEventListener("click", () => {
+    if (document.body.classList.contains("mini-mod")) return;
+    $("duzenPaneli").classList.contains("acik") && duzenModunuKapat();
+    $("listePaneli").classList.add("acik");
   });
 
   $("listeTus").addEventListener("click", () => {

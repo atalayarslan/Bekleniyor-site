@@ -1545,6 +1545,49 @@ a {
   display: none;
 }
 
+/* Reklam varken perde tıklamaları YouTube'a geçirir ("Reklamı atla" basılabilsin) */
+.reklam-var .video-perdesi,
+.reklam-var .mini-goruntu {
+  pointer-events: none;
+}
+
+.reklam-var .video-perdesi .perde-simge,
+.reklam-var .video-perdesi .perde-alt {
+  opacity: 0;
+}
+
+.reklam-uyari {
+  display: none;
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--cubuk, 5rem) + 0.75rem);
+  transform: translateX(-50%);
+  z-index: 58;
+  max-width: calc(100vw - 2rem);
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: #ffd60a;
+  color: #000;
+  font: 800 0.82rem 'Nunito', Arial, sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  animation: miniGel 0.25s cubic-bezier(.2, .8, .2, 1);
+}
+
+.reklam-var .reklam-uyari {
+  display: block;
+}
+
+/* Mini oynatıcıdayken uyarı oynatıcının üstünde durur */
+.mini-mod .reklam-uyari {
+  left: auto;
+  right: 1rem;
+  transform: none;
+  bottom: calc(1rem + var(--mini-alt) + var(--mini-g) * 9 / 16 + 0.5rem);
+  max-width: var(--mini-g);
+}
+
 /* Gerçek tam ekran engellenirse: video pencerenin tamamını kaplar */
 #listePaneli:has(.sayfayi-kapla) {
   transform: none;
