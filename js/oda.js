@@ -141,6 +141,16 @@ function odayiBaslat(id) {
   gecmisCiz();
   arayuzuGuncelle();
 
+  // Yönetici tarafından bu odaya taşındıysa katılma ekranı beklemeden odaya girilir
+  if (new URLSearchParams(location.search).has("tasindi")) {
+    history.replaceState(null, "", "?oda=" + encodeURIComponent(id));
+    setTimeout(() => {
+      if (katildi) return;
+      odayaKatil();
+      bildir("Yönetici seni bu odaya taşıdı 🎧 (müzik başlamazsa ▶'ye bas)");
+    }, 1200);
+  }
+
   const betik = document.createElement("script");
   betik.src = "https://www.youtube.com/iframe_api";
   document.body.append(betik);
@@ -312,9 +322,26 @@ function yetkileriGuncelle() {
 
 // ---------- Katılma ve varlık ----------
 
+// Yönetici odadaki kaydıma komut yazabilir: "cikar" → odadan çıkarım, "tasi" → o odaya geçerim
+function komutlariDinle(kayit) {
+  kayit.on("value", (s) => {
+    const v = s.val();
+    if (!katildi || kayit !== benimKaydim || !v) return;
+    if (v.cikar === true) {
+      odadanCikarildi("Yönetici seni bu odadan çıkardı. İstersen tekrar katılabilirsin.");
+    } else if (typeof v.tasi === "string" && gecerliOdaId(v.tasi) && v.tasi !== odaId) {
+      odadanCikarildi("Yönetici seni başka bir odaya taşıyor…");
+      location.href = "?oda=" + encodeURIComponent(v.tasi) + "&tasindi=1";
+    }
+  });
+}
+
 function varliginiBildir() {
   if (!odaRef) return;
-  if (!benimKaydim) benimKaydim = odaRef.child("katilanlar").push();
+  if (!benimKaydim) {
+    benimKaydim = odaRef.child("katilanlar").push();
+    komutlariDinle(benimKaydim);
+  }
   benimKaydim.onDisconnect().remove();
   // Sekme kapansa bile ayrılma zamanı yazılır; odaya sonra giren, son kişinin ne zaman çıktığını bilir
   muzikRef.child("sonAyrilma").onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
@@ -365,6 +392,7 @@ function aktifOturumuYaz() {
 function odadanCikarildi(mesaj) {
   katildi = false;
   if (benimKaydim) {
+    benimKaydim.off();
     benimKaydim.onDisconnect().cancel();
     benimKaydim.remove().catch(() => { });
     benimKaydim = null;
@@ -1645,7 +1673,7 @@ function odaOlaylariniBagla() {
   $("listeKapat").addEventListener("click", () => $("listePaneli").classList.remove("acik"));
 
   // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
-  $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler));
+  $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler, odaId));
 
   // Kutu büyüyüp küçüldükçe (panel, mini oynatıcı, tam ekran) küçük oynatıcının görüntüsü ona sığacak kadar ölçeklenir
   if (window.ResizeObserver) {

@@ -176,6 +176,12 @@
             "zaman": {
               ".validate": "newData.val() == now"
             },
+            "cikar": {
+              ".validate": "newData.isBoolean() && auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))"
+            },
+            "tasi": {
+              ".validate": "newData.isString() && newData.val().length <= 60 && root.child('odalar').child(newData.val()).exists() && auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))"
+            },
             "$diger": {
               ".validate": false
             }

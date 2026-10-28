@@ -24,7 +24,7 @@ function yonetimiKapat() {
 function yonetimiCiz() {
   if ($("yonetimPaneli").hidden) return;
   const odaIdleri = Object.keys(yonetimOdalar);
-  const icerdekiler = odaIdleri.reduce((t, id) => t + Object.keys(yonetimOdalar[id].katilanlar || {}).length, 0);
+  const icerdekiler = odaIdleri.reduce((t, id) => t + katilanListesi(yonetimOdalar[id].katilanlar).length, 0);
   const calanlar = odaIdleri.filter((id) => yonetimOdalar[id].muzik && yonetimOdalar[id].muzik.simdiki).length;
   $("yonetimOzet").replaceChildren(
     el("div", { className: "ozet-kutusu" }, el("b", {}, odaIdleri.length), "oda"),
@@ -34,6 +34,7 @@ function yonetimiCiz() {
     el("div", { className: "ozet-kutusu" }, el("b", {}, Object.keys(yonetimYasaklilar).length), "yasaklı")
   );
   yonetimOdalariniCiz();
+  yonetimOdadakileriCiz();
   yonetimKullanicilariniCiz();
 }
 
@@ -50,7 +51,7 @@ function yonetimOdalariniCiz() {
           bilgi.herkeseAcik === false ? el("span", { className: "soluk" }, " · gizli") : null),
         el("td", { className: "gizle-dar" }, sahip.ad || bilgi.sahipAdi || "—",
           sahip.eposta ? el("div", { className: "soluk" }, sahip.eposta) : null),
-        el("td", {}, Object.keys(oda.katilanlar || {}).length),
+        el("td", {}, katilanListesi(oda.katilanlar).length),
         el("td", { className: "gizle-dar" }, muzik.simdiki ? muzik.simdiki.baslik.slice(0, 40) : "—",
           siraSayisi ? el("div", { className: "soluk" }, "+" + siraSayisi + " sırada") : null),
         el("td", { className: "gizle-dar" }, tarihYaz(bilgi.olusturma)),
@@ -96,6 +97,106 @@ function yonetimKullanicilariniCiz() {
         el("th", { className: i > 0 && i < 4 ? "gizle-dar" : "" }, b)))),
       el("tbody", {}, satirlar))
     : el("p", { className: "not" }, "Henüz giriş yapan kullanıcı yok."));
+}
+
+// ---------- Odadaki kişileri çıkarma ve taşıma ----------
+// Kişinin odadaki kaydına bir komut yazılır ("cikar" ya da "tasi": hedef oda); kişinin sekmesi bunu
+// görüp kendisi çıkar ya da o odaya geçer (oda.js). Kurallar bu komutları sadece yöneticiye yazdırır.
+// Sekmesi açık olmayan (hayalet) kayıt cevap vermeyeceği için birkaç saniye sonra doğrudan silinir.
+
+function kisiIslemTuslari(odaKimligi, kisi) {
+  return el("span", { className: "kisi-islemleri" },
+    el("button", {
+      type: "button", title: "Başka odaya taşı",
+      onclick: (e) => { e.stopPropagation(); menuKapat(); kisiyiTasi(odaKimligi, kisi); }
+    }, "↪"),
+    el("button", {
+      type: "button", className: "tehlike", title: "Odadan çıkar",
+      onclick: (e) => { e.stopPropagation(); menuKapat(); kisiyiCikar(odaKimligi, kisi); }
+    }, "✕"));
+}
+
+function kayitYolu(odaKimligi, kisi) {
+  return "odalar/" + odaKimligi + "/katilanlar/" + kisi.id;
+}
+
+// Komuta cevap gelmezse (sekme kapalı) kayıt silinir
+function cevapsizsaSil(odaKimligi, kisi) {
+  setTimeout(() => db.ref(kayitYolu(odaKimligi, kisi)).remove().catch(() => { }), 6000);
+}
+
+async function kisiyiCikar(odaKimligi, kisi) {
+  if (!await onayla("Odadan çıkar", "“" + kisi.ad + "” bu odadan çıkarılacak; müziği durur.", "Çıkar", true)) return;
+  try {
+    await db.ref(kayitYolu(odaKimligi, kisi) + "/cikar").set(true);
+    cevapsizsaSil(odaKimligi, kisi);
+    bildir(kisi.ad + " odadan çıkarıldı");
+  } catch (e) {
+    bildir("Çıkarılamadı: " + e.message);
+  }
+}
+
+async function kisiyiTasi(odaKimligi, kisi) {
+  const hedef = await odaSec("“" + kisi.ad + "” hangi odaya taşınsın?", odaKimligi);
+  if (!hedef) return;
+  try {
+    await db.ref(kayitYolu(odaKimligi, kisi) + "/tasi").set(hedef.id);
+    cevapsizsaSil(odaKimligi, kisi);
+    bildir(kisi.ad + " “" + hedef.ad + "” odasına taşınıyor");
+  } catch (e) {
+    bildir("Taşınamadı: " + e.message);
+  }
+}
+
+// Oda seçme penceresi: üstte oda adına göre arama, altında kaydırılabilen oda listesi
+// (içerideki kişi sayısıyla). Listeden seçilebilir ya da aranıp daraltılabilir.
+async function odaSec(baslik, haric) {
+  const veri = (await db.ref("odalar").get()).val() || {};
+  const odalar = Object.keys(veri).filter((id) => id !== haric && (veri[id].bilgi || id === ANA_ODA)).map((id) => ({
+    id,
+    ad: (veri[id].bilgi && veri[id].bilgi.ad) || (id === ANA_ODA ? "Ana Oda ⭐" : id),
+    kisi: katilanListesi(veri[id].katilanlar).length
+  })).sort((a, b) => b.kisi - a.kisi || a.ad.localeCompare(b.ad, "tr"));
+  return new Promise((coz) => {
+    const kapat = (sonuc) => { pencereKapat(); coz(sonuc); };
+    const arama = el("input", { className: "metin-kutusu", placeholder: "Oda adıyla ara…", type: "search" });
+    const liste = el("div", { className: "oda-secim-listesi" });
+    const ciz = () => {
+      const aranan = arama.value.trim().toLocaleLowerCase("tr");
+      const bulunan = odalar.filter((o) => o.ad.toLocaleLowerCase("tr").includes(aranan));
+      liste.replaceChildren(...(bulunan.length ? bulunan.map((o) => el("button", {
+        type: "button", className: "oda-secim", onclick: () => kapat(o)
+      }, el("span", { className: "tek-satir" }, o.ad), el("span", { className: "soluk" }, o.kisi ? o.kisi + " kişi" : "boş")))
+        : [el("p", { className: "not" }, "Bu adla oda yok.")]));
+    };
+    arama.addEventListener("input", ciz);
+    arama.addEventListener("keydown", (e) => {
+      const ilk = liste.querySelector(".oda-secim");
+      if (e.key === "Enter" && ilk) ilk.click();
+    });
+    ciz();
+    pencereAc(baslik, [arama, liste], [{ yazi: "Vazgeç", is: () => kapat(null) }]);
+  });
+}
+
+function yonetimOdadakileriCiz() {
+  const satirlar = [];
+  for (const [id, oda] of Object.entries(yonetimOdalar)) {
+    const odaAdi = (oda.bilgi && oda.bilgi.ad) || (id === ANA_ODA ? "Ana Oda ⭐" : id);
+    for (const kisi of katilanListesi(oda.katilanlar)) {
+      satirlar.push(el("tr", {},
+        el("td", {}, el("div", { style: { display: "flex", alignItems: "center", gap: "0.5rem" } }, avatarOgesi(kisi), kisi.ad)),
+        el("td", {}, el("a", { href: "?oda=" + id }, odaAdi)),
+        el("td", { className: "islemler" },
+          el("button", { className: "tus-kucuk", onclick: () => kisiyiTasi(id, kisi) }, "↪ Taşı"),
+          el("button", { className: "tus-tehlike", style: { marginTop: 0 }, onclick: () => kisiyiCikar(id, kisi) }, "Çıkar"))));
+    }
+  }
+  $("yonetimOdadakiler").replaceChildren(satirlar.length
+    ? el("table", { className: "tablo" },
+      el("thead", {}, el("tr", {}, ["Kişi", "Oda", ""].map((b) => el("th", {}, b)))),
+      el("tbody", {}, satirlar))
+    : el("p", { className: "not" }, "Şu an hiçbir odada kimse yok."));
 }
 
 async function yonetimMuzigiDurdur(id) {

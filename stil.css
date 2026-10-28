@@ -499,6 +499,73 @@ a {
   font-size: 0.88rem;
 }
 
+/* Yöneticiye kişi satırında: başka odaya taşı / odadan çıkar */
+.kisi-islemleri {
+  margin-left: auto;
+  display: flex;
+  gap: 0.3rem;
+}
+
+.kisi-islemleri button {
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #555;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.kisi-islemleri button:hover {
+  border-color: #1db954;
+  background: #1db954;
+  color: #000;
+}
+
+.kisi-islemleri button.tehlike:hover {
+  border-color: #e5484d;
+  background: #e5484d;
+  color: #fff;
+}
+
+/* Oda seçme penceresi: arama kutusunun altında kaydırılabilen oda listesi */
+.oda-secim-listesi {
+  margin-top: 0.6rem;
+  max-height: min(22rem, 50vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.oda-secim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #2c2c2c;
+  border-radius: 0.5rem;
+  background: #1c1c1c;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.oda-secim:hover,
+.oda-secim:focus-visible {
+  border-color: #1db954;
+  background: #22302a;
+}
+
+.oda-secim .soluk {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+}
+
 /* YouTube'dan kopyalama yer imi */
 .adimlar {
   margin: 0.5rem 0;

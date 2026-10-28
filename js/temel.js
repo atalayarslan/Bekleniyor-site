@@ -235,8 +235,8 @@ const VARLIK_ESKIME = 3 * 60 * 1000;
 
 function katilanListesi(veri) {
   const sinir = sunucuZamani() - VARLIK_ESKIME;
-  return Object.values(veri || {}).filter((k) => k && typeof k === "object" && k.zaman > sinir)
-    .map((k) => ({ ad: k.ad || "Misafir", foto: k.foto || "" }));
+  return Object.entries(veri || {}).filter(([, k]) => k && typeof k === "object" && k.zaman > sinir)
+    .map(([id, k]) => ({ id, ad: k.ad || "Misafir", foto: k.foto || "" }));
 }
 
 // Sadece Google profil fotoğrafı adresleri gösterilir; başka bir sunucuya istek atılıp
@@ -257,12 +257,16 @@ function avatarYigini(kisiler, enFazla) {
   return el("span", { className: "avatar-yigini" }, kisiler.slice(0, enFazla).map(avatarOgesi));
 }
 
-// Bir odadakileri fotoğraf ve isimleriyle açılır menüde listeler
-function kisileriGoster(hedef, kisiler) {
+// Bir odadakileri fotoğraf ve isimleriyle açılır menüde listeler. Yöneticiye her kişinin yanında
+// "başka odaya taşı" ve "odadan çıkar" tuşları da çıkar (yonetim.js).
+function kisileriGoster(hedef, kisiler, odaKimligi) {
   if (!kisiler.length) return;
   menuAc(hedef, [
     { baslik: "Şu an odada (" + kisiler.length + ")" },
-    ...kisiler.map((k) => ({ dugum: el("div", { className: "kisi-satiri" }, avatarOgesi(k), el("span", {}, k.ad)) }))
+    ...kisiler.map((k) => ({
+      dugum: el("div", { className: "kisi-satiri" }, avatarOgesi(k), el("span", {}, k.ad),
+        yonetici && odaKimligi && k.id ? kisiIslemTuslari(odaKimligi, k) : null)
+    }))
   ]);
 }
 

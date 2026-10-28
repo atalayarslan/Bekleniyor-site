@@ -53,7 +53,7 @@ function odaKarti(id, oda) {
     // Kişilere basınca odaya girilmez, içeridekilerin listesi açılır
     icerdekiler.length ? el("div", {
       className: "kart-kisiler", title: "Kimler var?",
-      onclick: (e) => { e.preventDefault(); e.stopPropagation(); kisileriGoster(e.currentTarget, icerdekiler); }
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); kisileriGoster(e.currentTarget, icerdekiler, id); }
     }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null,
     calan ? el("div", { className: "kart-calan" }, "♪ " + calan.baslik) : null);
   kart.style.setProperty("--k1", tasarim.arka2 === tasarim.arka1 ? tasarim.daire1 : tasarim.arka1);
