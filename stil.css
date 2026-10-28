@@ -648,6 +648,12 @@ a {
   right: var(--sag);
   background: linear-gradient(rgba(0, 0, 0, 0.55), transparent);
   transition: left var(--kayma), right var(--kayma);
+  /* Çubuğun boş kısmı alttaki uçuşan emojilere tıklamayı engellemesin; tuşlar tıklanır kalır */
+  pointer-events: none;
+}
+
+.oda-ust > * {
+  pointer-events: auto;
 }
 
 /* Arka plan alt çubuğun üstünde biter; resmin alt kısmı çubuğun arkasında kalmaz */
@@ -692,6 +698,8 @@ a {
   align-items: center;
   background: var(--daire1);
   animation: donus 4s infinite linear, renkKay 5s infinite alternate;
+  /* Daire (kapalıyken görünmez de olsa) arkasındaki uçuşan emojilere tıklamayı engellemesin */
+  pointer-events: none;
 }
 
 .daire-ic {

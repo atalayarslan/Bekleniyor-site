@@ -151,7 +151,7 @@ function patlat(oge) {
   const pikseller = b.getImageData(0, 0, kaynak.width, kaynak.height).data;
   const merkezX = kutu.left + kutu.width / 2, merkezY = kutu.top + kutu.height / 2;
 
-  const BOLUM = 11; // 11x11 kare; boş (saydam) kareler atlanır
+  const BOLUM = 15; // 15x15 kare; boş (saydam) kareler atlanır
   const kare = boyut / BOLUM;
   const renkler = [];
   for (let sy = 0; sy < BOLUM; sy++) {
@@ -172,17 +172,23 @@ function patlat(oge) {
       });
     }
   }
-  // Havai fişek kıvılcımları: emojinin kendi renklerinde, daha hızlı ve her yöne eşit dağılan küçük noktalar
-  const kivilcim = 46;
-  for (let i = 0; i < kivilcim && renkler.length; i++) {
-    const aci = (i / kivilcim) * Math.PI * 2 + Math.random() * 0.12;
-    const hiz = 5 + Math.random() * 3.5;
-    parcaciklar.push({
-      tur: "kivilcim", renk: renkler[(Math.random() * renkler.length) | 0],
-      x: merkezX, y: merkezY, vx: Math.cos(aci) * hiz, vy: Math.sin(aci) * hiz - 1.5,
-      r: 1.3 + Math.random() * 1.6, omur: 0, sure: 50 + Math.random() * 35
-    });
+  // Havai fişek kıvılcımları: emojinin kendi renklerinde, her yöne eşit dağılan iki halka (dış halka
+  // hızlı ve uzağa, iç halka yavaş). Yerçekimiyle uçları aşağı kıvrılır; parlar ve sönerken göz kırpar.
+  const halkalar = [{ sayi: 70, hiz: 6.5, fark: 2.5, sure: 60 }, { sayi: 45, hiz: 3.2, fark: 1.6, sure: 75 }];
+  for (const h of halkalar) {
+    for (let i = 0; i < h.sayi && renkler.length; i++) {
+      const aci = (i / h.sayi) * Math.PI * 2 + Math.random() * 0.15;
+      const hiz = h.hiz + Math.random() * h.fark;
+      parcaciklar.push({
+        tur: "kivilcim", renk: renkler[(Math.random() * renkler.length) | 0],
+        x: merkezX, y: merkezY, vx: Math.cos(aci) * hiz, vy: Math.sin(aci) * hiz - 1.4,
+        r: 1.2 + Math.random() * 1.8, omur: 0, sure: h.sure + Math.random() * 35,
+        kirpma: Math.random() * 6
+      });
+    }
   }
+  // Patlama anında ortada kısa bir parlama
+  if (renkler.length) parcaciklar.push({ tur: "parlama", renk: renkler[0], x: merkezX, y: merkezY, vx: 0, vy: 0, omur: 0, sure: 14, r: kutu.width * 0.9 });
 
   oge.classList.add("patladi");
   setTimeout(() => {
@@ -206,12 +212,27 @@ function patlat(oge) {
         const p = parcaciklar[i];
         p.omur += adim;
         if (p.omur >= p.sure) { parcaciklar.splice(i, 1); continue; }
-        const surtunme = Math.pow(p.tur === "kivilcim" ? 0.965 : 0.978, adim);
+        const kalan = 1 - p.omur / p.sure;
+        if (p.tur === "parlama") {
+          // Hızla büyüyüp sönen yumuşak bir ışık
+          c.setTransform(o, 0, 0, o, 0, 0);
+          const yaricap = p.r * (0.6 + (1 - kalan) * 0.9);
+          const isik = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, yaricap);
+          isik.addColorStop(0, "rgba(255,255,255,0.9)");
+          isik.addColorStop(0.35, p.renk.replace("rgb", "rgba").replace(")", ",0.45)"));
+          isik.addColorStop(1, "rgba(0,0,0,0)");
+          c.globalAlpha = kalan;
+          c.fillStyle = isik;
+          c.beginPath();
+          c.arc(p.x, p.y, yaricap, 0, Math.PI * 2);
+          c.fill();
+          continue;
+        }
+        const surtunme = Math.pow(p.tur === "kivilcim" ? 0.962 : 0.978, adim);
         p.vx *= surtunme;
         p.vy = p.vy * surtunme + 0.13 * adim; // yerçekimi: yollar havai fişek gibi aşağı kıvrılır
         p.x += p.vx * adim;
         p.y += p.vy * adim;
-        const kalan = 1 - p.omur / p.sure;
         c.globalAlpha = Math.min(1, kalan * 2.2);
         if (p.tur === "parca") {
           p.don += p.vdon * adim;
@@ -220,10 +241,19 @@ function patlat(oge) {
           c.rotate(p.don);
           c.drawImage(p.kaynak, p.sx, p.sy, p.k, p.k, -p.boy / 2, -p.boy / 2, p.boy, p.boy);
         } else {
+          // Sönmeye yakın kıvılcımlar göz kırpar; etraflarında hafif bir ışık halesi olur
+          if (kalan < 0.45) c.globalAlpha *= 0.55 + 0.45 * Math.sin(p.omur * 0.9 + p.kirpma);
+          const r = p.r * (0.4 + 0.6 * kalan);
           c.setTransform(o, 0, 0, o, 0, 0);
           c.fillStyle = p.renk;
+          const parlaklik = c.globalAlpha;
+          c.globalAlpha = parlaklik * 0.25;
           c.beginPath();
-          c.arc(p.x, p.y, p.r * (0.4 + 0.6 * kalan), 0, Math.PI * 2);
+          c.arc(p.x, p.y, r * 2.6, 0, Math.PI * 2);
+          c.fill();
+          c.globalAlpha = parlaklik;
+          c.beginPath();
+          c.arc(p.x, p.y, r, 0, Math.PI * 2);
           c.fill();
         }
       }
