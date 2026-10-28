@@ -809,16 +809,18 @@ setInterval(akisSunucusunuDene, 60000);
 function akisAdresiniDinle() {
   db.ref("ayarlar/akis").on("value", (s) => {
     const v = s.val();
-    // Kendi bilgisayarında denerken (localhost) yerel sunucu kullanılır
+    // Kendi bilgisayarında denerken (localhost) yerel sunucu kullanılır; ?yerelAkis=8791 ile başka port
+    const yerelPort = Number(new URLSearchParams(location.search).get("yerelAkis")) || 8790;
     akisAdresi = v && AKIS_ADRESI.test(v.adres) ? v.adres
-      : location.hostname === "localhost" ? "http://127.0.0.1:8790" : null;
+      : location.hostname === "localhost" ? "http://127.0.0.1:" + yerelPort : null;
     akisSunucusunuDene();
   });
 }
 
-function akisTuru() {
-  return TELEFON ? "ses" : "video";
-}
+// Ses herkeste ayrı bir akıştan çalar ("ses"). Bilgisayarlarda üstüne 720p sessiz görüntü ("video720")
+// sese senkron oynatılır; YouTube görüntü+sesi birlikte en fazla 360p verdiği için kalite böyle artar.
+// Odadakiler farklı cihazlarda olabildiği için ikisi de her zaman hazırlanır.
+const AKIS_TURLERI = ["ses", "video720"];
 
 // Sıradaki 3 şarkının sadece başı sunucuda önceden indirilir (atlanabilecekleri için tamamı değil);
 // şarkı değişince hemen çalmaya başlar.
@@ -828,7 +830,9 @@ function akisiOncedenHazirla() {
   for (const sarki of siraListesi().slice(0, 3)) {
     if (!gecerliId(sarki.videoId) || oncedenHazirlananlar.has(sarki.videoId)) continue;
     oncedenHazirlananlar.add(sarki.videoId);
-    fetch(akisAdresi + "/hazirla?kismi=1&v=" + sarki.videoId + "&tur=" + akisTuru(), { cache: "no-store" }).catch(() => { });
+    for (const tur of AKIS_TURLERI) {
+      fetch(akisAdresi + "/hazirla?kismi=1&v=" + sarki.videoId + "&tur=" + tur, { cache: "no-store" }).catch(() => { });
+    }
   }
 }
 
@@ -837,15 +841,11 @@ function akisiOncedenHazirla() {
 // Bu sırada çalan şarkı çalmaya devam eder. Sunucu yoksa ya da 20 saniyede hazır olmazsa beklenmez.
 async function akisaHazirla(videoId) {
   if (!akisCalisiyor || !gecerliId(videoId) || akistanCalmayanlar.has(videoId)) return;
-  // Telefonlar sadece sesi çaldığı için onun da başı hazırlansın
-  const diger = akisTuru() === "video" ? "ses" : "video";
-  fetch(akisAdresi + "/hazirla?kismi=1&v=" + videoId + "&tur=" + diger, { cache: "no-store" }).catch(() => { });
   const iptal = new AbortController();
   const zaman = setTimeout(() => iptal.abort(), 20000);
   const uyari = setTimeout(() => bildir("Şarkı hazırlanıyor…"), 900);
-  try {
-    await fetch(akisAdresi + "/hazirla?bekle=1&v=" + videoId + "&tur=" + akisTuru(), { signal: iptal.signal, cache: "no-store" });
-  } catch (e) { }
+  await Promise.all(AKIS_TURLERI.map((tur) =>
+    fetch(akisAdresi + "/hazirla?bekle=1&v=" + videoId + "&tur=" + tur, { signal: iptal.signal, cache: "no-store" }).catch(() => { })));
   clearTimeout(zaman);
   clearTimeout(uyari);
 }
@@ -853,23 +853,64 @@ async function akisaHazirla(videoId) {
 // YouTube oynatıcısıyla aynı yöntemleri sunan karma oynatıcı: o anki şarkıyı ya akış sunucusundan
 // (kendi <video>/<audio> öğemiz) ya da YouTube'dan çalar. Sitenin geri kalanı farkı bilmez.
 function karmaOynatici(yt) {
-  const medya = TELEFON ? new Audio() : $("akisVideo");
+  // Sesi çalan asıl öğe (zaman, duraklatma, bitiş hep ondan okunur)
+  const medya = new Audio();
   medya.preload = "auto";
+  // Bilgisayarlarda sese senkron sessiz görüntü; telefonlarda görüntü yok (ekran kapalıyken de çalsın)
+  const goruntu = TELEFON ? null : $("akisVideo");
+  if (goruntu) goruntu.muted = true;
   let mod = "yt";
   let yedekZamanlayici = null;
 
+  const sadeceSes = (acik) => $("videoKutu").classList.toggle("sadece-ses", acik);
   const moduAyarla = (akis) => {
     mod = akis ? "medya" : "yt";
     $("videoKutu").classList.toggle("akis-modu", akis);
-    $("videoKutu").classList.toggle("sadece-ses", akis && TELEFON);
+    sadeceSes(akis && !goruntu);
   };
   const medyayiBosalt = () => {
     clearTimeout(yedekZamanlayici);
     moduAyarla(false);
-    medya.pause();
-    medya.removeAttribute("src");
-    medya.load();
+    for (const oge of goruntu ? [medya, goruntu] : [medya]) {
+      oge.pause();
+      oge.removeAttribute("src");
+      oge.load();
+    }
   };
+  // Görüntüyü yükler: önce 720p, açılmazsa 360p, o da olmazsa kapak resmi gösterilir (ses sürer)
+  const goruntuyuYukle = (kimlik) => {
+    if (!goruntu) return;
+    sadeceSes(false);
+    goruntu.dataset.tur = "video720";
+    goruntu.onerror = () => {
+      if (mod !== "medya") return;
+      if (goruntu.dataset.tur === "video720") {
+        goruntu.dataset.tur = "video";
+        goruntu.src = akisAdresi + "/akis?v=" + kimlik + "&tur=video";
+      } else {
+        sadeceSes(true);
+      }
+    };
+    goruntu.src = akisAdresi + "/akis?v=" + kimlik + "&tur=video720";
+  };
+  // Görüntü sese bağlı kalır: ses durunca durur, çalınca çalar; 0,3 sn'den fazla kayarsa sese atlar,
+  // az kaydıysa hızını biraz değiştirerek yavaşça yetişir.
+  setInterval(() => {
+    if (!goruntu || mod !== "medya" || !goruntu.currentSrc || goruntu.seeking) return;
+    if (medya.paused || medya.ended) {
+      if (!goruntu.paused) goruntu.pause();
+      if (Math.abs(goruntu.currentTime - medya.currentTime) > 0.3) goruntu.currentTime = medya.currentTime;
+      return;
+    }
+    if (goruntu.paused && goruntu.readyState >= 2) goruntu.play().catch(() => { });
+    const fark = goruntu.currentTime - medya.currentTime;
+    if (Math.abs(fark) > 0.3) {
+      goruntu.currentTime = medya.currentTime + 0.1;
+      goruntu.playbackRate = 1;
+    } else {
+      goruntu.playbackRate = Math.abs(fark) < 0.05 ? 1 : fark > 0 ? 0.96 : 1.04;
+    }
+  }, 250);
   // Sunucudan çalınamayan şarkı YouTube'dan, odanın o anki yerinden devam eder
   const youtubeaDon = (kimlik, oynat) => {
     akistanCalmayanlar.add(kimlik);
@@ -893,7 +934,8 @@ function karmaOynatici(yt) {
       const bas = simdiki ? konumHesapla(simdiki) : secenek.startSeconds || 0;
       if (bas > 0.5) medya.currentTime = bas;
     };
-    medya.src = akisAdresi + "/akis?v=" + kimlik + "&tur=" + akisTuru();
+    medya.src = akisAdresi + "/akis?v=" + kimlik + "&tur=ses";
+    goruntuyuYukle(kimlik);
     if (oynat) medya.play().catch(() => { });
     // Sunucu 20 saniyede şarkıyı veremezse YouTube'a dönülür
     yedekZamanlayici = setTimeout(() => {
@@ -917,8 +959,10 @@ function karmaOynatici(yt) {
       yt.stopVideo();
     },
     seekTo: (sn, izin) => {
-      if (mod === "medya") medya.currentTime = sn;
-      else yt.seekTo(sn, izin);
+      if (mod === "medya") {
+        medya.currentTime = sn;
+        if (goruntu && goruntu.currentSrc) goruntu.currentTime = sn;
+      } else yt.seekTo(sn, izin);
     },
     getCurrentTime: () => (mod === "medya" ? medya.currentTime : yt.getCurrentTime()),
     getDuration: () => (mod === "medya" ? (isFinite(medya.duration) ? medya.duration : 0) : yt.getDuration()),

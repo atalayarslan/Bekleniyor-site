@@ -7,7 +7,7 @@
 #
 # Adresler:
 #   /saglik                                  -> {"ok": true}
-#   /akis?v=<11 haneli kimlik>&tur=video|ses -> şarkının kendisi (Range destekli)
+#   /akis?v=<11 haneli kimlik>&tur=video|video720|ses -> şarkının kendisi (Range destekli)
 #   /hazirla?v=<kimlik>&tur=video|ses        -> şarkıyı önceden indirir
 #            &kismi=1  sadece başını (sıradaki şarkılar)   &bekle=1  çalmaya hazır olunca cevap verir
 # Başka hiçbir dosyaya ya da adrese erişmez. Sadece 127.0.0.1'de dinler; dışarıya Cloudflare
@@ -24,8 +24,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import yt_dlp
 
-PORT = 8790
-SURUM = "3"
+PORT = int(os.environ.get("BEKLENIYOR_PORT") or 8790)  # deneme için başka port verilebilir
+SURUM = "4"
 # yt-dlp, YouTube'un şifreli parametrelerini çözmek için Node.js kullanır
 NODE = os.environ.get("BEKLENIYOR_NODE") or os.path.expandvars(r"%LOCALAPPDATA%\Programs\nodejs\node.exe")
 ONBELLEK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "onbellek") \
@@ -33,9 +33,13 @@ ONBELLEK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "onbellek") 
 ONBELLEK_SINIRI = 800 * 1024 * 1024  # önbellek bunu geçince en eski şarkılar silinir
 IZINLI = ("https://atalayarslan.github.io", "http://localhost:8000")
 KIMLIK = re.compile(r"^[A-Za-z0-9_-]{11}$")
+# video: görüntü+ses birlikte (YouTube bunu en fazla 360p verir; yedek olarak kullanılır)
+# video720: sadece görüntü, 720p (sesi "ses" akışından gelir, site ikisini birlikte çalar)
+# ses: sadece ses (telefonlar ve 720p görüntünün sesi)
 BICIM = {"video": "18/best[height<=480][acodec!=none][vcodec!=none][ext=mp4]",
+         "video720": "136/bestvideo[height<=720][ext=mp4][vcodec^=avc1]/bestvideo[height<=720][ext=mp4]",
          "ses": "140/bestaudio[ext=m4a]/bestaudio"}
-TUR_MIME = {"video": "video/mp4", "ses": "audio/mp4"}
+TUR_MIME = {"video": "video/mp4", "video720": "video/mp4", "ses": "audio/mp4"}
 AYNI_ANDA_INDIRME = 3
 AYNI_ANDA_AKIS = 16
 
@@ -50,7 +54,7 @@ def log(*parca):
 
 
 # Sıradaki şarkılar önceden sadece bu kadar indirilir (atlanabilecekleri için tamamı inmez; yaklaşık ilk dakika)
-KISMI_SINIR = {"video": 2_500_000, "ses": 1_000_000}
+KISMI_SINIR = {"video": 2_500_000, "video720": 3_500_000, "ses": 1_000_000}
 
 
 class KismiBitti(Exception):
@@ -80,7 +84,7 @@ class Indirme:
 
     def __init__(self, kimlik, tur):
         self.kimlik, self.tur = kimlik, tur
-        self.yol = os.path.join(ONBELLEK, "%s.%s.%s" % (kimlik, tur, "mp4" if tur == "video" else "m4a"))
+        self.yol = os.path.join(ONBELLEK, "%s.%s.%s" % (kimlik, tur, "m4a" if tur == "ses" else "mp4"))
         self.parca = self.yol + ".part"
         self.toplam = None   # bayt
         self.bitti = False
