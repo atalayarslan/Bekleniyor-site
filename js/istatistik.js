@@ -43,31 +43,64 @@ function istatistikBaslat() {
 
   setInterval(() => {
     if (!kullanici) return;
-    const dinliyor = muzikDinleniyor();
-    // Sekme görünürken ya da arka planda müzik çalarken sitede sayılır
-    if (document.visibilityState === "visible" || dinliyor) birikenSitede++;
-    if (dinliyor) birikenDinleme++;
+    const durum = suankiDurum();
+    if (durum.sitede) birikenSitede++;
+    if (durum.dinleme) birikenDinleme++;
+    // Saymaya başlayınca ya da durunca (değişiklik 3 sn sürerse; şarkı bir anlık yüklenirken değil)
+    // hemen kaydedilir; başkalarının ekranındaki canlı sayaç doğru kalsın
+    const farkli = sonDurum && (durum.sitede !== sonDurum.sitede || durum.dinleme !== sonDurum.dinleme);
+    durumFarkiSuresi = farkli ? durumFarkiSuresi + 1 : 0;
+    if (durumFarkiSuresi >= 3) {
+      durumFarkiSuresi = 0;
+      istatistikGonder();
+    }
   }, 1000);
 
   setInterval(istatistikGonder, 60000);
-  addEventListener("pagehide", istatistikGonder);
+  addEventListener("pagehide", () => istatistikGonder(true));
 }
 
-function istatistikGonder() {
-  if (!kullanici || !istatistikRef || (!birikenSitede && !birikenDinleme)) return;
+// Sekme görünürken ya da arka planda müzik çalarken sitede sayılır; müzik çalarken dinlemede
+function suankiDurum() {
+  const dinliyor = muzikDinleniyor();
+  return { sitede: document.visibilityState === "visible" || dinliyor, dinleme: dinliyor };
+}
+
+let sonDurum = null;          // en son kaydedilen "sayıyor mu" durumu
+let durumFarkiSuresi = 0;
+
+// kapaniyor: sayfa kapanıyor, artık saymıyorum diye yazılır
+function istatistikGonder(kapaniyor) {
+  if (!kullanici || !istatistikRef) return;
+  const durum = kapaniyor === true ? { sitede: false, dinleme: false } : suankiDurum();
+  const degisti = !sonDurum || durum.sitede !== sonDurum.sitede || durum.dinleme !== sonDurum.dinleme;
+  if (!birikenSitede && !birikenDinleme && !degisti) return;
   const eski = benimIstatistigim || {};
   const sitede = birikenSitede;
   const dinleme = birikenDinleme;
   birikenSitede = 0;
   birikenDinleme = 0;
-  // Herkese açık tabloda sadece ilk ad ve Google profil fotoğrafı tutulur (soyad ve e-posta değil)
+  sonDurum = durum;
+  // Herkese açık tabloda sadece ilk ad ve Google profil fotoğrafı tutulur (soyad ve e-posta değil).
+  // sitedeAktif / dinlemeAktif: şu an sayılıyor mu; başkaları bunu görüp süreyi kendi ekranında canlı artırır.
   istatistikRef.set({
     ad: kisaAd() || "İsimsiz",
     foto: guvenliFoto(kullanici.photoURL),
     sitede: (eski.sitede || 0) + sitede,
     dinleme: (eski.dinleme || 0) + dinleme,
+    sitedeAktif: durum.sitede,
+    dinlemeAktif: durum.dinleme,
     guncelleme: firebase.database.ServerValue.TIMESTAMP
   }).catch(() => { });
+}
+
+// Başka birinin süresi: son kaydından bu yana sayıyorsa geçen saniyeler eklenir (en fazla 70 sn;
+// 75 sn'dir kaydı gelmeyen kişinin sekmesi kapanmış sayılır ve artmaz)
+function canliSure(v, tur) {
+  const temel = v[tur] || 0;
+  if (!v[tur + "Aktif"] || !v.guncelleme) return temel;
+  const gecen = (sunucuZamani() - v.guncelleme) / 1000;
+  return gecen > 0 && gecen < 75 ? temel + Math.floor(Math.min(gecen, 70)) : temel;
 }
 
 // ---------- Lobideki sıralama ----------
@@ -82,21 +115,26 @@ function siralamayiBaslat() {
     siralamayiCiz();
   });
   oturumDegisince(siralamayiCiz);
-  // Kendi süren her saniye canlı artsın
-  setInterval(() => { if (kullanici) siralamayiCiz(); }, 1000);
+  // Herkesin süresi her saniye canlı artsın (sadece lobi görünürken çizilir)
+  setInterval(() => { if (!$("lobi").hidden) siralamayiCiz(); }, 1000);
 }
 
 function siralamayiCiz() {
   const kutu = $("siralama");
   if (!kutu) return;
   $("siralamaSecim").querySelectorAll("button").forEach((b) => b.classList.toggle("secili", b.dataset.tur === siralamaTuru));
-  const veri = Object.assign({}, siralamaVerisi);
-  // Kendi satırına henüz kaydedilmemiş saniyeler de eklenir
+  const veri = {};
+  // Başkaları: kayıtlı süre + (sayıyorlarsa) son kayıttan bu yana geçen saniyeler
+  for (const [uid, v] of Object.entries(siralamaVerisi)) {
+    veri[uid] = Object.assign({}, v, { sitede: canliSure(v, "sitede"), dinleme: canliSure(v, "dinleme") });
+  }
+  // Kendi satırın: kayıtlı süre + henüz kaydedilmemiş saniyeler (en doğrusu)
   if (kullanici) {
-    const ben = Object.assign({ ad: kisaAd() || "Sen", foto: guvenliFoto(kullanici.photoURL), sitede: 0, dinleme: 0 }, veri[kullanici.uid]);
-    ben.sitede += birikenSitede;
-    ben.dinleme += birikenDinleme;
-    veri[kullanici.uid] = ben;
+    const kayitli = siralamaVerisi[kullanici.uid] || {};
+    veri[kullanici.uid] = Object.assign({ ad: kisaAd() || "Sen", foto: guvenliFoto(kullanici.photoURL) }, kayitli, {
+      sitede: (kayitli.sitede || 0) + birikenSitede,
+      dinleme: (kayitli.dinleme || 0) + birikenDinleme
+    });
   }
   const kayitlar = Object.entries(veri)
     .map(([uid, v]) => Object.assign({ uid }, v))

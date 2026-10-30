@@ -408,6 +408,12 @@
         "foto": {
           ".validate": "newData.isString() && (newData.val() == '' || (newData.val().beginsWith('https://lh') && newData.val().contains('.googleusercontent.com/') && newData.val().length <= 500))"
         },
+        "sitedeAktif": {
+          ".validate": "newData.isBoolean()"
+        },
+        "dinlemeAktif": {
+          ".validate": "newData.isBoolean()"
+        },
         "$diger": {
           ".validate": false
         }
