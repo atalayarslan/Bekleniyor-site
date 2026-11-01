@@ -6,6 +6,8 @@ $ErrorActionPreference = "Stop"
 $klasor = Join-Path $env:USERPROFILE "Bekleniyor-akis"
 $env:BEKLENIYOR_ONBELLEK = Join-Path $klasor "onbellek"
 $env:PYTHONIOENCODING = "utf-8"
+# Sunucunun ve odadaki tarayıcıların olayları; sorun çıkınca neler olduğu buradan okunur (2 MB'lık 11 dosya döner)
+$env:BEKLENIYOR_GUNLUK = Join-Path $klasor "gunluk\sunucu.log"
 $gunluk = Join-Path $klasor "tunel.log"
 $Host.UI.RawUI.WindowTitle = "Bekleniyor reklamsız akış"
 

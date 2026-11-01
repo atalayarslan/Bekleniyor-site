@@ -816,6 +816,26 @@ let akisAdresi = null;
 let akisCalisiyor = false;
 const akistanCalmayanlar = new Set(); // bu oturumda sunucudan çalınamayan şarkılar
 
+// Akışta olanları (takılma, YouTube'a dönüş, reklam, sayfa hataları) sunucunun günlüğüne yazdırır;
+// bir sorun çıkınca kimde ne olduğu oradan okunur (akis-sunucusu/sunucu.py, /olay). Sunucu yoksa gönderilmez.
+let gonderilenOlay = 0;
+function akisOlayi(olay, ayrinti = {}, videoId = yuklenenId) {
+  if (!akisAdresi || ++gonderilenOlay > 500) return;
+  const govde = JSON.stringify({ olay, kim: isim, oda: odaId, v: videoId, ayrinti });
+  try {
+    navigator.sendBeacon(akisAdresi + "/olay", new Blob([govde], { type: "text/plain" }));
+  } catch (e) { }
+}
+
+let sayfaHatasi = 0;
+addEventListener("error", (e) => {
+  if (++sayfaHatasi <= 20) akisOlayi("sayfa hatası", { mesaj: e.message, dosya: e.filename, satir: e.lineno });
+});
+addEventListener("unhandledrejection", (e) => {
+  if (++sayfaHatasi <= 20) akisOlayi("sayfa hatası (söz)", { mesaj: String(e.reason && (e.reason.message || e.reason)) });
+});
+
+let akisaUlasilamadi = 0;  // sunucuya ulaşılamadığı ilk an; ulaşılınca ne kadar süren kopukluk olduğu yazılır
 async function akisSunucusunuDene() {
   if (!akisAdresi) {
     akisCalisiyor = false;
@@ -830,6 +850,11 @@ async function akisSunucusunuDene() {
     akisCalisiyor = false;
   }
   clearTimeout(zaman);
+  if (!akisCalisiyor && !akisaUlasilamadi) akisaUlasilamadi = Date.now();
+  if (akisCalisiyor && akisaUlasilamadi) {
+    akisOlayi("akış sunucusuna yeniden ulaşıldı", { kopukluk_sn: Math.round((Date.now() - akisaUlasilamadi) / 1000) });
+    akisaUlasilamadi = 0;
+  }
 }
 
 setInterval(akisSunucusunuDene, 60000);
@@ -872,10 +897,17 @@ async function akisaHazirla(videoId) {
   const iptal = new AbortController();
   const zaman = setTimeout(() => iptal.abort(), 20000);
   const uyari = setTimeout(() => bildir("Şarkı hazırlanıyor…"), 900);
-  await Promise.all(AKIS_TURLERI.map((tur) =>
-    fetch(akisAdresi + "/hazirla?bekle=1&v=" + videoId + "&tur=" + tur, { signal: iptal.signal, cache: "no-store" }).catch(() => { })));
+  const bas = Date.now();
+  const sonuclar = await Promise.all(AKIS_TURLERI.map((tur) =>
+    fetch(akisAdresi + "/hazirla?bekle=1&v=" + videoId + "&tur=" + tur, { signal: iptal.signal, cache: "no-store" })
+      .then((y) => tur + ":" + y.status, (e) => tur + ":" + (e.name === "AbortError" ? "20sn-doldu" : "ulasilamadi"))));
   clearTimeout(zaman);
   clearTimeout(uyari);
+  const sure = (Date.now() - bas) / 1000;
+  if (sure > 3 || sonuclar.some((s) => !s.endsWith(":200"))) {
+    akisOlayi(sonuclar.every((s) => s.endsWith(":200")) ? "şarkı hazırlığı uzun sürdü" : "şarkı hazırlanamadı",
+      { sure, sonuc: sonuclar.join(" ") }, videoId);
+  }
 }
 
 // YouTube oynatıcısıyla aynı yöntemleri sunan karma oynatıcı: o anki şarkıyı ya akış sunucusundan
@@ -889,6 +921,11 @@ function karmaOynatici(yt) {
   if (goruntu) goruntu.muted = true;
   let mod = "yt";
   let yedekZamanlayici = null;
+  let medyaKimlik = null;   // akıştan yüklenen şarkı
+  let calanKimlik = null;   // akıştan çalmaya başlamış şarkı (takılma bekçisi sadece onu izler)
+  let yenidenDeneme = 0;
+  let takilmaVar = false;
+  let yuklemeBasi = 0;
 
   const sadeceSes = (acik) => $("videoKutu").classList.toggle("sadece-ses", acik);
   const moduAyarla = (akis) => {
@@ -898,6 +935,7 @@ function karmaOynatici(yt) {
   };
   const medyayiBosalt = () => {
     clearTimeout(yedekZamanlayici);
+    calanKimlik = null;
     moduAyarla(false);
     for (const oge of goruntu ? [medya, goruntu] : [medya]) {
       oge.pause();
@@ -912,10 +950,13 @@ function karmaOynatici(yt) {
     goruntu.dataset.tur = "video720";
     goruntu.onerror = () => {
       if (mod !== "medya") return;
+      const hata = goruntu.error ? goruntu.error.code + " " + (goruntu.error.message || "") : "";
       if (goruntu.dataset.tur === "video720") {
+        akisOlayi("720p görüntü açılmadı, 360p'ye geçildi", { hata }, kimlik);
         goruntu.dataset.tur = "video";
         goruntu.src = akisAdresi + "/akis?v=" + kimlik + "&tur=video";
       } else {
+        akisOlayi("görüntü açılmadı, kapak gösteriliyor", { hata }, kimlik);
         sadeceSes(true);
       }
     };
@@ -940,7 +981,13 @@ function karmaOynatici(yt) {
     }
   }, 250);
   // Sunucudan çalınamayan şarkı YouTube'dan, odanın o anki yerinden devam eder
-  const youtubeaDon = (kimlik, oynat) => {
+  const sesDurumu = () => ({
+    konum: Math.round(medya.currentTime * 10) / 10,
+    tampon: medya.buffered.length ? Math.round(medya.buffered.end(medya.buffered.length - 1) * 10) / 10 : 0,
+    hazirlik: medya.readyState, ag: medya.networkState
+  });
+  const youtubeaDon = (kimlik, oynat, neden) => {
+    akisOlayi("şarkı YouTube'dan çalınıyor (akış olmadı)", { neden, ...sesDurumu() }, kimlik);
     akistanCalmayanlar.add(kimlik);
     medyayiBosalt();
     akisSunucusunuDene();
@@ -957,7 +1004,13 @@ function karmaOynatici(yt) {
     }
     yt.stopVideo();
     moduAyarla(true);
-    medya.onerror = () => { if (mod === "medya") youtubeaDon(kimlik, oynat); };
+    medyaKimlik = kimlik;
+    calanKimlik = null;
+    yenidenDeneme = 0;
+    yuklemeBasi = Date.now();
+    medya.onerror = () => {
+      if (mod === "medya") youtubeaDon(kimlik, oynat, "ses hatası " + (medya.error ? medya.error.code + " " + (medya.error.message || "") : ""));
+    };
     medya.onloadedmetadata = () => {
       const bas = simdiki ? konumHesapla(simdiki) : secenek.startSeconds || 0;
       if (bas > 0.5) medya.currentTime = bas;
@@ -967,13 +1020,44 @@ function karmaOynatici(yt) {
     if (oynat) medya.play().catch(() => { });
     // Sunucu 20 saniyede şarkıyı veremezse YouTube'a dönülür
     yedekZamanlayici = setTimeout(() => {
-      if (mod === "medya" && medya.readyState < 2) youtubeaDon(kimlik, oynat);
+      if (mod === "medya" && medya.readyState < 2) youtubeaDon(kimlik, oynat, "20 sn içinde yüklenmedi");
     }, 20000);
   };
 
   medya.addEventListener("ended", () => {
     if (simdiki && simdiki.videoId === yuklenenId) sonrakineGec(sarkiKimligi(simdiki));
   });
+
+  // Ses akışı şarkının ortasında takılabiliyor (sunucudaki indirme yarıda kesilirse): görüntü ve süre
+  // çubuğu sürer ama ses gelmez, ileri sarmak da işe yaramaz. Ses 10 sn ilerlemezse akış odanın o anki
+  // yerinden yeniden açılır (yüklenince onloadedmetadata oraya sarar); 3 denemede düzelmezse YouTube'dan çalar.
+  medya.addEventListener("playing", () => {
+    if (mod !== "medya") return;
+    clearTimeout(yedekZamanlayici);  // o bekçi ilk yükleme içindi; çaldıktan sonrasına takılma bekçisi bakar
+    if (!calanKimlik) akisOlayi("şarkı akıştan başladı", { bekleme_sn: (Date.now() - yuklemeBasi) / 1000 }, medyaKimlik);
+    else if (yenidenDeneme && takilmaVar) akisOlayi("takılma düzeldi", { deneme: yenidenDeneme, ...sesDurumu() }, medyaKimlik);
+    takilmaVar = false;
+    calanKimlik = medyaKimlik;
+  });
+  let sonIlerleme = 0;
+  let sonKonum = 0;
+  setInterval(() => {
+    const takildi = mod === "medya" && calanKimlik && simdiki && !simdiki.duraklatildi && !medya.ended
+      && !medya.paused && (medya.seeking || medya.readyState < 3 || medya.currentTime === sonKonum);
+    if (!takildi) {
+      sonIlerleme = Date.now();
+      sonKonum = medya.currentTime;
+      return;
+    }
+    if (Date.now() - sonIlerleme < 10000) return;
+    sonIlerleme = Date.now();
+    if (++yenidenDeneme > 3) return youtubeaDon(calanKimlik, true, "ses takıldı, 3 denemede düzelmedi");
+    akisOlayi("ses takıldı, akış yeniden açılıyor", { deneme: yenidenDeneme, ...sesDurumu() }, calanKimlik);
+    takilmaVar = true;
+    // Adres farklı olsun ki tarayıcı takılı kalan eski bağlantıyı kullanmasın
+    medya.src = akisAdresi + "/akis?v=" + calanKimlik + "&tur=ses&yeniden=" + yenidenDeneme;
+    medya.play().catch(() => { });
+  }, 1000);
 
   return {
     get mod() { return mod; },
@@ -1119,6 +1203,7 @@ setInterval(() => {
   if (simdiReklam === reklamVar) return;
   reklamVar = simdiReklam;
   document.body.classList.toggle("reklam-var", reklamVar);
+  akisOlayi(reklamVar ? "YouTube reklamı başladı" : "YouTube reklamı bitti", { ipucu, kesin, geride });
   if (!reklamVar) senkronla();
 }, 500);
 
