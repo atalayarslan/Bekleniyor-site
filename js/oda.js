@@ -608,13 +608,56 @@ async function sarkiyiCoz(sarki) {
   try { videoId = (await db.ref("eslesmeler/" + anahtar).get()).val(); } catch (e) { }
   if (!gecerliId(videoId)) {
     const { sonuclar } = await youtubeAra(metin);
-    if (!sonuclar.length) throw new Error("“" + sarki.baslik + "” YouTube'da bulunamadı");
-    videoId = sonuclar[0].videoId;
+    const bulunan = enIyiEslesme(sarki, sonuclar);
+    if (!bulunan) throw new Error("“" + sarki.baslik + "” YouTube'da bulunamadı");
+    videoId = bulunan.videoId;
     db.ref("eslesmeler/" + anahtar).set(videoId).catch(() => { });
   }
   const sonuc = Object.assign({}, sarki, { videoId });
   delete sonuc.arama;
   return sonuc;
+}
+
+// Arama sonuçları izlenmeye göre sıralı geldiği için ilki çoğu zaman popüler ama alakasız bir video olabiliyor
+// (örn. "Dying Lady's Joke" için "Serbian dancing lady" Shorts'u). Bu yüzden her sonuç şarkıyla karşılaştırılır:
+// şarkı adının kelimeleri başlıkta, sanatçı başlıkta ya da kanal adında aranır; YouTube'un resmi ses kayıtları
+// ("Sanatçı - Topic" kanalı) ve sanatçının kendi kanalı öne çıkar; Shorts, komik video, tepki videosu ve
+// şarkının başka sürümleri (remix, canlı, akustik, hızlandırılmış...) geriye düşer — Spotify'daki ad ya da
+// sanatçı adı o kelimeyi zaten içermiyorsa. Hiçbiri şarkıya benzemiyorsa null döner (alakasız bir şey çalınmaz).
+const ESLESME_CEZALARI = [
+  [/#?shorts?\b|#\w+.*#\w+|\bfunny\b|\bmeme\b|\btiktok\b|\btrend(ing)?\b|\bprank\b|\breaction\b|\btepki\b|💀|😂/i, 4],
+  [/\b(remix|rework|live|canl[ıi]|version|versiyon|acoustic|akustik|demo|instrumental|cover|karaoke|sped\s*up|slowed|nightcore|reverb|8d|loop|edit|concert|konser)\b|\b\d+\s*(hours?|saat)\b/i, 3]
+];
+function enIyiEslesme(sarki, sonuclar) {
+  // Türkçe küçük harf "Impala"yı "ımpala" yapar, kanal adındaki "impala" ile eşleşmez; ı/i farkı yok sayılır
+  const sade = (metin) => sadeMetin(metin).replace(/ı/g, "i");
+  const sanatcilar = String(sarki.kanal || "").split(/\s*(?:,|&|\bfeat\.?|\bft\.?)\s*/i).map(sade).filter((a) => a.length >= 2);
+  // "Şarkı - Remastered 2011", "Şarkı (feat. X)" gibi eklerin dışındaki kelimeler
+  const ad = String(sarki.baslik || "").split(/\s+-\s+/)[0].replace(/\([^)]*\)|\[[^\]]*\]/g, " ");
+  const kelimeler = ad.split(/\s+/).map(sade).filter((k) => k.length >= 2);
+  const sadeAd = sade(ad);
+  let enIyi = null;
+  let enIyiPuan = -Infinity;
+  sonuclar.forEach((s, sira) => {
+    const baslik = sade(s.baslik);
+    const kanal = sade(String(s.kanal || "").replace(/\s*-\s*topic$/i, ""));
+    const adOrani = kelimeler.length ? kelimeler.filter((k) => baslik.includes(k)).length / kelimeler.length
+      : (sadeAd && baslik.includes(sadeAd) ? 1 : 0);
+    const sanatciVar = sanatcilar.some((a) => baslik.includes(a) || (kanal && (kanal.includes(a) || a.includes(kanal))));
+    const sanatcininKanali = kanal && sanatcilar.some((a) => kanal.includes(a));
+    const resmiKayit = / - topic$/i.test(s.kanal || "") && sanatcilar.some((a) => kanal === a);
+    let puan = adOrani * 4 + (sanatciVar ? 3 : 0) + (sanatcininKanali ? 1 : 0) + (resmiKayit ? 1 : 0) - sira * 0.05;
+    for (const [desen, ceza] of ESLESME_CEZALARI) {
+      if (desen.test(s.baslik) && !desen.test(sarki.baslik + " " + (sarki.kanal || ""))) puan -= ceza;
+    }
+    // Şarkının adı başlıkta yoksa ya da sanatçı hiçbir yerde geçmiyor ve ad da tam değilse aday değildir
+    const uygun = adOrani >= 0.6 && (sanatciVar || adOrani === 1);
+    if (uygun && puan > enIyiPuan) {
+      enIyi = s;
+      enIyiPuan = puan;
+    }
+  });
+  return enIyi;
 }
 
 // Çalma sırası bir Spotify şarkısına gelince odadaki biri onu YouTube'da bulur ve herkes için yazar.

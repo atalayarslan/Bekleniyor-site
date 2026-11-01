@@ -41,8 +41,10 @@ function kapakAdresi(id) {
 // bulunmuş YouTube videosunun resmi ("eslesmeler"), yoksa Apple Music aramasından albüm kapağı.
 // Sadece ekranda görünen satırlar sorulur; sonuç tarayıcıda saklanır, aynı şarkı bir daha sorulmaz.
 
+// "~" öneki: eski eşleşmeler ilk sonucu körü körüne alıyordu (yanlışları vardı) ve kurallar gereği
+// üzerine yazılamıyor; yenileri ayrı anahtarda tutulur. Arama sonuçları önbellekte olduğundan kota harcanmaz.
 function eslesmeAnahtari(metin) {
-  return guvenliAnahtar(String(metin).toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_";
+  return "~" + (guvenliAnahtar(String(metin).toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_").slice(0, 99);
 }
 
 function kapakResmi(sarki, ozellikler) {
