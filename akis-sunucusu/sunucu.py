@@ -78,7 +78,9 @@ def gunlugu_kur():
 
 
 def tek_satir(deger, sinir=500):
-    return re.sub(r"\s+", " ", str(deger)).strip()[:sinir]
+    metin = re.sub(r"\x1b\[[0-9;]*m", "", str(deger))  # yt-dlp hatalarındaki renk kodları
+    metin = metin.split(" Use --cookies")[0]           # bot engeli hatasının sonundaki uzun yardım metni
+    return re.sub(r"\s+", " ", metin).strip()[:sinir]
 
 
 def log(konu, olay, **ayrinti):
