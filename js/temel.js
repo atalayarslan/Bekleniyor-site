@@ -177,7 +177,9 @@ function sarkiKaydi(s) {
 // ---------- Şarkının sanatçısı ----------
 // YouTube'da şarkıyı çoğu zaman sanatçı değil bir firma ya da başka biri yükler; kanal adı sanatçı
 // olmayabilir. Sırayla:
-//  1) YouTube'un kendi "Bu videodaki müzik" bilgisi (Cloudflare aracısından, varsa) — en doğrusu,
+//  1) YouTube'un kendi "Bu videodaki müzik" bilgisi (Cloudflare aracısından, varsa) — ama sadece o isim
+//     başlıkta ya da kanal adında da geçiyorsa. YouTube cover'ları bazen şarkıyı yeniden yayınlayan
+//     başka birine bağlıyor (ör. Tuanna'nın cover'ı → "westside"); öyleyse aşağıdaki tahmine geçilir,
 //  2) "Sanatçı - Topic" otomatik kanalları → sanatçı,
 //  3) cover'lar → söyleyen kişi (kanal),
 //  4) başlık "Sanatçı - Şarkı" ise: kanal başlıkta geçiyorsa kanal sanatçının kendisidir,
@@ -195,12 +197,24 @@ function sadeMetin(metin) {
   return String(metin || "").toLocaleLowerCase("tr").replace(/[^\p{L}\p{N}]/gu, "");
 }
 
+// Resmî sanatçı adı (ya da "A, B & C" gibi birden çok isimden biri) başlıkta ya da kanal adında geçiyor mu?
+function resmiDogrulanir(resmi, baslik, kanal) {
+  if (!baslik && !kanal) return true;
+  const sadeBaslik = sadeMetin(baslik);
+  const sadeKanal = sadeMetin(kanal);
+  return [resmi, ...resmi.split(/\s*(?:,|&|\bfeat\.?|\bft\.?|\bve\b|\bx\b)\s*/i)].some((ad) => {
+    const sade = sadeMetin(ad);
+    return sade.length >= 2 && (sadeBaslik.includes(sade) || (sadeKanal && (sadeKanal.includes(sade) || sade.includes(sadeKanal))));
+  });
+}
+
 function sanatciBul(sarki) {
   if (!sarki) return "";
-  if (gecerliId(sarki.videoId) && resmiSanatcilar.get(sarki.videoId)) return resmiSanatcilar.get(sarki.videoId);
   const kanalHam = String(sarki.kanal || "");
   const kanal = kanaliTemizle(kanalHam);
   const baslik = String(sarki.baslik || "");
+  const resmi = gecerliId(sarki.videoId) ? resmiSanatcilar.get(sarki.videoId) : "";
+  if (resmi && resmiDogrulanir(resmi, baslik, kanal)) return resmi;
   if (!gecerliId(sarki.videoId) || /\s-\s*Topic$/i.test(kanalHam)) return kanal;
   if (/\bcover\b/i.test(baslik)) return kanal ? kanal + " (cover)" : "";
   const parcalar = baslik.split(BASLIK_AYIRICI);
@@ -218,10 +232,13 @@ function sanatciBul(sarki) {
 // YouTube'un "Bu videodaki müzik" bilgisini Cloudflare aracısından toplu sorar (?sanatci=id1,id2,...).
 // Cevap tarayıcıda saklanır; ekrandaki ".sanatci[data-video]" etiketleri ve çalan şarkı yerinde güncellenir.
 const sanatciKuyrugu = new Set();
+const sanatciSarkilari = new Map(); // videoId -> şarkı (cevap gelince başlık/kanalla doğrulamak için)
 let sanatciZamanlayici = null;
 let sanatciAracisiBekle = 0; // aracı cevap vermezse bir süre sorulmaz
 
-function resmiSanatciSor(videoId) {
+function resmiSanatciSor(sarki) {
+  const videoId = sarki && sarki.videoId;
+  if (gecerliId(videoId)) sanatciSarkilari.set(videoId, sarki);
   if (!AYARLAR.spotifyAraci || !gecerliId(videoId) || resmiSanatcilar.has(videoId) || Date.now() < sanatciAracisiBekle) return;
   const kayitli = hafizadanOku("sanatci:" + videoId);
   if (kayitli !== null) {
@@ -255,7 +272,8 @@ async function sanatcilariGetir() {
     resmiSanatcilar.set(id, sanatci);
     hafizayaYaz("sanatci:" + id, sanatci);
     if (!sanatci) continue;
-    document.querySelectorAll('.sanatci[data-video="' + id + '"]').forEach((e) => { e.textContent = sanatci; });
+    const ad = sanatciBul(sanatciSarkilari.get(id) || { videoId: id });
+    document.querySelectorAll('.sanatci[data-video="' + id + '"]').forEach((e) => { e.textContent = ad; });
     if (typeof simdiki !== "undefined" && simdiki && simdiki.videoId === id) calanDegisti = true;
   }
   if (calanDegisti && typeof arayuzuGuncelle === "function") arayuzuGuncelle();

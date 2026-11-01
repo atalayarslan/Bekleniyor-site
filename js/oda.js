@@ -1153,7 +1153,7 @@ function arayuzuGuncelle() {
     $("kapak").src = kapakAdresi(simdiki.videoId);
     $("sarkiAdi").textContent = simdiki.baslik || "Bilinmeyen şarkı";
     const sanatci = sanatciBul(simdiki);
-    if (gecerliId(simdiki.videoId)) resmiSanatciSor(simdiki.videoId);
+    if (gecerliId(simdiki.videoId)) resmiSanatciSor(simdiki);
     $("sarkiAlt").textContent = (sanatci ? sanatci + " · " : "") +
       (!gecerliId(simdiki.videoId) ? "YouTube'da aranıyor…" : "ekleyen: " + (simdiki.ekleyen || "?"));
     oynatSimgesi(!simdiki.duraklatildi);
@@ -1256,7 +1256,7 @@ function sanatciEtiketi(sarki) {
   const etiket = el("span", { className: "sanatci" }, sanatciBul(sarki));
   if (gecerliId(sarki.videoId)) {
     etiket.dataset.video = sarki.videoId;
-    resmiSanatciSor(sarki.videoId);
+    resmiSanatciSor(sarki);
   }
   return etiket;
 }
