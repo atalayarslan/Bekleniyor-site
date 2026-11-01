@@ -2557,6 +2557,43 @@ a {
   opacity: 1;
 }
 
+/* Yeni sürüm çıkınca üst ortada beliren yenile düğmesi (baslat.js yeniSurumuDenetle) */
+.yeni-surum {
+  position: fixed;
+  top: 0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  max-width: calc(100% - 2rem);
+  padding: 0.55rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--vurgu);
+  color: #000;
+  font-family: 'Nunito', Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  animation: yeni-surum-gir 0.35s ease-out;
+}
+
+.yeni-surum:hover {
+  filter: brightness(1.1);
+}
+
+/* Telefonda üstteki logo ve giriş düğmesinin altına iner */
+@media (max-width: 640px) {
+  .yeni-surum {
+    top: 4rem;
+  }
+}
+
+@keyframes yeni-surum-gir {
+  from { opacity: 0; transform: translate(-50%, -1rem); }
+}
+
 /* ---------- Yönetim paneli ---------- */
 
 .yonetim-kart {

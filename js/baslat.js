@@ -21,7 +21,41 @@
   akisAdresiniKaydet();
   oturumRozetleriniCiz();
   if (new URLSearchParams(location.search).has("tani")) taniModunuAc();
+  yeniSurumuDenetle();
 })();
+
+// GitHub Pages sayfayı tarayıcıda 10 dk saklatıyor; güncellemeden sonra yenileyen eski sürümü görebiliyor.
+// Ara ara sayfanın en yeni hâli önbelleksiz okunur, içindeki ?v=N bizimkinden büyükse üstte
+// "Yeni sürüm var" düğmesi çıkar. Müzik kesilmesin diye kendiliğinden yenilenmez; basınca yenilenir.
+function yeniSurumuDenetle() {
+  const surumu = (metin) => {
+    const m = /temel\.js\?v=(\d+)/.exec(metin);
+    return m ? Number(m[1]) : 0;
+  };
+  const bendeki = surumu([...document.scripts].map((s) => s.getAttribute("src") || "").join(" "));
+  if (!bendeki) return;
+  let tus = null;
+  let sonDenetim = 0;
+  async function denetle() {
+    if (tus || document.hidden || Date.now() - sonDenetim < 60000) return;
+    sonDenetim = Date.now();
+    let yeni = 0;
+    try {
+      const cevap = await fetch(location.pathname + "?surumDenetimi=" + Date.now(), { cache: "no-store" });
+      if (cevap.ok) yeni = surumu(await cevap.text());
+    } catch (e) { }
+    if (yeni <= bendeki) return;
+    tus = el("button", {
+      className: "yeni-surum", type: "button",
+      title: "Sayfa yenilenir" + (typeof katildi !== "undefined" && katildi ? "; odaya tekrar katılman gerekir" : ""),
+      onclick: () => location.reload()
+    }, "🔄 Yeni sürüm var · yenile");
+    document.body.append(tus);
+  }
+  setInterval(denetle, 3 * 60 * 1000);
+  document.addEventListener("visibilitychange", denetle);
+  setTimeout(denetle, 5000);
+}
 
 // Reklamsız akış sunucusu açılınca ("Bekleniyor akışı başlat.bat") yöneticinin tarayıcısında
 // ?akis=<tünel adresi> ile site açılır; adres Firebase'e yazılır ve bütün odalar onu kullanır.
