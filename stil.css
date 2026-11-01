@@ -1856,6 +1856,12 @@ a {
   text-overflow: ellipsis;
 }
 
+/* Şarkının sanatçısı: alt satırda diğer bilgilerden biraz daha belirgin */
+.sarki-alt .sanatci {
+  color: #e6e6e6;
+  font-weight: 700;
+}
+
 .sarki-tuslari {
   display: flex;
   gap: 0.25rem;

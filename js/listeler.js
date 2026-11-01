@@ -56,7 +56,7 @@ function listelerCiz() {
         el("button", { className: "tus-kucuk", onclick: () => listeyiIndir(liste) }, "⬇ İndir"),
         el("button", { className: "tus-kucuk", onclick: () => listeyiSil(acikListe) }, "🗑️ Sil")),
       sarkilar.length
-        ? el("div", {}, sarkilar.map((s) => sarkiSatiri(s, s.kanal || "", [
+        ? el("div", {}, sarkilar.map((s) => sarkiSatiri(s, "", [
           { yazi: "+", baslik: "Sıraya ekle", is: () => sarkilariEkle([s]) },
           { yazi: "✕", baslik: "Listeden çıkar", is: () => listelerRef.child(acikListe + "/sarkilar/" + s.anahtar).remove() }
         ], () => hemenCal(s))))

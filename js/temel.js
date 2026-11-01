@@ -174,6 +174,93 @@ function sarkiKaydi(s) {
   return kayit;
 }
 
+// ---------- Şarkının sanatçısı ----------
+// YouTube'da şarkıyı çoğu zaman sanatçı değil bir firma ya da başka biri yükler; kanal adı sanatçı
+// olmayabilir. Sırayla:
+//  1) YouTube'un kendi "Bu videodaki müzik" bilgisi (Cloudflare aracısından, varsa) — en doğrusu,
+//  2) "Sanatçı - Topic" otomatik kanalları → sanatçı,
+//  3) cover'lar → söyleyen kişi (kanal),
+//  4) başlık "Sanatçı - Şarkı" ise: kanal başlıkta geçiyorsa kanal sanatçının kendisidir,
+//     geçmiyorsa (firma, sözler/lyrics kanalı) başlıktaki sanatçı alınır,
+//  5) hiçbiri yoksa kanal.
+// Spotify'dan gelen şarkılarda "kanal" zaten sanatçıdır.
+const resmiSanatcilar = new Map(); // videoId -> sanatçı (YouTube'un müzik bilgisinden)
+const BASLIK_AYIRICI = /\s+[-–—]\s+/;
+
+function kanaliTemizle(kanal) {
+  return String(kanal || "").replace(/\s*-\s*Topic$/i, "").replace(/\s*VEVO$/i, "").replace(/\s+(Official|Resmi)$/i, "").trim();
+}
+
+function sadeMetin(metin) {
+  return String(metin || "").toLocaleLowerCase("tr").replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function sanatciBul(sarki) {
+  if (!sarki) return "";
+  if (gecerliId(sarki.videoId) && resmiSanatcilar.get(sarki.videoId)) return resmiSanatcilar.get(sarki.videoId);
+  const kanalHam = String(sarki.kanal || "");
+  const kanal = kanaliTemizle(kanalHam);
+  const baslik = String(sarki.baslik || "");
+  if (!gecerliId(sarki.videoId) || /\s-\s*Topic$/i.test(kanalHam)) return kanal;
+  if (/\bcover\b/i.test(baslik)) return kanal ? kanal + " (cover)" : "";
+  const parcalar = baslik.split(BASLIK_AYIRICI);
+  if (parcalar.length >= 2) {
+    const sol = parcalar[0].replace(/^["'“”]+|["'“”]+$/g, "").trim().slice(0, 60);
+    const sadeKanal = sadeMetin(kanal);
+    const sadeSol = sadeMetin(sol);
+    if (sadeKanal && sadeSol && (sadeSol.includes(sadeKanal) || sadeKanal.includes(sadeSol))) return sol;
+    if (sadeKanal && sadeMetin(baslik).includes(sadeKanal)) return kanal;
+    if (sol) return sol;
+  }
+  return kanal;
+}
+
+// YouTube'un "Bu videodaki müzik" bilgisini Cloudflare aracısından toplu sorar (?sanatci=id1,id2,...).
+// Cevap tarayıcıda saklanır; ekrandaki ".sanatci[data-video]" etiketleri ve çalan şarkı yerinde güncellenir.
+const sanatciKuyrugu = new Set();
+let sanatciZamanlayici = null;
+let sanatciAracisiBekle = 0; // aracı cevap vermezse bir süre sorulmaz
+
+function resmiSanatciSor(videoId) {
+  if (!AYARLAR.spotifyAraci || !gecerliId(videoId) || resmiSanatcilar.has(videoId) || Date.now() < sanatciAracisiBekle) return;
+  const kayitli = hafizadanOku("sanatci:" + videoId);
+  if (kayitli !== null) {
+    resmiSanatcilar.set(videoId, kayitli);
+    return;
+  }
+  resmiSanatcilar.set(videoId, ""); // soruldu; cevap gelene kadar tahmin gösterilir
+  sanatciKuyrugu.add(videoId);
+  clearTimeout(sanatciZamanlayici);
+  sanatciZamanlayici = setTimeout(sanatcilariGetir, 300);
+}
+
+async function sanatcilariGetir() {
+  const idler = [...sanatciKuyrugu].slice(0, 20);
+  idler.forEach((id) => sanatciKuyrugu.delete(id));
+  if (!idler.length) return;
+  if (sanatciKuyrugu.size) sanatciZamanlayici = setTimeout(sanatcilariGetir, 300);
+  let veri = null;
+  try {
+    veri = await (await fetch(AYARLAR.spotifyAraci + "?sanatci=" + idler.join(","))).json();
+  } catch (e) { }
+  // Aracı bu özelliği bilmiyorsa (eski sürüm) ya da ulaşılamadıysa sonuç saklanmaz; 10 dk sonra tekrar sorulur
+  if (!veri || !veri.sanatcilar) {
+    sanatciAracisiBekle = Date.now() + 10 * 60 * 1000;
+    sanatciKuyrugu.clear();
+    return idler.forEach((id) => resmiSanatcilar.delete(id));
+  }
+  let calanDegisti = false;
+  for (const id of idler) {
+    const sanatci = String(veri.sanatcilar[id] || "").slice(0, 80);
+    resmiSanatcilar.set(id, sanatci);
+    hafizayaYaz("sanatci:" + id, sanatci);
+    if (!sanatci) continue;
+    document.querySelectorAll('.sanatci[data-video="' + id + '"]').forEach((e) => { e.textContent = sanatci; });
+    if (typeof simdiki !== "undefined" && simdiki && simdiki.videoId === id) calanDegisti = true;
+  }
+  if (calanDegisti && typeof arayuzuGuncelle === "function") arayuzuGuncelle();
+}
+
 // Aynı şarkıyı tanımak için: YouTube kimliği, yoksa arama metni.
 function sarkiKimligi(s) {
   return s ? (gecerliId(s.videoId) ? s.videoId : "?" + (s.arama || "")) : "";

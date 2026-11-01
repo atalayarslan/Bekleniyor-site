@@ -273,7 +273,7 @@ function odaBasligiCiz() {
   const ad = (odaBilgi && odaBilgi.ad) || odaVarsayilanAdi();
   $("odaAdi").textContent = ad;
   $("katilBaslik").textContent = ad;
-  $("miniAlt").textContent = ad;
+  miniyiGuncelle();
   $("odadanCikTus").title = "“" + ad + "” odasından çık (müzik durur)";
   document.title = document.body.classList.contains("mini-mod") ? "Bekleniyor" : ad + " · Bekleniyor";
 }
@@ -309,6 +309,9 @@ function odayaGeriDon(adresiDegistir = true) {
 
 function miniyiGuncelle() {
   $("miniBaslik").textContent = simdiki ? simdiki.baslik || "Bilinmeyen şarkı" : "Asansör müziği";
+  // Mini oynatıcının alt satırı: sanatçı · oda adı
+  const sanatci = simdiki ? sanatciBul(simdiki) : "";
+  $("miniAlt").textContent = (sanatci ? sanatci + " · " : "") + ((odaBilgi && odaBilgi.ad) || odaVarsayilanAdi());
   // Şarkı yokken (ya da henüz YouTube'da bulunmadıysa) video yerine kapak görünür
   const kapakli = !simdiki || !gecerliId(simdiki.videoId);
   $("miniGoruntu").classList.toggle("kapakli", kapakli);
@@ -667,10 +670,7 @@ async function siradakiniHazirla() {
 // Çalan şarkının sanatçısından benzer şarkılar bulur. Önce YouTube araması (önbellekli),
 // yetmezse odanın geçmişinden yakında çalınmamış şarkılar.
 function sanatciAdi(sarki) {
-  const kanal = String(sarki.kanal || "").replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").replace(/\s*(Official|Resmi)\s*$/i, "").trim();
-  if (kanal) return kanal;
-  const tire = String(sarki.baslik || "").split(" - ");
-  return tire.length > 1 ? tire[0].trim() : "";
+  return sanatciBul(sarki).replace(/\s*\(cover\)$/, "");
 }
 
 let radyoKimligi = null;
@@ -1016,7 +1016,7 @@ function medyaOturumunuGuncelle() {
   }
   navigator.mediaSession.metadata = new MediaMetadata({
     title: simdiki.baslik || "",
-    artist: simdiki.kanal || "",
+    artist: sanatciBul(simdiki),
     album: (odaBilgi && odaBilgi.ad) || "Bekleniyor",
     artwork: gecerliId(simdiki.videoId)
       ? [{ src: "https://i.ytimg.com/vi/" + simdiki.videoId + "/hqdefault.jpg", sizes: "480x360", type: "image/jpeg" }] : []
@@ -1152,8 +1152,10 @@ function arayuzuGuncelle() {
   if (simdiki) {
     $("kapak").src = kapakAdresi(simdiki.videoId);
     $("sarkiAdi").textContent = simdiki.baslik || "Bilinmeyen şarkı";
-    $("sarkiAlt").textContent = !gecerliId(simdiki.videoId) ? "YouTube'da aranıyor…"
-      : (simdiki.kanal ? simdiki.kanal + " · " : "") + "ekleyen: " + (simdiki.ekleyen || "?");
+    const sanatci = sanatciBul(simdiki);
+    if (gecerliId(simdiki.videoId)) resmiSanatciSor(simdiki.videoId);
+    $("sarkiAlt").textContent = (sanatci ? sanatci + " · " : "") +
+      (!gecerliId(simdiki.videoId) ? "YouTube'da aranıyor…" : "ekleyen: " + (simdiki.ekleyen || "?"));
     oynatSimgesi(!simdiki.duraklatildi);
     $("simdikiListeye").hidden = false;
   } else {
@@ -1171,7 +1173,7 @@ function arayuzuGuncelle() {
   // Telefonda sadece ses çalarken video kutusunda şarkının kapağı görünür
   $("videoKutu").style.setProperty("--kapak", simdiki && gecerliId(simdiki.videoId)
     ? 'url("https://i.ytimg.com/vi/' + simdiki.videoId + '/hqdefault.jpg")' : "none");
-  $("perdeBaslik").textContent = simdiki ? simdiki.baslik || "" : "";
+  $("perdeBaslik").textContent = simdiki ? (simdiki.baslik || "") + (sanatciBul(simdiki) ? " — " + sanatciBul(simdiki) : "") : "";
   $("videoPerdesi").classList.toggle("durdu", !!simdiki && !!simdiki.duraklatildi);
   $("geriTus").disabled = !simdiki;
   $("atlaTus").disabled = !simdiki;
@@ -1249,6 +1251,16 @@ function ilerlemeOlaylariniBagla() {
   cubuk.addEventListener("pointercancel", birak);
 }
 
+// Satırlarda şarkının sanatçısı. Resmî bilgi sonradan gelirse (aracıdan) yerinde güncellenir.
+function sanatciEtiketi(sarki) {
+  const etiket = el("span", { className: "sanatci" }, sanatciBul(sarki));
+  if (gecerliId(sarki.videoId)) {
+    etiket.dataset.video = sarki.videoId;
+    resmiSanatciSor(sarki.videoId);
+  }
+  return etiket;
+}
+
 // dugmeler: [{ yazi, baslik, is(olay) }]; tikla verilirse satırın kendisine tıklamak onu çalar.
 function sarkiSatiri(sarki, altYazi, dugmeler, tikla) {
   const caliyor = simdiki && simdiki.videoId === sarki.videoId;
@@ -1258,7 +1270,7 @@ function sarkiSatiri(sarki, altYazi, dugmeler, tikla) {
       tikla ? el("span", { className: "kapak-oynat" }, "▶") : null),
     el("div", { className: "sarki-bilgi" },
       el("div", { className: "sarki-adi", title: sarki.baslik }, sarki.baslik),
-      el("div", { className: "sarki-alt" }, altYazi)),
+      el("div", { className: "sarki-alt" }, sanatciEtiketi(sarki), sanatciBul(sarki) && altYazi ? " · " : "", altYazi)),
     el("div", { className: "sarki-tuslari" }, dugmeler.map((d) => el("button", {
       type: "button", title: d.baslik, onclick: (e) => { e.stopPropagation(); d.is(e); }
     }, d.yazi)))
@@ -1379,7 +1391,7 @@ function gecmisCiz() {
 function sonuclariGoster(liste, ust) {
   $("sonuclar").replaceChildren(
     ...(ust ? [ust] : []),
-    ...liste.map((s) => sarkiSatiri(s, s.kanal || "", [
+    ...liste.map((s) => sarkiSatiri(s, "", [
       listeDugmesi(s),
       { yazi: "+", baslik: "Sıraya ekle", is: () => sarkilariEkle([s]) }
     ], () => hemenCal(s))));
