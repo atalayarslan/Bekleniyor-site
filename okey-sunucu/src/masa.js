@@ -73,10 +73,48 @@ export class OkeyMasasi {
     const k = ben.kim ? this.koltugum(ben.kim) : -1;
     if (k >= 0 && !this.baglilar().some((x) => x.ws !== ws && x.ben.kim === ben.kim)) {
       this.m.koltuklar[k].ayrildi = Date.now();
+      this.alarmKur();
       await this.kaydet();
     }
     this.olaylar = [];
     this.yayinla(ws);
+  }
+
+  // Bağlantısı olmayan oyuncuları işaretler: sunucu güncellenince/yeniden başlayınca kapanış haberi gelmeyebilir,
+  // ayrıldı zamanı olmayan kopuk koltuk sonsuza dek "bağlantı yok" kalmasın. El sürmüyorsa tutma süresi geçen koltuk
+  // boşalır (insan kalmadıysa botlar da kalkar). Bir şey değiştiyse true döner.
+  kopuklariIsle() {
+    const m = this.m;
+    const bagli = new Set(this.baglilar().map((x) => x.ben.kim));
+    const oyunSuruyor = m.el && !m.el.bitti;
+    let degisti = false;
+    m.koltuklar.forEach((x, i) => {
+      if (!x || x.bot || bagli.has(x.kim)) return;
+      if (!x.ayrildi) { x.ayrildi = Date.now(); degisti = true; }
+      else if (!oyunSuruyor && Date.now() - x.ayrildi >= KOLTUK_BEKLEME) { m.koltuklar[i] = null; degisti = true; }
+    });
+    if (degisti && !oyunSuruyor) this.insanKalmadiysa();
+    return degisti;
+  }
+
+  // Masada (botlar dışında) kimse kalmadı: botlar da kalkar, kurucu yok, yarım oyun kapanır
+  // (yeni gelen türü/el sayısını seçebilsin)
+  insanKalmadiysa() {
+    const m = this.m;
+    if (m.koltuklar.some((x) => x && !x.bot)) return;
+    m.kurucu = null;
+    m.koltuklar = [null, null, null, null];
+    if (m.oyun && !m.oyun.bitis) m.oyun.bitis = Date.now();
+  }
+
+  // Tek alarm iki işe bakar: sıradakinin süresi ve el sürmüyorken kopuk koltuğun boşalma zamanı
+  alarmKur() {
+    const m = this.m;
+    const zamanlar = [];
+    if (m.el && !m.el.bitti) zamanlar.push(m.el.sureBitis);
+    else for (const x of m.koltuklar) if (x && !x.bot && x.ayrildi) zamanlar.push(x.ayrildi + KOLTUK_BEKLEME);
+    if (zamanlar.length) this.ctx.storage.setAlarm(Math.max(Date.now(), Math.min(...zamanlar)));
+    else this.ctx.storage.deleteAlarm();
   }
 
   async merhaba(ws, mesaj) {
@@ -99,6 +137,7 @@ export class OkeyMasasi {
       Object.assign(this.m.koltuklar[k], { ad: ben.ad, foto: ben.foto, ayrildi: null });
       if (this.m.oyun && !this.m.oyun.bitis && this.m.oyun.oyuncular[k]) this.m.oyun.oyuncular[k].ad = ben.ad;
     }
+    if (this.kopuklariIsle()) this.alarmKur();
     this.sahibiOgren();   // beklenmez: oda sahibi bilgisi arkada gelir, bağlantı hemen cevap alır
     this.olaylar = [];
     await this.kaydet();
@@ -161,13 +200,8 @@ export class OkeyMasasi {
         if (k < 0) return;
         // Oyun sürüyorsa eli masada kalır; koltuğa başkası oturup devam edebilir, kimse oturmazsa süre dolunca oynanır
         m.koltuklar[k] = oyunSuruyor ? Object.assign({}, m.koltuklar[k], { ayrildi: 1, kim: "bos:" + k }) : null;
-        // Masada (botlar dışında) kimse kalmadı: botlar da kalkar, kurucu yok, yarım oyun kapanır
-        // (yeni gelen türü/el sayısını seçebilsin). El sürüyorsa kalkanın koltuğu dolu kaldığı için buraya girilmez.
-        if (!m.koltuklar.some((x) => x && !x.bot)) {
-          m.kurucu = null;
-          m.koltuklar = [null, null, null, null];
-          if (m.oyun && !m.oyun.bitis && !oyunSuruyor) m.oyun.bitis = Date.now();
-        }
+        // El sürüyorsa kalkanın koltuğu dolu kaldığı için masa boşalmış sayılmaz
+        if (!oyunSuruyor) { this.insanKalmadiysa(); this.alarmKur(); }
         return;
       case "bot": {
         if (k < 0 && !this.yetkili(ben)) return "Bot eklemek için önce masaya otur";
@@ -265,19 +299,25 @@ export class OkeyMasasi {
   sureyiKur() {
     const E = this.m.el;
     E.sureBitis = Date.now() + (this.botMu(E.sira) ? BOT_BEKLEME : this.m.ayar.sure * 1000);
-    this.ctx.storage.setAlarm(E.sureBitis);
+    this.alarmKur();
   }
 
-  // Süre doldu: sıradaki oyuncunun yerine oynanır (bağlantısı kopmuş ya da koltuğu boş da olsa oyun ilerler); botsa bot oynar
+  // Süre doldu: sıradaki oyuncunun yerine oynanır (bağlantısı kopmuş ya da koltuğu boş da olsa oyun ilerler); botsa bot oynar.
+  // El sürmüyorsa: tutma süresi geçen kopuk koltuklar boşalır.
   async alarm() {
+    this.olaylar = [];
+    let degisti = this.kopuklariIsle();
     const E = this.m.el;
-    if (!E || E.bitti) return;
-    if (Date.now() < E.sureBitis - 200) return this.ctx.storage.setAlarm(E.sureBitis);
-    const k = E.sira;
-    const bot = this.botMu(k);
-    this.olaylar = bot ? [] : [{ tur: "sure", k }];
-    if (bot) this.botOyna(k); else this.otomatik(k);
-    if (!E.bitti && E.sira === k) this.sureyiKur();   // hamle bir sebeple olmadıysa masa takılı kalmasın
+    if (E && !E.bitti && Date.now() >= E.sureBitis - 200) {
+      const k = E.sira;
+      const bot = this.botMu(k);
+      if (!bot) this.olaylar.push({ tur: "sure", k });
+      if (bot) this.botOyna(k); else this.otomatik(k);
+      if (!E.bitti && E.sira === k) this.sureyiKur();   // hamle bir sebeple olmadıysa masa takılı kalmasın
+      degisti = true;
+    }
+    this.alarmKur();
+    if (!degisti) return;
     await this.kaydet();
     this.yayinla();
   }
@@ -631,7 +671,7 @@ export class OkeyMasasi {
     });
     if (m.oyun.elSayisi && m.oyun.eller.length >= m.oyun.elSayisi) m.oyun.bitis = Date.now();
     m.baslayan = (m.baslayan + 1) % 4;
-    this.ctx.storage.deleteAlarm();
+    this.alarmKur();   // tur süresi biter; el sırasında kopanların koltuk süresi kalır
     this.olaylar.push({ tur: "elBitti", baslik });
     this.ceteleyeYaz();
   }

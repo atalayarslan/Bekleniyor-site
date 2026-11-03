@@ -67,8 +67,10 @@
     let surukleneId = null;
 
     const sahne = h("div", { sinif: "okey-sahne" });
+    // Tema/Ayarlar/Kalk/Çetele/Kurallar: ölçeklenen masanın dışında, ekranın sağ üst köşesinde (üstteki koltuğu örtmez)
+    const kose = h("div", { sinif: "kose-tuslar" });
     kok.classList.add("okey");
-    kok.replaceChildren(sahne);
+    kok.replaceChildren(sahne, kose);
 
     function sigdir() {
       const r = kok.getBoundingClientRect();
@@ -190,11 +192,11 @@
       });
 
       const durum = g.durumYazisi ? h("div", { sinif: "durum-yazisi" }, g.durumYazisi) : null;
-      const kose = h("div", { sinif: "kose-tuslar" },
-        (g.ekTuslar || []).map((t) => h("button", { sinif: "okey-tus" + (t.secili ? " ana" : ""), onclick: t.is, title: t.ipucu || "" }, t.yazi)),
+      kose.replaceChildren(
+        ...(g.ekTuslar || []).map((t) => h("button", { sinif: "okey-tus" + (t.secili ? " ana" : ""), onclick: t.is, title: t.ipucu || "" }, t.yazi)),
         h("button", { sinif: "okey-tus", onclick: olaylar.cetele }, "📋 Çetele"),
         h("button", { sinif: "okey-tus", onclick: olaylar.kurallar }, "📖 Kurallar"));
-      iskelet.ust.replaceChildren(...koltuklar, durum || "", kose, istakaCiz());
+      iskelet.ust.replaceChildren(...koltuklar, durum || "", istakaCiz());
       sigdir();
     }
 
