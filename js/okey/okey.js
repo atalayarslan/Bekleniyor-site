@@ -189,7 +189,8 @@
       return gs.flat().some((t) => !K.okeyMi(t, E.okey) && ((x) => x.r === y.r && x.n === y.n)(K.kimlik(t, E.okey)));
     };
     if (E.acti[k]) {
-      const yeni = E.acti[k] === "cift" ? cift : seri;
+      // Çift açan da seri/grup per koyabilir (önce perler gider, çiftler bir sonraki basışta); seri açan çift koyamaz
+      const yeni = E.acti[k] === "cift" && !seri.length ? cift : seri;
       return { acti: true, gruplar: yeni, yeniPer: yeni.length > 0 && kalan - yeni.reduce((t, x) => t + x.length, 0) >= 1 };
     }
     const seriBaraj = K.acmaBaraji(E.acilislar, "seri", k, a);
@@ -420,9 +421,10 @@
     masa.pencere("Kurallar (kısa)", h("div", {}, ...[
       "Sıra saat yönünün tersine döner. Taşını sağına atarsın; solundakinin attığını alabilirsin.",
       "Soldan aldığın taşla o tur açmak (açtıysan işlemek) zorundasın. Denemek için alabilirsin: vazgeçersen taşa çift tıkla ya da sola geri sürükle, ceza yok; sonra desteden çek. Elinde ikizi varsa ikiziyle açmak da olur.",
-      "Soldan aldığın taşla açarsan taşı atana taşın 10 katı ceza yazılır.",
+      "Soldan aldığın taşla elini açarsan taşı atana taşın 10 katı ceza yazılır. Elini önceden açtıysan soldan alıp per koyman ya da işlemen ceza yazdırmaz.",
       "Açmak için yan yana dizdiğin geçerli perlerin toplamı en az 101 (ya da 5 çift). Katlamalı: senden önce açanın puanını geçmelisin.",
-      "Masadaki bir pere uyan taşı atmak işlektir: sıradaki alırsa taş×10, almazsa 101 ceza.",
+      "Çift açan sonradan seri ya da grup per de koyabilir; seri açan çift koyamaz.",
+      "Masadaki bir pere uyan taşı atmak işlektir: sıradaki (henüz açmamışken) alırsa taş×10, kimse almazsa 101 ceza.",
       "Okey atmak 101 ceza (bitiş taşı değilse). Okeyle bitirirsen herkesin puanı katlanır.",
       "Çift açarken göstergenin aynısı elindeyse göstergeyle çift yapılır.",
       "Taşı sürükleyip ıstakada yerini değiştir, 'Attığın' alanına bırakıp at (ya da çift tıkla), masadaki bir pere bırakıp işle. Sağ tık taşı yatırır."
