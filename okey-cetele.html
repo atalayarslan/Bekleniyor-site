@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="tr" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Okey Çetelesi · Bekleniyor</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="stylesheet" href="okey-cetele.css?v=36">
+<style>
+  /* Odanın okey çetelesi: odadaki herkes (oynamayanlar da) bu sayfayı açıp bütün oyunları ve elleri görebilir.
+     Kayıtlar masa sunucusundan gelir (son 50 oyun). Solda oyunlar, sağda seçilen oyunun çetelesi; dar ekranda alt alta. */
+  html, body { margin: 0; min-height: 100%; }
+  body { background: #0d1612; }
+  .cetele { background: var(--bg); min-height: 100vh; }
+  .bar { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .bar-in { max-width: 1100px; margin: 0 auto; min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+  .brand-tile { width: 38px; height: 50px; border-radius: 7px; background: var(--tile); border: 1px solid var(--tile-edge); box-shadow: 0 2px 0 var(--tile-edge);
+    display: grid; place-items: center; font-family: var(--f-num); font-weight: 800; font-size: 16px; color: var(--tn0); flex: none; }
+  .bar h1 { margin: 0; font-size: 18px; }
+  .bar small { color: var(--muted); }
+  .bar a { margin-left: auto; color: var(--accent); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .duzen { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 760px) { .duzen { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="cetele koyu" id="kok">
+  <header class="bar"><div class="bar-in">
+    <div class="brand-tile" aria-hidden="true">101</div>
+    <div><h1 id="baslik">Okey çetelesi</h1><small>Bu odada oynanan okey oyunları · herkes görebilir</small></div>
+    <a id="odayaDon" href="./">← Odaya dön</a>
+  </div></header>
+  <main class="duzen">
+    <section class="stack"><h2 class="sec">Oyunlar</h2><div class="list" id="liste"><div class="empty">Yükleniyor…</div></div></section>
+    <section id="ayrinti"></section>
+  </main>
+</div>
+<script src="config.js?v=36"></script>
+<script src="js/okey/cetele.js?v=36"></script>
+<script>
+  (function () {
+    const p = new URLSearchParams(location.search);
+    const oda = p.get("oda") || "";
+    let secili = p.get("oyun");
+    let oyunlar = [];
+    const yerel = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    const ozel = p.get("okeySunucu");
+    const sunucu = yerel ? (ozel && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(ozel) ? ozel : "http://127.0.0.1:8787") : AYARLAR.okeySunucu;
+    if (oda) document.getElementById("odayaDon").href = "./?oda=" + encodeURIComponent(oda);
+
+    function bosYaz(metin) {
+      const bos = document.createElement("div");
+      bos.className = "empty";
+      bos.textContent = metin;
+      document.getElementById("liste").replaceChildren(bos);
+    }
+
+    function ciz() {
+      if (!oyunlar.some((o) => o.id === secili)) secili = oyunlar[0] && oyunlar[0].id;
+      if (!oyunlar.length) bosYaz("Bu odada henüz okey oynanmadı. Masada bir el bitince burada görünür.");
+      else document.getElementById("liste").replaceChildren(...oyunlar.map((o) => {
+        const k = OkeyCetele.kart(o, () => { secili = o.id; ciz(); });
+        if (o.id === secili) k.classList.add("on");
+        return k;
+      }));
+      const oyun = oyunlar.find((o) => o.id === secili);
+      document.getElementById("ayrinti").replaceChildren(...(oyun ? [OkeyCetele.ciz(oyun)] : []));
+    }
+
+    async function yukle() {
+      try {
+        const yanit = await fetch(sunucu + "/cetele/" + encodeURIComponent(oda));
+        if (!yanit.ok) throw new Error(yanit.status);
+        oyunlar = ((await yanit.json()).oyunlar || []).sort((a, b) => b.baslangic - a.baslangic);
+        ciz();
+      } catch (e) {
+        if (!oyunlar.length) bosYaz("Çetele şu an okunamadı. Biraz sonra yeniden dene.");
+      }
+    }
+
+    // Odanın adı (oda kaydında); sunucudaki kayıtlarda sadece odanın kimliği var
+    async function odaAdi() {
+      try {
+        const ad = await (await fetch(AYARLAR.firebase.databaseURL + "/odalar/" + encodeURIComponent(oda) + "/bilgi/ad.json")).json();
+        if (typeof ad === "string" && ad) {
+          document.getElementById("baslik").textContent = "Okey çetelesi · " + ad;
+          document.title = ad + " · Okey Çetelesi";
+        }
+      } catch (e) { }
+    }
+
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(oda)) return bosYaz("Oda belirtilmemiş.");
+    odaAdi();
+    yukle();
+    // Masada eller bittikçe sayfa kendiliğinden güncellenir
+    setInterval(() => { if (!document.hidden) yukle(); }, 20000);
+  })();
+</script>
+</body>
+</html>

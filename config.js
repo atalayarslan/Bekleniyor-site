@@ -15,6 +15,8 @@ window.AYARLAR = {
   youtubeApiKey: "AIzaSyCz1PZYmvVKdcaiWTVc9nt61xkBRuKxb2Y",
   // Cloudflare'e kurulan Spotify aracısının adresi (spotify-araci/worker.js). Boşsa sadece şarkı adı okunur.
   spotifyAraci: "https://bekleniyor-spotify.erayaksuhome.workers.dev/",
+  // Okey masası sunucusu (okey-sunucu/, Cloudflare). Kendi bilgisayarında denerken yerel sunucu kullanılır.
+  okeySunucu: "https://bekleniyor-okey.erayaksuhome.workers.dev",
   // Yönetim panelini görebilecek Google hesabı. Asıl kontrol database.rules.json içinde de yapılır.
   yoneticiEposta: "erayaksuhome@outlook.com"
 };

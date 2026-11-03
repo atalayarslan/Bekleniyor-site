@@ -1,0 +1,99 @@
+/* Okey çetelesi: okey-hesap.html'in görünümü (fildişi taş üstünde puanlar, oyuncu renkleri taşların dört rengi,
+   el el tablo, cezalar listesi). .cetele içine kapsanır; hem çetele sayfasında hem masadaki el sonu penceresinde
+   kullanılır. Açık/koyu tema: sistemin temasını izler; .cetele.koyu her zaman koyu (sitenin içinde). */
+.cetele {
+  --bg:#e9eee8; --surface:#ffffff; --surface-2:#f2f5f1; --line:#d3dbd1;
+  --fg:#16201a; --muted:#5a6a60; --accent:#0f6b45; --accent-ink:#ffffff; --accent-soft:#dbeae1;
+  --danger:#b42318; --danger-soft:#fbe4e1;
+  --tile:#f7f2e3; --tile-edge:#d6cbad; --tile-shadow:rgba(60,50,20,.18);
+  --p0:#c0392b; --p1:#1f5fae; --p2:#1d1d1d; --p3:#a87300;
+  --tn0:#b8322a; --tn1:#1f5fae; --tn2:#1d1d1d; --tn3:#a87300;
+  --f-num:"Roboto Condensed",sans-serif-condensed,"Arial Narrow",system-ui,sans-serif;
+  --r:14px;
+  color: var(--fg);
+  font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size: 15px; line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  .cetele:not(.acik-tema) {
+    --bg:#0d1612; --surface:#15211b; --surface-2:#1b2a22; --line:#2a3b31;
+    --fg:#e6ece7; --muted:#93a59a; --accent:#3fb27f; --accent-ink:#06140d; --accent-soft:#1c3a2b;
+    --danger:#ff8a7a; --danger-soft:#3a1d19;
+    --tile:#efe8d4; --tile-edge:#8d8467; --tile-shadow:rgba(0,0,0,.4);
+    --p0:#ff7b6b; --p1:#79aaf0; --p2:#d6d9d4; --p3:#f0b93a;
+  }
+}
+.cetele.koyu {
+  --bg:#0d1612; --surface:#15211b; --surface-2:#1b2a22; --line:#2a3b31;
+  --fg:#e6ece7; --muted:#93a59a; --accent:#3fb27f; --accent-ink:#06140d; --accent-soft:#1c3a2b;
+  --danger:#ff8a7a; --danger-soft:#3a1d19;
+  --tile:#efe8d4; --tile-edge:#8d8467; --tile-shadow:rgba(0,0,0,.4);
+  --p0:#ff7b6b; --p1:#79aaf0; --p2:#d6d9d4; --p3:#f0b93a;
+}
+.cetele *, .cetele *::before, .cetele *::after { box-sizing: border-box; }
+.cetele .sec { margin: 6px 0 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.cetele .muted { color: var(--muted); }
+.cetele .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.cetele .c0 { background: var(--p0); } .cetele .c1 { background: var(--p1); } .cetele .c2 { background: var(--p2); } .cetele .c3 { background: var(--p3); }
+.cetele .pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.cetele .pill.lead { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.cetele .pill.pen { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.cetele .pill.live { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.cetele .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Oyuncu kartları: toplam puan fildişi taşın üstünde */
+.cetele .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.cetele .pcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; row-gap: 8px; min-width: 0; }
+.cetele .pcard.leader { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cetele .who { display: grid; grid-template-columns: auto 1fr; column-gap: 7px; align-items: center; min-width: 0; }
+.cetele .who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cetele .trow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cetele .tile { background: var(--tile); border: 1px solid var(--tile-edge); border-radius: 9px; box-shadow: 0 2px 0 var(--tile-edge), 0 4px 10px var(--tile-shadow);
+  padding: 4px 12px 2px; font-family: var(--f-num); font-weight: 800; font-size: 30px; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.01em; min-width: 72px; text-align: center; }
+.cetele .t0 { color: var(--tn0); } .cetele .t1 { color: var(--tn1); } .cetele .t2 { color: var(--tn2); } .cetele .t3 { color: var(--tn3); }
+.cetele .split { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cetele .split .pz { color: var(--danger); font-weight: 600; }
+.cetele .banner { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; font-weight: 600; }
+
+/* Sekmeler */
+.cetele .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border-bottom: 1px solid var(--line); }
+.cetele .tabs button { border: 0; background: none; min-height: 44px; font: inherit; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.cetele .tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
+.cetele .tabs .cnt { font-size: 12px; font-weight: 700; margin-left: 4px; color: var(--muted); }
+
+/* El el tablo */
+.cetele .tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.cetele table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.cetele th, .cetele td { padding: 9px 6px; text-align: center; border-bottom: 1px solid var(--line); font-size: 14.5px; white-space: nowrap; }
+.cetele th { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cetele th .nm { display: block; max-width: 90px; overflow: hidden; text-overflow: ellipsis; margin: 0 auto; color: var(--fg); font-size: 12.5px; }
+.cetele th .bar-c { display: block; height: 3px; border-radius: 2px; margin: 4px auto 0; width: 28px; }
+.cetele td.no { color: var(--muted); font-size: 12.5px; width: 52px; }
+.cetele td.no i { display: block; font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--accent); }
+.cetele td.win { background: var(--accent-soft); font-weight: 700; }
+.cetele td.acm { color: var(--muted); }
+.cetele td sup { font-size: 9.5px; font-weight: 800; margin-left: 1px; color: var(--accent); }
+.cetele td sup.z { color: var(--danger); }
+.cetele tr.vurgu td { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.cetele tr.vurgu td.win { background: var(--accent-soft); }
+.cetele tr.sum td { font-weight: 700; border-bottom: 0; }
+.cetele tr.sum.pz td { color: var(--danger); font-weight: 600; font-size: 13.5px; }
+.cetele tr.sum.grand td { background: var(--surface-2); font-size: 16px; }
+.cetele .legend { font-size: 12px; color: var(--muted); }
+
+/* Cezalar listesi */
+.cetele .items { display: grid; row-gap: 8px; }
+.cetele .item { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; column-gap: 10px; align-items: start; }
+.cetele .item .head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cetele .item p { margin: 2px 0 0; }
+.cetele .item .amt { font-family: var(--f-num); font-weight: 800; font-size: 20px; color: var(--danger); font-variant-numeric: tabular-nums; }
+.cetele .item .amt.eksi { color: var(--accent); }
+/* Oyun kartları (çetele sayfasındaki liste) */
+.cetele .list { display: grid; row-gap: 10px; }
+.cetele .gcard { display: grid; row-gap: 6px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 14px 16px; width: 100%; font: inherit; color: inherit; cursor: pointer; }
+.cetele .gcard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cetele .gcard .top { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; align-items: center; }
+.cetele .gcard .top b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cetele .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 20px; text-align: center; color: var(--muted); }
+.cetele .stack { display: grid; row-gap: 14px; }

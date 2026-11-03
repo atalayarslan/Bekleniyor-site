@@ -1,0 +1,13 @@
+# Bekleniyor okey sunucusu. Yayın: npx wrangler deploy (bu klasörde). Yerel deneme: npx wrangler dev
+name = "bekleniyor-okey"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[[durable_objects.bindings]]
+name = "MASA"
+class_name = "OkeyMasasi"
+
+# Ücretsiz planda Durable Object'ler SQLite depolamalı olmalı
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OkeyMasasi"]

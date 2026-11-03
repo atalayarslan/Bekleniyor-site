@@ -1,0 +1,454 @@
+// Okey masası çizimi. Kendisine verilen "görünen durumu" çizer ve oyuncunun ne yapmak istediğini bildirir
+// (taş çek, soldan al, at, taşı, aç, işle...). Kural uygulamaz; o iş motorun (js/kurallar.js) ve
+// bağlantının (demoda demo.js, gerçekte masa sunucusu). Böylece bu dosya demodan siteye aynen taşınır.
+//
+// const masa = OkeyMasa(kokOge, olaylar);  masa.ciz(gorunum);  masa.ucur(...);  masa.bildir(...)
+
+(function () {
+  "use strict";
+  const K = window.OkeyKurallar;
+  const SATIR = 15;   // ıstakada bir satırdaki yuva
+
+  function h(etiket, ozellik, ...cocuklar) {
+    const oge = document.createElement(etiket);
+    for (const [k, v] of Object.entries(ozellik || {})) {
+      if (v == null || v === false) continue;
+      if (k === "sinif") oge.className = v;
+      else if (k === "stil") {
+        for (const [ad, deger] of Object.entries(v)) {
+          if (ad.startsWith("--")) oge.style.setProperty(ad, deger);   // CSS değişkeni Object.assign ile atanmaz
+          else oge.style[ad] = deger;
+        }
+      }
+      else if (k.startsWith("on")) oge.addEventListener(k.slice(2), v);
+      else if (k === "veri") Object.assign(oge.dataset, v);
+      else oge.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of cocuklar.flat()) if (c != null && c !== false) oge.append(c);
+    return oge;
+  }
+
+  // Taşın ön yüzü. kucuk: masadaki boy.
+  function tasOgesi(tas, okey, ek = {}) {
+    const okeyMi = K.okeyMi(tas, okey);
+    const sinif = ["tas", tas.sahte ? "sahte" : "r" + tas.r, okeyMi && "okey", ek.kucuk && "kucuk", ek.sinif].filter(Boolean).join(" ");
+    return h("div", { sinif, veri: { id: tas.id }, title: tasAdi(tas, okey) },
+      h("span", { sinif: "sayi" }, tas.sahte ? "♣" : String(tas.n)), h("span", { sinif: "nokta" }));
+  }
+
+  function tasAdi(tas, okey) {
+    if (tas.sahte) return "Sahte okey (" + K.RENK_ADLARI[okey.r] + " " + okey.n + ")";
+    return K.RENK_ADLARI[tas.r] + " " + tas.n + (K.okeyMi(tas, okey) ? " · OKEY" : "");
+  }
+
+  function avatar(kisi, sure) {
+    const a = h("div", { sinif: "okey-avatar", stil: { background: kisi.renk } }, (kisi.ad || "?")[0].toUpperCase());
+    if (sure) {
+      const cevre = 2 * Math.PI * 24;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 54 54");
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", 27); c.setAttribute("cy", 27); c.setAttribute("r", 24);
+      c.style.strokeDasharray = cevre;
+      c.style.strokeDashoffset = cevre * (1 - sure.kalan / sure.toplam);
+      if (sure.kalan / sure.toplam < 0.3) c.style.stroke = "#e5484d";
+      svg.append(c);
+      a.append(svg);
+    }
+    return a;
+  }
+
+  window.OkeyMasa = function (kok, olaylar) {
+    let g = null;          // son çizilen görünüm
+    let olcek = 1;
+    const yatiklar = new Set();   // sağ tıkla yan yatırılmış taşlar (sadece bu ekranda; oyunu etkilemez)
+    // Sürüklenen taş: sıra başkasındayken masa sürükleme sırasında yeniden çizilebilir; yeni çizilen ıstakada da
+    // bu taş soluk (hayalet) kalsın diye kimliği tutulur
+    let surukleneId = null;
+
+    const sahne = h("div", { sinif: "okey-sahne" });
+    kok.classList.add("okey");
+    kok.replaceChildren(sahne);
+
+    function sigdir() {
+      const r = kok.getBoundingClientRect();
+      if (!r.width) return;
+      olcek = Math.min(r.width / 1420, r.height / 910, 1.25);   // yan koltuklar masanın dışında durur
+      sahne.style.setProperty("--olcek", olcek);
+    }
+    new ResizeObserver(sigdir).observe(kok);
+
+    // ---------- çizim ----------
+    // Masanın iskeleti bir kez kurulur; her çizimde sadece içerikler güncellenir. Atılan taş yığınları
+    // yerinde güncellenir (yeni taş sona eklenir, alınan çıkarılır): fare yığının üstündeyken sıra ilerlese de
+    // yığın yeniden doğup bir an toplanmaz, açık kalır.
+    const iskelet = (() => {
+      const masa = h("div", { sinif: "masa" });
+      const orta = h("div", { sinif: "orta" });
+      const istakalar = {};
+      for (const k of [1, 2, 3]) istakalar[k] = h("div", { sinif: "rakip-istaka k" + k, veri: { istaka: k } });
+      const yiginlar = [0, 1, 2, 3].map((k) => {
+        const kutu = h("div", {
+          sinif: "atilan a" + k, veri: k === 0 ? { hedef: "at" } : { atilan: k },
+          onclick: () => k === 3 && kutu.classList.contains("alinabilir") && olaylar.soldanAl()
+        });
+        if (k === 0 || k === 3) kutu.append(h("div", { sinif: "atilan-etiket" }, k === 0 ? "Attığın" : "Soldan al"));
+        return kutu;
+      });
+      const alanlar = [0, 1, 2, 3].map((k) => h("div", { sinif: "per-alani p" + k }));
+      masa.append(orta, ...Object.values(istakalar), ...yiginlar, ...alanlar, h("div", { sinif: "masa-on" }));
+      const ust = h("div", { sinif: "ust-katman" });    // koltuklar, durum yazısı, düğmeler, benim ıstakam
+      sahne.append(h("div", { sinif: "masa-3b" }, h("div", { sinif: "masa-golge" }), masa), ust);
+      return { orta, istakalar, yiginlar, alanlar, ust };
+    })();
+
+    function ciz(yeni) {
+      g = yeni;
+      const okey = g.okey;
+
+      // Orta: deste + gösterge
+      const desteCekilebilir = g.benimSiram && g.asama === "cek";
+      const deste = h("div", {
+        sinif: "deste" + (desteCekilebilir ? " parlak" : ""), title: "Desteden çek", veri: { hedef: "deste" },
+        onclick: () => desteCekilebilir && olaylar.desteCek()
+      });
+      // Deste: üst üste kapalı taşlar (yüksekliği kalan taşla azalır)
+      const kat = Math.max(1, Math.min(9, Math.ceil(g.desteSayisi / 6)));
+      for (let i = 0; i < kat; i++) deste.append(h("div", { sinif: "deste-kat", stil: { "--k": i } }));
+      deste.append(h("div", { sinif: "deste-sayi" }, g.desteSayisi + " taş"));
+      // El başlamadıysa (gösterge yok) ortada deste ve gösterge çizilmez
+      if (!g.gosterge) iskelet.orta.replaceChildren();
+      else iskelet.orta.replaceChildren(
+        deste,
+        h("div", { sinif: "gosterge", veri: { gosterge: "" } },
+          g.gostergeMasada === false
+            ? h("div", { sinif: "gosterge-bos", title: "Gösterge çift yapılıp alındı" })
+            : tasOgesi(g.gosterge, okey, { kucuk: true }),
+          h("small", {}, g.gostergeMasada === false ? "Alındı" : "Gösterge")));
+
+      // Rakip ıstakaları: ahşap ıstaka, taşlar masada ayakta (arkalarını görürüz)
+      for (const k of [1, 2, 3]) {
+        const kol = g.koltuklar[k];
+        const istaka = iskelet.istakalar[k];
+        istaka.hidden = !!kol.bos;
+        if (kol.bos || istaka.dataset.sayi === String(kol.tasSayisi)) continue;   // taş sayısı değişmediyse dokunma
+        istaka.dataset.sayi = kol.tasSayisi;
+        const taslar = h("div", { sinif: "ri-taslar" });
+        // Istaka sabit boyda (15 taşlık, iki sıra). Taşlar iki sıraya bölünür: ön sıra sahibine yakın,
+        // arka sıra bir basamak yukarıda. Her taş kalınlığı olan küçük bir blok (ön, arka, üst, iki yan yüz).
+        const onSira = Math.min(15, Math.ceil(kol.tasSayisi / 2));
+        for (let i = 0; i < kol.tasSayisi; i++) {
+          const arkada = i >= onSira;
+          taslar.append(h("div", { sinif: "ri-tas", stil: { "--c": arkada ? i - onSira : i, "--r": arkada ? 1 : 0 } },
+            h("i", { sinif: "y-on" }), h("i", { sinif: "y-arka" }), h("i", { sinif: "y-ust" }), h("i", { sinif: "y-sol" }), h("i", { sinif: "y-sag" })));
+        }
+        istaka.replaceChildren(h("div", { sinif: "ri-taban" }), h("div", { sinif: "ri-basamak" }), h("div", { sinif: "ri-sirt" }), taslar);
+      }
+
+      // Atılan taşlar (her oyuncunun sağında). Soldakinin attığı (3) benim alabileceğim.
+      g.atilanlar.forEach((yigin, k) => yiginGuncelle(k, yigin));
+
+      // Açılan perler, sahibinin önünde
+      const perler = [[], [], [], []];
+      g.perler.forEach((per, i) => {
+        const oge = h("div", { sinif: "per", veri: { per: i }, title: "İşlemek için taşı buraya sürükle" });
+        per.taslar.forEach((tas) => oge.append(tasOgesi(tas, okey, { kucuk: true })));
+        perler[per.sahip].push(oge);
+      });
+      iskelet.alanlar.forEach((alan, k) => alan.replaceChildren(...perler[k]));
+
+      // Koltuklar
+      const koltuklar = g.koltuklar.map((kol, k) => {
+        // Boş koltuk: izleyici oturabilir
+        if (kol.bos) {
+          return h("div", { sinif: "koltuk bos k" + k, veri: { koltuk: k } },
+            h("div", { sinif: "okey-avatar", stil: { background: "rgba(255,255,255,.08)" } }, "+"),
+            h("div", {}, h("div", { sinif: "ad" }, "Boş koltuk"),
+              g.izleyici && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Otur") : null));
+        }
+        const siraOnda = g.sira === k && !g.bitti;
+        const yancilar = h("div", { sinif: "yancilar" },
+          kol.yancilar.map((y) => h("div", { sinif: "yanci", stil: { background: y.renk }, title: y.ad + " yancı" }, y.ad[0])),
+          kol.yancilar.length ? h("span", { stil: { fontSize: "11px", color: "#a7a7a7", marginLeft: "4px" } }, "👁 " + kol.yancilar.length + " yancı") : null,
+          // Yancı olmak sadece masada oturmayanlara (izleyicilere) açık; oyuncular başkasının taşına bakamaz
+          g.izleyici && !kol.bos ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.yanciOl(k) }, g.izlenen === k ? "İzliyorsun" : "Yancı ol") : null,
+          // Oyuncu el ortasında kalktı ya da uzun süredir yok: izleyici yerine oturup elini devralabilir
+          g.izleyici && kol.devralinabilir && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Yerine otur") : null);
+        return h("div", { sinif: "koltuk k" + k + (siraOnda ? " sira" : "") + (kol.bagli === false ? " kopuk" : ""), veri: { koltuk: k } },
+          avatar(kol, siraOnda ? g.sure : null),
+          h("div", {},
+            h("div", { sinif: "ad" }, kol.ad + (kol.ben ? " (sen)" : "") + (kol.bagli === false ? " · bağlantı yok" : "")),
+            h("div", { sinif: "alt" },
+              h("span", {}, "Toplam ", h("span", { sinif: "puan" }, String(kol.puan))),
+              kol.acti ? h("span", { sinif: "okey-rozet" + (kol.acti === "cift" ? " cift" : "") }, kol.acti === "cift" ? "Çift açtı" : "Açtı · " + kol.acilisDegeri) : null,
+              kol.ceza ? h("span", { stil: { color: "#ff8a7a", fontWeight: 800 } }, "Ceza " + kol.ceza) : null)),
+          yancilar);
+      });
+
+      const durum = g.durumYazisi ? h("div", { sinif: "durum-yazisi" }, g.durumYazisi) : null;
+      const kose = h("div", { sinif: "kose-tuslar" },
+        (g.ekTuslar || []).map((t) => h("button", { sinif: "okey-tus" + (t.secili ? " ana" : ""), onclick: t.is, title: t.ipucu || "" }, t.yazi)),
+        h("button", { sinif: "okey-tus", onclick: olaylar.cetele }, "📋 Çetele"),
+        h("button", { sinif: "okey-tus", onclick: olaylar.kurallar }, "📖 Kurallar"));
+      iskelet.ust.replaceChildren(...koltuklar, durum || "", kose, istakaCiz());
+      sigdir();
+    }
+
+    // Atılan taş yığını yerinde güncellenir: yığından sadece sondan taş alınır ve sona taş eklenir; var olan taş
+    // öğeleri korunur (fare üstündeyken yığın kapanıp açılmaz, yeni taş gelince diğerleri yumuşakça bir adım kayar).
+    function yiginGuncelle(k, yigin) {
+      const kutu = iskelet.yiginlar[k];
+      const alinabilir = k === 3 && g.benimSiram && g.asama === "cek" && yigin.length;
+      const atabilirim = k === 0 && g.benimSiram && g.asama === "at" && !g.benim.saltOkunur;
+      kutu.classList.toggle("alinabilir", !!alinabilir);
+      kutu.classList.toggle("parlak", !!alinabilir);
+      kutu.classList.toggle("acik", !!atabilirim);
+      kutu.title = (k === 3 ? "Soldan al (o tur açmak zorundasın)" : k === 0 ? "Atmak için taşı buraya bırak" : "") +
+        (yigin.length > 1 ? (k === 0 || k === 3 ? " · " : "") + "Üstüne gel: atılan " + yigin.length + " taşı gör" : "");
+
+      let ipucu = kutu.querySelector(".atilan-ipucu");
+      if (atabilirim && !yigin.length && !ipucu) kutu.prepend(ipucu = h("div", { sinif: "atilan-ipucu" }, "Atmak için taşı buraya bırak"));
+      else if (ipucu && !(atabilirim && !yigin.length)) ipucu.remove();
+
+      const ids = new Set(yigin.map((t) => t.id));
+      const mevcut = new Map();
+      for (const oge of kutu.querySelectorAll(".tas")) {
+        if (!ids.has(oge.dataset.id)) oge.remove();
+        else mevcut.set(oge.dataset.id, oge);
+      }
+      const etiket = kutu.querySelector(".atilan-etiket");
+      // --k: sondan kaçıncı; en son atılan yerinde kalır, ilk atılan açılınca en uçta
+      yigin.forEach((tas, i) => {
+        let oge = mevcut.get(tas.id);
+        if (!oge) {
+          oge = tasOgesi(tas, g.okey, { kucuk: true });
+          kutu.insertBefore(oge, etiket);
+        }
+        oge.style.visibility = "";
+        oge.style.setProperty("--k", yigin.length - 1 - i);
+      });
+    }
+    function istakaCiz() {
+      const b = g.benim;
+      const okey = g.okey;
+      const istaka = h("div", { sinif: "istaka" + (b.saltOkunur ? " salt-okunur" : "") });
+      // Geçerli perlerin çerçeveleri: perin bir taşının üstüne gelince çevresi sarı parlar, puanı görünür
+      const perIcin = new Map();   // yuva -> çerçeve
+      for (let s = 0; s < 2; s++) {
+        const satir = h("div", { sinif: "istaka-satir" });
+        for (const p of (b.perler || []).filter((p) => Math.floor(p.bas / SATIR) === s)) {
+          const cerceve = h("div", { sinif: "istaka-per", stil: { gridColumn: (p.bas % SATIR + 1) + " / " + (p.son % SATIR + 2) } },
+            h("span", {}, p.yazi));
+          satir.append(cerceve);
+          for (let i = p.bas; i <= p.son; i++) perIcin.set(i, cerceve);
+        }
+        for (let i = s * SATIR; i < (s + 1) * SATIR; i++) {
+          const yuva = h("div", { sinif: "yuva", veri: { yuva: i }, stil: { gridColumn: String(i % SATIR + 1), gridRow: "1" } });
+          const cerceve = perIcin.get(i);
+          if (cerceve) {
+            yuva.addEventListener("pointerenter", () => cerceve.classList.add("acik"));
+            yuva.addEventListener("pointerleave", () => cerceve.classList.remove("acik"));
+          }
+          const tas = b.yuvalar[i];
+          if (tas) {
+            const oge = tasOgesi(tas, okey, {
+              sinif: [tas.id === b.yandanId && "yandan", tas.id === b.yeniId && "yeni",
+                b.islenebilir && b.islenebilir.has(tas.id) && "islenebilir"].filter(Boolean).join(" ")
+            });
+            if (oge.classList.contains("islenebilir")) oge.title += " · masadaki bir pere işlenebilir";
+            if (yatiklar.has(tas.id)) oge.classList.add("yatik");
+            if (tas.id === surukleneId) oge.classList.add("hayalet");
+            if (!b.saltOkunur) {
+              oge.addEventListener("pointerdown", (e) => surukleBaslat(e, tas, oge));
+              oge.addEventListener("dblclick", () => olaylar.tasAt(tas.id));
+              // Sağ tık: taşı yan yatır / kaldır — oyuncunun kendine notu ("bunu atmayacağım", "bekletiyorum")
+              oge.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                if (yatiklar.has(tas.id)) yatiklar.delete(tas.id);
+                else yatiklar.add(tas.id);
+                oge.classList.toggle("yatik", yatiklar.has(tas.id));
+              });
+            }
+            yuva.append(oge);
+          }
+          satir.append(yuva);
+        }
+        istaka.append(satir);
+      }
+
+      const bant = h("div", { sinif: "istaka-bandi" });
+      if (b.yanciBandi) {
+        bant.append(h("span", { sinif: "yanci-bandi" }, "👁 " + b.yanciBandi),
+          b.donulebilir ? h("button", { sinif: "okey-tus", onclick: olaylar.masayaDon }, "Yanından kalk") : "");
+      } else {
+        const a = g.acilis;
+        if (g.bitti) {
+          // sonrakiYazi: null ise düğme yok (masa dolmadı); verilmezse "Sonraki el"
+          bant.append(g.sonrakiYazi === null ? "" : h("button", { sinif: "okey-tus ana", onclick: olaylar.sonrakiEl }, g.sonrakiYazi || "Sonraki el"),
+            h("button", { sinif: "okey-tus", onclick: olaylar.cetele }, "Çetele"));
+          return h("div", { sinif: "istaka-alani" }, istaka, bant);
+        }
+        bant.append(...[
+          h("button", { sinif: "okey-tus", onclick: olaylar.seriDiz, title: "Serileri ve kütleri yan yana dizer" }, "Seri diz"),
+          h("button", { sinif: "okey-tus", onclick: olaylar.ciftDiz, title: "Çiftleri yan yana dizer" }, "Çift diz"),
+          a ? h("span", { sinif: "gosterge-durum", title: "Istakada yan yana duran geçerli perlerin toplamı" },
+            a.acti ? (a.yeniPer ? "Konabilecek per var" : "Yeni per yok") : [
+              "Seri ", h("b", { sinif: a.seri >= a.seriBaraj ? "tamam" : "" }, String(a.seri)), " / " + a.seriBaraj,
+              "  ·  Çift ", h("b", { sinif: a.cift >= a.ciftBaraj ? "tamam" : "" }, String(a.cift)), " / " + a.ciftBaraj
+            ]) : null,
+          h("button", { sinif: "okey-tus ana", disabled: !g.tuslar.ac.etkin, title: g.tuslar.ac.ipucu || "", onclick: olaylar.ac }, g.tuslar.ac.yazi),
+          // İşle: işlenebilen taşları masadaki perlere işler (taşı pere sürükleyerek de olur)
+          g.tuslar.isle ? h("button", {
+            sinif: "okey-tus" + (g.tuslar.isle.sayi ? " ana" : ""), onclick: olaylar.isleHepsi,
+            title: "İşlenebilen taşları masadaki perlere işler (bir taş elde kalır). Taşı pere sürükleyerek de işleyebilirsin."
+          }, "İşle" + (g.tuslar.isle.sayi ? " (" + g.tuslar.isle.sayi + ")" : "")) : null
+        ].filter(Boolean));
+      }
+      return h("div", { sinif: "istaka-alani" }, istaka, bant);
+    }
+
+    // ---------- sürükle-bırak ----------
+    // Taş ıstakada başka bir yuvaya, "Attığın" kutusuna ya da masadaki bir pere bırakılabilir.
+    // Sürüklemeden tıklamak bir şey yapmaz; çift tıklamak taşı atar.
+    function surukleBaslat(e, tas, oge) {
+      if (e.button !== 0) return;
+      const bas = { x: e.clientX, y: e.clientY };
+      const kutu = oge.getBoundingClientRect();
+      const fark = { x: e.clientX - kutu.left, y: e.clientY - kutu.top };
+      let kopya = null;
+      let hedef = null;
+      const vurgula = (yeni) => {
+        if (hedef === yeni) return;
+        if (hedef) hedef.classList.remove(hedef.classList.contains("yuva") ? "hedef" : hedef.classList.contains("per") ? "isle-hedef" : "hedef");
+        hedef = yeni;
+        if (hedef) hedef.classList.add(hedef.classList.contains("per") ? "isle-hedef" : "hedef");
+      };
+      const hareket = (ev) => {
+        if (!kopya) {
+          if (Math.hypot(ev.clientX - bas.x, ev.clientY - bas.y) < 5) return;
+          kopya = oge.cloneNode(true);
+          kopya.classList.add("surukleniyor");
+          kopya.style.transform = "scale(" + olcek + ") rotate(-4deg)";
+          kopya.style.transformOrigin = "0 0";
+          document.body.append(kopya);
+          oge.classList.add("hayalet");
+          surukleneId = tas.id;
+        }
+        kopya.style.left = ev.clientX - fark.x + "px";
+        kopya.style.top = ev.clientY - fark.y + "px";
+        document.body.classList.add("okey-surukleme");   // sürüklerken atılan taş yığınları açılmasın
+        const altta = document.elementsFromPoint(ev.clientX, ev.clientY);
+        vurgula(altta.map((x) => x.closest("[data-yuva], [data-hedef='at'], [data-per]" + (tas.id === g.benim.yandanId ? ", [data-atilan='3']" : ""))).find(Boolean) || null);
+      };
+      const birak = () => {
+        removeEventListener("pointermove", hareket);
+        removeEventListener("pointerup", birak);
+        removeEventListener("pointercancel", birak);
+        document.body.classList.remove("okey-surukleme");
+        if (!kopya) return;
+        kopya.remove();
+        surukleneId = null;
+        // Taşın öğesi sürükleme sırasında yeniden çizilmiş olabilir: ıstakadaki güncel öğeyi aç
+        (sahne.querySelector(`.istaka [data-id="${tas.id}"]`) || oge).classList.remove("hayalet");
+        const son = hedef;
+        vurgula(null);
+        if (!son) return;
+        if (son.dataset.yuva != null) olaylar.tasTasi(tas.id, Number(son.dataset.yuva));
+        else if (son.dataset.hedef === "at") olaylar.tasAt(tas.id);
+        else if (son.dataset.atilan === "3") olaylar.geriBirak(tas.id);   // soldan alınanı geri bırak
+        else if (son.dataset.per != null) olaylar.isle(tas.id, Number(son.dataset.per));
+      };
+      addEventListener("pointermove", hareket);
+      addEventListener("pointerup", birak);
+      addEventListener("pointercancel", birak);
+    }
+
+    // ---------- animasyon ve bildirim ----------
+    // Bir taşı (ön ya da arka yüzüyle) iki öğe arasında uçurur. Masa eğik olduğu için ekrandaki kutular kullanılır.
+    // Sekme arka plandayken tarayıcı animasyonları ilerletmez; oyun beklemesin diye o zaman uçuş atlanır,
+    // ve her uçuş en geç süresi dolunca biter sayılır.
+    // Kaynak bir taşsa uçuş boyunca gizlenir; yoksa taş bir an iki yerde birden görünür (yerinde ve havada).
+    function ucur(kaynak, hedef, tas, sure = 420) {
+      if (!kaynak || !hedef || document.hidden) return Promise.resolve();
+      const gizlenen = kaynak.classList.contains("tas") ? kaynak : null;
+      if (gizlenen) gizlenen.style.visibility = "hidden";
+      const a = kaynak.getBoundingClientRect();
+      const b = hedef.getBoundingClientRect();
+      const oge = tas ? tasOgesi(tas, g.okey, { kucuk: true }) : h("div", { sinif: "tas-arka" });
+      const kap = h("div", { sinif: "ucan-tas" }, oge);
+      document.body.append(kap);
+      const w = oge.offsetWidth || 30;
+      const y = oge.offsetHeight || 41;
+      // Kaynak ya da hedef bir ıstaka/alan olabilir (taştan büyük); boyut taş boyunun makul aralığında tutulur
+      const boy = (kutu) => Math.min(Math.max(kutu.width / w, olcek * 0.6), olcek * 1.6);
+      const s1 = boy(a), s2 = boy(b);
+      kap.style.left = a.left + a.width / 2 - w / 2 + "px";
+      kap.style.top = a.top + a.height / 2 - y / 2 + "px";
+      const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+      const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+      const anim = kap.animate([
+        { transform: `translate(0,0) scale(${s1})` },
+        { transform: `translate(${dx / 2}px, ${dy / 2 - 40}px) scale(${(s1 + s2) / 2 * 1.15})` },
+        { transform: `translate(${dx}px, ${dy}px) scale(${s2})` }
+      ], { duration: sure, easing: "cubic-bezier(.3,.7,.3,1)" });
+      const yedek = new Promise((r) => setTimeout(r, sure + 150));
+      // Gizlenen taş geri açılmaz: uçuştan hemen sonra masa yeniden çizilir ve taş yeni yerinde görünür
+      return Promise.race([anim.finished.catch(() => { }), yedek]).then(() => kap.remove());
+    }
+
+    // Süre halkası her saniye sadece kendisi güncellenir (bütün masayı yeniden çizmek sürüklemeyi ve çift tıklamayı bozar)
+    function sureGuncelle(sure) {
+      if (!g) return;
+      g.sure = sure;
+      const c = sahne.querySelector(".koltuk.sira circle");
+      if (!c) return;
+      const cevre = 2 * Math.PI * 24;
+      c.style.strokeDashoffset = cevre * (1 - sure.kalan / sure.toplam);
+      c.style.stroke = sure.kalan / sure.toplam < 0.3 ? "#e5484d" : "";
+    }
+
+    let bildirimZamani = null;
+    function bildir(metin, tur) {
+      kok.querySelectorAll(".okey-bildirim").forEach((x) => x.remove());
+      const oge = h("div", { sinif: "okey-bildirim" + (tur === "ceza" ? " ceza" : "") }, metin);
+      kok.append(oge);
+      clearTimeout(bildirimZamani);
+      bildirimZamani = setTimeout(() => oge.remove(), 2600);
+    }
+
+    // Koltuğun üstünde yukarı süzülen puan (+101, −101)
+    function puanUcur(koltuk, miktar) {
+      const kol = sahne.querySelector(`[data-koltuk="${koltuk}"]`);
+      if (!kol) return;
+      const oge = h("div", { sinif: "ucan-puan" + (miktar < 0 ? " eksi" : "") }, (miktar > 0 ? "+" : "−") + Math.abs(miktar));
+      kol.append(oge);
+      setTimeout(() => oge.remove(), 1700);
+    }
+
+    // genis: çetele gibi büyük içerik için
+    // kapaninca: pencere nasıl kapanırsa kapansın (düğme ya da dışına tıklama) çağrılır
+    function pencere(baslik, govde, tuslar = [], genis = false, kapaninca = null) {
+      kok.querySelectorAll(".okey-pencere").forEach((x) => x.remove());
+      const kapat = () => { p.remove(); if (kapaninca) kapaninca(); };
+      const p = h("div", { sinif: "okey-pencere", onclick: (e) => e.target === p && kapat() },
+        h("div", { sinif: genis ? "okey-genis" : "" }, h("h3", {}, baslik), govde,
+          h("div", { sinif: "alt-tuslar" }, (tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) =>
+            h("button", { sinif: "okey-tus" + (t.ana ? " ana" : ""), onclick: () => { kapat(); t.is && t.is(); } }, t.yazi)))));
+      kok.append(p);
+    }
+
+    // Uçuş animasyonu için öğe bulucular
+    const oge = {
+      deste: () => sahne.querySelector(".deste"),
+      gosterge: () => sahne.querySelector("[data-gosterge] .tas"),
+      atilan: (k) => sahne.querySelector(".atilan.a" + k),
+      atilanUst: (k) => [...sahne.querySelectorAll(".atilan.a" + k + " .tas")].pop() || sahne.querySelector(".atilan.a" + k),
+      rakipIstaka: (k) => sahne.querySelector(`[data-istaka="${k}"]`),
+      tas: (id) => sahne.querySelector(`.istaka [data-id="${id}"]`),
+      yuva: (i) => sahne.querySelector(`[data-yuva="${i}"]`),
+      perAlani: (k) => sahne.querySelector(".per-alani.p" + k)
+    };
+
+    return { ciz, sureGuncelle, ucur, bildir, puanUcur, pencere, oge, h, tasOgesi };
+  };
+})();

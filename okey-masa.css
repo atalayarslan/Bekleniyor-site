@@ -1,0 +1,586 @@
+/* Okey masası görünümü. Masa perspektifli bir yüzey (2D ile 3D arası): keçe, ahşap kenar, kalınlığı olan
+   taşlar. Oyuncunun kendi ıstakası düz durur (en okunaklı hâli), rakiplerinkiler masanın kenarındadır. */
+
+/* Değişkenler kökte: sürüklenen ve uçan taşlar masanın dışında (body'de) çizilir */
+:root {
+  --tas-g: 46px;              /* oyuncunun taş genişliği */
+  --tas-y: 64px;
+  --kucuk-g: 30px;            /* masadaki taşlar */
+  --kucuk-y: 41px;
+  --altin: #f3c34a;
+
+  /* TEMA (js/temalar.js değiştirir). Tema sadece bu temel renkleri verir; açık/koyu tonlar aşağıda türetilir. */
+  --tema-tas: #f7f1df;                 /* taş yüzü (arkası da aynı: gerçek taşlar gibi) */
+  --r0: #c62f2f; --r1: #1f5fae; --r2: #1d1d1d; --r3: #c98a00;   /* sayı renkleri */
+  --tema-sahte: #1c7a4a;               /* sahte okeyin yoncası */
+  --tema-istaka: #6b3d1e;              /* ıstakaların ahşabı */
+  --tema-kece: #0f5c3c;                /* masanın keçesi */
+  --tema-ray: #7a4524;                 /* masanın kenarı */
+  --tema-tas-doku: linear-gradient(transparent, transparent);       /* taş yüzüne desen (mermer, sedef) */
+  --tema-istaka-desen: linear-gradient(transparent, transparent);   /* ıstakaya desen (sedef kakma) */
+  --tema-sayi-golge: none;             /* neon temada sayılar parlar */
+}
+/* Türetilen tonlar. Tema önizleme kartları kendi temel renklerini verdiği için orada da yeniden hesaplanır. */
+:root, .tema-onizleme {
+  --tas-yuz-1: color-mix(in srgb, var(--tema-tas) 80%, white);   /* hafif parlak üst (koyu taşlarda da abartmasın) */
+  --tas-yuz-2: var(--tema-tas);
+  --tas-yuz-3: color-mix(in srgb, var(--tema-tas) 90%, #3a2a00);
+  --tas-kenar: color-mix(in srgb, var(--tema-tas) 72%, #6b5520);
+  --tas-kenar-2: color-mix(in srgb, var(--tema-tas) 55%, #4a3a10);
+  --istaka-1: color-mix(in srgb, var(--tema-istaka) 78%, white);
+  --istaka-2: var(--tema-istaka);
+  --istaka-oluk: color-mix(in srgb, var(--tema-istaka) 68%, black);
+  --istaka-golge: color-mix(in srgb, var(--tema-istaka) 55%, black);
+  --kece-1: color-mix(in srgb, var(--tema-kece) 80%, white);
+  --kece-2: var(--tema-kece);
+  --kece-3: color-mix(in srgb, var(--tema-kece) 68%, black);
+  --ray-1: color-mix(in srgb, var(--tema-ray) 75%, white);
+  --ray-2: var(--tema-ray);
+  --ray-3: color-mix(in srgb, var(--tema-ray) 72%, black);
+  --ray-kenar: color-mix(in srgb, var(--tema-ray) 38%, black);
+}
+.okey {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  overflow: clip;     /* hidden kaydırılabilir: odak alan bir düğme masayı yana kaydırıyordu */
+  font-family: "Nunito", Arial, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Masa + ıstaka birlikte ölçeklenir (ekrana sığsın diye; JS --olcek verir) */
+.okey-sahne {
+  width: 1060px;
+  height: 900px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(var(--olcek, 1));
+  transform-origin: center center;
+}
+
+/* Masanın üstündeki katman (koltuklar, durum yazısı, düğmeler, ıstakam). Boş yerleri tıklamayı masaya geçirir. */
+.ust-katman { position: absolute; inset: 0; pointer-events: none; }
+.ust-katman > * { pointer-events: auto; }
+.durum-yazisi { pointer-events: none !important; }
+
+/* ---------- Masa (perspektif) ---------- */
+.masa-3b {
+  position: absolute;
+  left: 50%;
+  top: 70px;
+  width: 980px;
+  height: 580px;
+  margin-left: -490px;
+  perspective: 1500px;
+  perspective-origin: 50% 0%;
+}
+/* Masa: keçe (dokulu, ortası ışık alır) + damarlı ahşap kenar + ön yüz (kalınlık) + altında gölge */
+.masa {
+  position: absolute;
+  inset: 0;
+  transform: rotateX(34deg);
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
+  border-radius: 40px;
+  border: 26px solid transparent;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 42%, rgba(255,255,240,.13), transparent 70%) padding-box,
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>") padding-box,
+    radial-gradient(ellipse at 50% 45%, var(--kece-1) 0%, var(--kece-2) 55%, var(--kece-3) 100%) padding-box,
+    repeating-linear-gradient(97deg, rgba(0,0,0,.10) 0 2px, transparent 2px 7px, rgba(255,255,255,.04) 7px 9px, transparent 9px 15px) border-box,
+    var(--tema-istaka-desen) border-box,
+    linear-gradient(180deg, var(--ray-1) 0%, var(--ray-2) 45%, var(--ray-3) 100%) border-box;
+  box-shadow:
+    inset 0 0 0 2px rgba(0,0,0,.35),
+    0 0 0 2px var(--ray-kenar);
+}
+.masa::before {         /* keçenin kenara doğru kararması (ahşabın gölgesi) */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  box-shadow: inset 0 0 40px 6px rgba(0,0,0,.45), inset 0 3px 6px rgba(0,0,0,.5);
+  pointer-events: none;
+}
+.masa-on {              /* masanın ön kenarının yüzü: aşağı sarkar, kalınlık verir */
+  position: absolute;
+  left: -14px; right: -14px; top: calc(100% + 26px);
+  height: 34px;
+  border-radius: 0 0 22px 22px;
+  transform-origin: 50% 0;
+  transform: rotateX(-90deg);
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 2px, transparent 2px 11px),
+    linear-gradient(180deg, var(--ray-3), var(--ray-kenar));
+}
+.masa-golge {
+  position: absolute;
+  left: 4%; right: 4%; bottom: -46px; height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.55), transparent 70%);
+  filter: blur(6px);
+}
+
+/* ---------- Taş ---------- */
+.tas {
+  width: var(--tas-g);
+  height: var(--tas-y);
+  border-radius: 7px;
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  align-items: center;
+  padding: 4px 0 7px;
+  background: var(--tema-tas-doku), linear-gradient(180deg, var(--tas-yuz-1) 0%, var(--tas-yuz-2) 55%, var(--tas-yuz-3) 100%);
+  text-shadow: var(--tema-sayi-golge);
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 -2px 0 rgba(0,0,0,.06) inset,
+    0 3px 0 var(--tas-kenar),
+    0 4px 0 var(--tas-kenar-2),
+    0 7px 10px rgba(0,0,0,.35);
+  font-weight: 900;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -.03em;
+  cursor: grab;
+  transition: transform .15s ease, box-shadow .15s ease;
+  touch-action: none;
+}
+.tas .sayi { font-variant-numeric: tabular-nums; }
+.tas .nokta {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: inset 0 -1.5px 0 rgba(0,0,0,.25);
+}
+.tas.r0 { color: var(--r0); } .tas.r1 { color: var(--r1); } .tas.r2 { color: var(--r2); } .tas.r3 { color: var(--r3); }
+.tas.sahte { color: var(--tema-sahte); font-size: 26px; }
+.tas.sahte .nokta { display: none; }
+.tas.okey::before {            /* okey olduğu küçük yıldızla belli */
+  content: "★";
+  position: absolute; top: 2px; right: 4px;
+  font-size: 11px; color: var(--altin);
+  text-shadow: 0 0 2px rgba(0,0,0,.4);
+}
+.tas.secili { transform: translateY(-10px); box-shadow: 0 0 0 2.5px var(--altin), 0 3px 0 var(--tas-kenar), 0 12px 16px rgba(0,0,0,.4); }
+.tas.yandan { box-shadow: 0 0 0 2.5px #ff9f43, 0 3px 0 var(--tas-kenar), 0 7px 10px rgba(0,0,0,.35); }
+.tas.yeni { animation: tas-gir .35s ease-out; }
+@keyframes tas-gir { from { transform: translateY(-18px) scale(1.06); } to { transform: none; } }
+.tas.surukleniyor { position: fixed; z-index: 1000; pointer-events: none; transform: rotate(-4deg) scale(1.08); box-shadow: 0 3px 0 var(--tas-kenar), 0 18px 24px rgba(0,0,0,.45); cursor: grabbing; }
+.tas.hayalet { opacity: .25; }
+/* Sağ tıkla yan yatırılmış taş (oyuncunun kendine notu): kendi yuvasında sola yatar */
+.tas.yatik {
+  transform: translateY(13px) rotate(-90deg) scale(.74);
+  transition: transform .18s cubic-bezier(.3, .9, .3, 1.15);
+  filter: brightness(.96);
+}
+.tas.yatik.secili { transform: translateY(3px) rotate(-90deg) scale(.74); }
+
+.tas.kucuk {
+  width: var(--kucuk-g); height: var(--kucuk-y);
+  font-size: 18px; border-radius: 5px; padding: 3px 0 5px; cursor: default;
+  box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--tas-kenar), 0 3px 0 var(--tas-kenar-2), 0 4px 6px rgba(0,0,0,.35);
+}
+.tas.kucuk .nokta { width: 6px; height: 6px; }
+.tas.kucuk.okey::before { font-size: 8px; top: 1px; right: 2px; }
+
+/* Kapalı taş (uçarken): gerçek okeyde taşların arkası da fildişidir */
+.tas-arka {
+  width: 22px; height: 30px; border-radius: 4px;
+  background: var(--tema-tas-doku), linear-gradient(180deg, var(--tas-yuz-1), var(--tas-yuz-3));
+  box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--tas-kenar), 0 3px 4px rgba(0,0,0,.4);
+}
+
+/* ---------- Orta: deste ve gösterge ---------- */
+.orta {
+  position: absolute;
+  left: 50%; top: 224px;
+  transform: translate(-50%, -50%) scale(1.35);
+  transform-style: preserve-3d;
+  display: flex; align-items: flex-end; gap: 22px;
+}
+.deste {
+  position: relative;
+  width: var(--kucuk-g); height: var(--kucuk-y);
+  cursor: pointer;
+  transform-style: preserve-3d;
+}
+.deste-kat {            /* üst üste kapalı taşlar: her kat masadan biraz daha yukarıda */
+  position: absolute; inset: 0;
+  border-radius: 4px;
+  background: var(--tema-tas-doku), linear-gradient(180deg, var(--tas-yuz-1), var(--tas-yuz-3));
+  box-shadow: 0 0 0 .5px var(--tas-kenar-2), 0 2px 0 var(--tas-kenar), 0 2.5px 0 var(--tas-kenar-2);   /* her katın kenarı görünür */
+  transform: translateZ(calc(var(--k) * 3px)) translateY(calc(var(--k) * -1.5px));
+}
+.deste-kat:first-child { box-shadow: 0 0 0 .5px var(--tas-kenar-2), 2px 3px 6px rgba(0,0,0,.45); }
+.gosterge-bos { width: var(--kucuk-g); height: var(--kucuk-y); border-radius: 5px; border: 1.5px dashed rgba(255,255,255,.25); }
+.deste-sayi {
+  position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%);
+  color: rgba(255,255,255,.75); font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.gosterge { display: grid; justify-items: center; gap: 6px; }
+.gosterge small { color: rgba(255,255,255,.7); font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.parlak { animation: parla 1.2s ease-in-out infinite; border-radius: 6px; }
+@keyframes parla { 0%, 100% { box-shadow: 0 0 0 0 rgba(243,195,74,0); } 50% { box-shadow: 0 0 0 6px rgba(243,195,74,.55); } }
+
+/* ---------- Atılan taşlar (her oyuncunun sağında, masanın köşelerinde) ---------- */
+.atilan {
+  position: absolute;
+  width: 74px; height: 84px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,0,0,.16), transparent 70%);
+}
+/* Atılan taş yığını. Normalde üst üste (hafif dağınık) durur. Fareyle üstüne gelince taşlar sırayla,
+   masanın ortasına (bana) doğru yelpaze gibi açılır; en son atılan yerinde kalır, ilk atılan en uçta ve
+   biraz eğik. Fare çekilince sırayla geri toplanır. --k: sondan kaçıncı taş, --dx/--dy: açılma yönü,
+   --ay: yayın yönü (aşağıdakiler yukarı, yukarıdakiler aşağı kavis yapar). */
+.atilan { --dx: -1; --dy: 0; --ay: -1; }
+.atilan.a0 { --dx: -1; --dy: 0; --ay: -1; }      /* sağ alt: sola */
+.atilan.a3 { --dx: 1; --dy: 0; --ay: -1; }       /* sol alt: sağa */
+.atilan.a1 { --dx: -1; --dy: .4; --ay: 1; }      /* sağ üst: sola ve aşağı */
+.atilan.a2 { --dx: 1; --dy: .4; --ay: 1; }       /* sol üst: sağa ve aşağı */
+.atilan .tas {
+  position: absolute;
+  transform: translate(calc(var(--k) * -1px), calc(var(--k) * -1.2px)) rotate(calc(var(--k) * -2.5deg));
+  transition: transform .24s cubic-bezier(.2, .8, .2, 1);
+  transition-delay: calc(var(--k) * 12ms);
+}
+.atilan:hover { transform: translateZ(3px); }
+.atilan:hover .tas {
+  transform:
+    translate(calc(var(--k) * var(--dx) * 33px),
+              calc(var(--k) * var(--dy) * 33px + var(--k) * var(--k) * var(--ay) * .7px))
+    rotate(calc(var(--k) * var(--dx) * -2deg));
+  transition-delay: calc(var(--k) * 28ms);
+}
+.okey-surukleme .atilan:hover .tas {           /* taş sürüklerken yığın açılmasın */
+  transform: translate(calc(var(--k) * -1px), calc(var(--k) * -1.2px)) rotate(calc(var(--k) * -2.5deg));
+}
+/* Keçenin (928 × 528) yerleşimi, yukarıdan aşağı:
+     17–75   karşıdakinin ıstakası          80–158  karşıdakinin perleri
+     ~170–245 deste + gösterge (ortada)     160–295 yandakilerin perleri (kendi kenarlarında, ortanın iki yanı)
+     300–400 benim perlerim (geniş şerit)   404–520 atılan taşlar (alt sıra); benim atma alanım geniş
+   Atılan taşlar köşelerde: yandaki ıstakaların ve üstteki ıstakanın dışında kalır. */
+.atilan.a0 {                                  /* benim attığım: sağ altta geniş alan, rahat bırakılsın */
+  right: 90px; bottom: 8px; width: 300px; height: 108px;
+  border-radius: 20px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.14), transparent 75%);
+}
+.atilan.a0.acik { box-shadow: inset 0 0 0 2px rgba(255,255,255,.22); background: rgba(255,255,255,.05); }
+.atilan.a0.acik.hedef { box-shadow: inset 0 0 0 3px rgba(243,195,74,.95); background: rgba(243,195,74,.18); }
+.atilan.a0 .atilan-etiket { bottom: 8px; }
+.atilan-ipucu { position: absolute; top: 10px; font-size: 13px; font-weight: 800; color: rgba(255,255,255,.55); pointer-events: none; }
+.atilan.a1 { right: 100px; top: 18px; }      /* sağdakinin: sağ üst */
+.atilan.a2 { left: 100px; top: 18px; }       /* karşıdakinin: sol üst */
+.atilan.a3 { left: 100px; bottom: 16px; width: 100px; height: 110px; }   /* soldakinin: sol alt — benim alabileceğim */
+.atilan.hedef { background: radial-gradient(circle, rgba(243,195,74,.35), transparent 70%); }
+.atilan.alinabilir { cursor: pointer; }
+.atilan-etiket { position: absolute; bottom: -18px; font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.5); white-space: nowrap; }
+
+/* ---------- Rakip ıstakaları ----------
+   Ahşap ıstaka masanın üstünde yatar; taşlar onun içinde ayakta, sahibine doğru dönük ve arkaya yaslı durur.
+   Istakanın kendi yönünde sahibi "aşağıda"dır; her koltuk için masada döndürülür (üst 180°, sağ −90°, sol 90°). */
+.rakip-istaka {              /* sabit boy: 15 taş genişliğinde, iki sıralı */
+  position: absolute;
+  width: calc(15 * 21px + 22px);
+  height: 58px;
+  transform-style: preserve-3d;
+}
+.ri-basamak {                 /* arka sıranın durduğu yükseltilmiş kısım */
+  position: absolute; left: 0; right: 0; top: 0; height: 30px;
+  border-radius: 5px 5px 0 0;
+  transform: translateZ(9px);
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 2px, transparent 2px 9px),
+    var(--tema-istaka-desen),
+    linear-gradient(180deg, var(--istaka-1), var(--istaka-2));
+  box-shadow: 0 2px 0 var(--istaka-oluk);
+}
+.rakip-istaka.k2 { left: 50%; top: 46px; transform: translate(-50%, -50%) rotateZ(180deg); }
+.rakip-istaka.k1 { left: calc(100% - 50px); top: 50%; transform: translate(-50%, -50%) rotateZ(-90deg); }
+.rakip-istaka.k3 { left: 50px; top: 50%; transform: translate(-50%, -50%) rotateZ(90deg); }
+.ri-taban {             /* ıstakanın tabanı: masada yatan ahşap */
+  position: absolute; inset: 0;
+  border-radius: 5px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 2px, transparent 2px 9px),
+    var(--tema-istaka-desen),
+    linear-gradient(180deg, var(--istaka-1), var(--istaka-2));
+  box-shadow: 0 0 0 1px var(--istaka-golge), 0 6px 10px rgba(0,0,0,.45);
+}
+.ri-sirt {              /* taşların yaslandığı alçak arka kısım: tabanın arka kenarından yukarı kalkar */
+  position: absolute; left: 0; right: 0; top: 0; height: 9px;
+  border-radius: 4px 4px 2px 2px;
+  transform-origin: 50% 100%;
+  transform: translateZ(9px) translateY(-9px) rotateX(-60deg);
+  background: linear-gradient(0deg, var(--istaka-2), var(--istaka-1));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+}
+.ri-taslar { position: absolute; inset: 0; transform-style: preserve-3d; }
+/* Ayakta duran taş: blok (19 × 28, 7 kalınlık). Kendi düzleminde ön yüz z=0, arka yüz z=−7;
+   sonra alt kenarı üstünde dikilip arkaya yaslanır. */
+.ri-tas {                     /* --c: sıradaki yeri, --r: 0 ön sıra, 1 arka (yükseltilmiş) sıra */
+  position: absolute;
+  left: calc(11px + var(--c) * 21px);
+  top: calc(27px - var(--r) * 24px);
+  width: 19px; height: 28px;
+  transform-origin: 50% 100%;
+  transform: translateZ(calc(var(--r) * 9px)) rotateX(-48deg);    /* gerçekte daha diktir; sırtları görünsün diye yaslı */
+  transform-style: preserve-3d;
+}
+.ri-tas i { position: absolute; display: block; }
+.ri-tas .y-on, .ri-tas .y-arka { inset: 0; border-radius: 3px; }
+.ri-tas .y-on { background: var(--tas-yuz-2); }
+.ri-tas .y-arka {
+  transform: translateZ(-7px);
+  background: var(--tema-tas-doku), linear-gradient(180deg, var(--tas-yuz-1) 0%, var(--tas-yuz-2) 65%, var(--tas-yuz-3) 100%);
+  box-shadow: inset 0 0 0 .6px var(--tas-kenar-2);
+}
+.ri-tas .y-ust {
+  left: 0; top: 0; width: 19px; height: 7px; border-radius: 2px;
+  transform-origin: 50% 0; transform: rotateX(-90deg);
+  background: linear-gradient(90deg, var(--tas-yuz-3), var(--tas-yuz-1), var(--tas-yuz-3));
+}
+.ri-tas .y-sol, .ri-tas .y-sag {
+  top: 0; width: 7px; height: 28px;
+  transform-origin: 0 50%; transform: rotateY(90deg);
+  background: linear-gradient(180deg, var(--tas-yuz-3), var(--tas-kenar));
+}
+.ri-tas .y-sol { left: 0; }
+.ri-tas .y-sag { left: 19px; }
+
+/* ---------- Açılan perler ---------- */
+.per-alani {
+  position: absolute;
+  display: flex; flex-wrap: wrap; gap: 10px 14px;
+  align-content: flex-start;
+}
+.per-alani.p0 { left: 115px; right: 115px; top: 300px; height: 100px; justify-content: center; }
+.per-alani.p2 { left: 200px; right: 200px; top: 80px; height: 78px; justify-content: center; }
+.per-alani.p1 { right: 115px; top: 160px; width: 210px; height: 135px; justify-content: flex-end; }
+.per-alani.p3 { left: 115px; top: 160px; width: 210px; height: 135px; }
+.per-alani.p1, .per-alani.p2, .per-alani.p3 { gap: 6px 10px; --kucuk-g: 25px; --kucuk-y: 34px; }   /* rakiplerin perleri biraz küçük */
+.per-alani.p1 .tas.kucuk, .per-alani.p2 .tas.kucuk, .per-alani.p3 .tas.kucuk { font-size: 15px; }
+.per { display: flex; gap: 1px; padding: 3px; border-radius: 7px; transition: box-shadow .15s ease, background .15s ease; }
+/* Fare üstündeki per (ve üstüne taş sürüklenen per) sarı, parlayan bir dikdörtgenle çevrilir */
+.per:hover, .per.isle-hedef {
+  background: rgba(243,195,74,.14);
+  box-shadow: 0 0 0 2px rgba(243,195,74,.95), 0 0 14px 4px rgba(243,195,74,.55), inset 0 0 10px rgba(243,195,74,.25);
+}
+.per.isle-hedef { background: rgba(243,195,74,.25); }
+
+/* ---------- Koltuklar (masanın dışında, düz) ---------- */
+.koltuk {
+  position: absolute;
+  display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px;
+  min-width: 190px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 16px;
+  background: rgba(20,20,20,.82);
+  border: 1px solid rgba(255,255,255,.08);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  z-index: 5;
+}
+.koltuk.k2 { left: 50%; top: 0; transform: translateX(-50%); }
+.koltuk.k1 { right: -170px; top: 270px; }   /* masanın dışında, ıstakayı örtmesin */
+.koltuk.k3 { left: -170px; top: 270px; }
+.koltuk.k0 { left: -40px; bottom: 120px; }
+.koltuk .okey-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 900; font-size: 18px;
+  position: relative;
+}
+.koltuk .okey-avatar svg { position: absolute; inset: -5px; width: 54px; height: 54px; transform: rotate(-90deg); }
+.koltuk .okey-avatar circle { fill: none; stroke: var(--altin); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.koltuk .ad { font-weight: 800; font-size: 15px; line-height: 1.1; }
+.koltuk .alt { font-size: 12px; color: #a7a7a7; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.koltuk .puan { font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.koltuk.bos { opacity: .85; border-style: dashed; }
+.koltuk.kopuk { opacity: .6; }
+.koltuk.sira { border-color: rgba(243,195,74,.7); box-shadow: 0 0 0 1px rgba(243,195,74,.5), 0 0 22px rgba(243,195,74,.25); }
+.okey-rozet { font-size: 10.5px; font-weight: 900; padding: 2px 7px; border-radius: 999px; background: #1db954; color: #000; }
+.okey-rozet.cift { background: #7c5cff; color: #fff; }
+.yancilar { display: flex; align-items: center; gap: 4px; margin-top: 4px; grid-column: 1 / -1; }
+.yanci {
+  width: 22px; height: 22px; border-radius: 50%; font-size: 10px; font-weight: 900;
+  display: grid; place-items: center; color: #fff; border: 1.5px solid #121212; margin-left: -6px;
+}
+.yanci:first-child { margin-left: 0; }
+.yanci-tus {
+  margin-left: 6px; border: 0; border-radius: 999px; padding: 3px 9px; font: inherit; font-size: 11px; font-weight: 800;
+  background: rgba(255,255,255,.1); color: #fff; cursor: pointer;
+}
+.yanci-tus:hover { background: rgba(255,255,255,.2); }
+.ucan-puan {
+  position: absolute; right: 8px; top: -6px; font-weight: 900; font-size: 18px; color: #ff6b6b;
+  text-shadow: 0 2px 6px rgba(0,0,0,.6); animation: ucan 1.6s ease-out forwards; pointer-events: none;
+}
+.ucan-puan.eksi { color: #1db954; }
+@keyframes ucan { from { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } to { opacity: 0; transform: translateY(-34px); } }
+
+/* ---------- Benim ıstakam ---------- */
+.istaka-alani {
+  position: absolute;
+  left: 50%; bottom: 0;
+  transform: translateX(-50%);
+  display: grid; justify-items: center; row-gap: 10px;
+}
+.istaka {
+  position: relative;
+  padding: 12px 16px 6px;
+  border-radius: 10px 10px 16px 16px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 2px, transparent 2px 9px),
+    var(--tema-istaka-desen),
+    linear-gradient(180deg, var(--istaka-1) 0%, var(--istaka-2) 100%);
+  box-shadow: 0 6px 0 var(--istaka-golge), 0 14px 26px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.istaka-satir {
+  display: grid;
+  grid-template-columns: repeat(15, var(--tas-g));
+  gap: 3px;
+  height: calc(var(--tas-y) + 10px);
+  align-items: end;
+  padding-bottom: 6px;
+  border-bottom: 5px solid var(--istaka-oluk);   /* taşların dayandığı oluk */
+  margin-bottom: 6px;
+}
+.yuva { width: var(--tas-g); height: var(--tas-y); border-radius: 7px; position: relative; }
+/* Istakadaki geçerli perin çerçevesi: yuvaların üstünde, tıklamayı geçirir; fare perin üstündeyken parlar */
+.istaka-per {
+  grid-row: 1; align-self: end; height: calc(var(--tas-y) + 8px); margin: 0 -3px -4px;
+  border-radius: 10px; pointer-events: none; z-index: 2; opacity: 0;
+  box-shadow: 0 0 0 2px rgba(243,195,74,.95), 0 0 16px 4px rgba(243,195,74,.5), inset 0 0 12px rgba(243,195,74,.25);
+  transition: opacity .15s ease; position: relative;
+}
+.istaka-per.acik { opacity: 1; }
+.istaka-per span {
+  position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+  padding: 1px 8px; border-radius: 999px; background: var(--altin); color: #2a1a00; font-size: 11px; font-weight: 900; white-space: nowrap;
+}
+/* Masadaki bir pere işlenebilen taş: hafif sarı parıltı */
+.tas.islenebilir { box-shadow: 0 0 0 2px rgba(243,195,74,.75), 0 0 10px 2px rgba(243,195,74,.45), 0 3px 0 var(--tas-kenar), 0 7px 10px rgba(0,0,0,.35); }
+.yuva.hedef { background: rgba(243,195,74,.25); box-shadow: inset 0 0 0 2px rgba(243,195,74,.8); }
+.istaka.salt-okunur .tas { cursor: default; }
+.istaka-bandi {
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: center; white-space: nowrap;
+}
+.kose-tuslar { position: absolute; right: -30px; top: 0; display: flex; gap: 8px; z-index: 6; }
+.okey-tus {
+  border: 0; border-radius: 999px; padding: 9px 16px; font: inherit; font-weight: 800; font-size: 14px;
+  background: rgba(255,255,255,.1); color: #fff; cursor: pointer; white-space: nowrap;
+}
+.okey-tus:hover { background: rgba(255,255,255,.18); }
+.okey-tus.ana { background: #1db954; color: #000; }
+.okey-tus.ana:hover { filter: brightness(1.1); }
+.okey-tus:disabled { opacity: .45; cursor: default; filter: none; }
+.gosterge-durum {
+  padding: 7px 12px; border-radius: 999px; background: rgba(0,0,0,.45); color: #ddd;
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.gosterge-durum b { color: #fff; }
+.gosterge-durum .tamam { color: #1db954; }
+
+.durum-yazisi {
+  position: absolute; left: 50%; top: 626px; transform: translateX(-50%);   /* masanın ön kenarında */
+  padding: 7px 14px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff;
+  font-size: 13.5px; font-weight: 800; white-space: nowrap; z-index: 6; pointer-events: none;
+}
+.yanci-bandi {
+  padding: 6px 14px; border-radius: 999px; background: #7c5cff; color: #fff; font-weight: 800; font-size: 13px;
+}
+
+/* ---------- Uçan taş (animasyon) ---------- */
+.ucan-tas { position: fixed; z-index: 999; pointer-events: none; }
+
+/* ---------- Pencere (el sonu, çetele, kurallar) ---------- */
+.okey-pencere {
+  position: absolute; inset: 0; z-index: 50; display: grid; place-items: center;
+  background: rgba(0,0,0,.55);
+}
+.okey-pencere > div {
+  min-width: 420px; max-width: 640px; max-height: 80%; overflow: auto;
+  background: #181818; border: 1px solid #333; border-radius: 18px; padding: 22px 24px; color: #fff;
+  box-shadow: 0 30px 60px rgba(0,0,0,.6);
+}
+.okey-pencere > div.okey-genis { width: min(860px, 92%); max-width: none; max-height: 88%; background: #0d1612; border-color: #2a3b31; }
+.okey-pencere h3 { margin: 0 0 12px; font-size: 20px; }
+.okey-pencere table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.okey-pencere th, .okey-pencere td { padding: 8px 6px; border-bottom: 1px solid #2a2a2a; text-align: center; }
+.okey-pencere th { color: #a7a7a7; font-size: 12px; }
+.okey-pencere td.eksi { color: #1db954; font-weight: 800; }
+.okey-pencere td.arti { color: #ff8a7a; }
+.okey-pencere .alt-tuslar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.okey-pencere p { color: #ccc; line-height: 1.5; }
+
+.okey-bildirim {
+  position: absolute; left: 50%; top: 18px; transform: translateX(-50%); z-index: 60;
+  padding: 10px 16px; border-radius: 999px; background: #fff; color: #000; font-weight: 800; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4); pointer-events: none; white-space: nowrap;
+}
+.okey-bildirim.ceza { background: #e5484d; color: #fff; }
+
+/* ---------- Tema paneli ---------- */
+.tema-paneli { display: grid; row-gap: 12px; color: #e6ece7; }
+.tema-paneli h4 { margin: 6px 0 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #93a59a; }
+.tema-not { margin: 0; color: #a7a7a7; font-size: 13px; }
+.tema-kartlari { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.okey-tema-karti {
+  position: relative; display: grid; row-gap: 4px; text-align: left; padding: 8px; border-radius: 14px; cursor: pointer;
+  background: #15211b; border: 1px solid #2a3b31; color: inherit; font: inherit;
+}
+.okey-tema-karti:hover { border-color: #3fb27f; }
+.okey-tema-karti.secili { border-color: var(--altin); box-shadow: 0 0 0 1px var(--altin), 0 0 14px rgba(243,195,74,.35); }
+.okey-tema-karti b { font-size: 13.5px; }
+.okey-tema-karti small { font-size: 11px; color: #93a59a; line-height: 1.3; }
+.tema-sil { position: absolute; top: 4px; right: 6px; font-size: 12px; color: #ff8a7a; padding: 2px 5px; border-radius: 6px; background: rgba(0,0,0,.5); }
+/* Önizleme: çuha + ıstaka şeridi + dört küçük taş; temanın değişkenleri bu kutuya verilir */
+.tema-onizleme { position: relative; height: 74px; border-radius: 10px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, var(--kece-1), var(--kece-2) 60%, var(--kece-3));
+  box-shadow: inset 0 0 0 4px var(--ray-2), inset 0 0 0 5px var(--ray-kenar); }
+.tema-onizleme .tema-istaka {
+  position: absolute; left: 10px; right: 10px; bottom: 7px; height: 50px; border-radius: 6px;
+  display: flex; gap: 3px; justify-content: center; align-items: flex-end; padding-bottom: 6px;
+  background: var(--tema-istaka-desen), linear-gradient(180deg, var(--istaka-1), var(--istaka-2));
+  box-shadow: 0 3px 0 var(--istaka-golge); border-bottom: 3px solid var(--istaka-oluk);
+}
+.tema-onizleme .tas.kucuk { cursor: default; }
+.tema-yapici { display: grid; row-gap: 10px; background: #15211b; border: 1px solid #2a3b31; border-radius: 14px; padding: 12px; }
+.tema-alanlar { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px 12px; }
+.tema-alan { display: grid; row-gap: 4px; font-size: 12px; color: #93a59a; font-weight: 700; }
+.tema-alan input[type=color] { width: 100%; height: 34px; border: 1px solid #2a3b31; border-radius: 8px; background: #0d1612; padding: 2px; cursor: pointer; }
+.tema-alan select { height: 34px; border-radius: 8px; border: 1px solid #2a3b31; background: #0d1612; color: #e6ece7; font: inherit; font-size: 13px; padding: 0 6px; }
+.tema-alan.tema-kutu { grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; align-self: end; height: 34px; color: #e6ece7; }
+.tema-satir { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tema-satir input[type=text] { flex: 1; min-width: 180px; height: 36px; border-radius: 10px; border: 1px solid #2a3b31; background: #0d1612; color: #e6ece7; padding: 0 10px; font: inherit; font-size: 13px; }
+.tema-etiket { font-size: 12px; color: #93a59a; font-weight: 700; }
+.tema-hata { color: #ff8a7a; }
+.okey-pencere select {
+  height: 38px; border-radius: 10px; border: 1px solid #2a3b31; background: #0d1612; color: #e6ece7;
+  padding: 0 10px; font: inherit; font-size: 14px;
+}
+.okey-pencere select:disabled { opacity: .55; }
+
+/* ---------- Odaya yerleşim (index.html) ----------
+   Masa, fotoğrafların durduğu sahneyi kaplar: üst çubuğun altı, açık panellerin arası, alttaki çalar çubuğunun üstü.
+   Masa açıkken fotoğraflar, emojiler ve ortadaki daire gizlenir; müzik paneli ve çalar olduğu gibi kalır. */
+.okey-katmani {
+  position: absolute;
+  inset: var(--ust) var(--sag) var(--alt) var(--sol);
+  z-index: 30;                      /* çalar (35), üst çubuk (40) ve paneller (45) üstte kalsın */
+  display: none;
+  transition: inset var(--kayma, .3s);
+}
+.oda-gorunumu.okey-acik .okey-katmani { display: block; }
+.oda-gorunumu.okey-acik #fotoKatmani,
+.oda-gorunumu.okey-acik #emojiKatmani,
+.oda-gorunumu.okey-acik #daire { display: none; }
+.okey-ac-tus { margin-left: 10px; flex: none; }
+.okey-ac-tus.acik { background: #1db954; color: #000; border-color: #1db954; }
+.okey-sayac { font-size: .8em; opacity: .75; font-weight: 700; }
+.okey-sayac:empty { display: none; }

@@ -250,6 +250,10 @@
           ".write": "auth != null && auth.uid == $uid",
           ".validate": "newData.isNumber()"
         },
+        "okeyTema": {
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.hasChildren(['id', 'kod']) && newData.child('id').isString() && newData.child('id').val().length <= 40 && newData.child('kod').isString() && newData.child('kod').val().length <= 1500"
+        },
         "slot1": {
           ".write": "auth != null && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
           ".validate": "newData.isString() && newData.val().length <= 40"
