@@ -326,15 +326,52 @@
     masa.pencere(baslik + (durum.oyun.bitis ? " · oyun bitti" : ""), govde, tuslar, true);
   }
 
+  // Odanın çetelesi (sunucudaki son 50 oyun) masanın üstünde büyük pencerede: solda oyunlar, sağda seçilenin çetelesi.
+  // Süren oyun masadan gelen haliyle (sunucu kaydı ancak el bitince yazılır) listeye katılır. Açıkken 20 sn'de bir yenilenir.
   function ceteleSayfasi() {
-    window.open("okey-cetele.html?oda=" + encodeURIComponent(odaId), "_blank");
+    const h = masa.h;
+    let oyunlar = null, secili = durum && durum.oyun ? durum.oyun.id : null;
+    const liste = h("div", { sinif: "list" });
+    const ayrinti = h("section", { sinif: "ayrinti" });
+    const bos = (metin) => liste.replaceChildren(h("div", { sinif: "empty" }, metin));
+
+    function ciz() {
+      const hepsi = (oyunlar || []).filter((o) => !(durum && durum.oyun && o.id === durum.oyun.id));
+      if (durum && durum.oyun) hepsi.push(durum.oyun);
+      hepsi.sort((a, b) => b.baslangic - a.baslangic);
+      if (!hepsi.some((o) => o.id === secili)) secili = hepsi[0] && hepsi[0].id;
+      if (!hepsi.length) bos(oyunlar ? "Bu odada henüz okey oynanmadı. Masada bir el bitince burada görünür." : "Yükleniyor…");
+      else liste.replaceChildren(...hepsi.map((o) => {
+        const k = OkeyCetele.kart(o, () => { secili = o.id; ciz(); });
+        if (o.id === secili) k.classList.add("on");
+        return k;
+      }));
+      const oyun = hepsi.find((o) => o.id === secili);
+      ayrinti.replaceChildren(...(oyun ? [OkeyCetele.ciz(oyun)] : []));
+    }
+
+    async function yukle() {
+      try {
+        const yanit = await fetch(sunucuAdresi() + "/cetele/" + encodeURIComponent(odaId));
+        if (!yanit.ok) throw new Error(yanit.status);
+        oyunlar = (await yanit.json()).oyunlar || [];
+        ciz();
+      } catch (e) {
+        if (!oyunlar && !(durum && durum.oyun)) bos("Çetele şu an okunamadı. Biraz sonra yeniden dene.");
+      }
+    }
+
+    const ad = document.getElementById("odaAdi");
+    const zaman = setInterval(() => { if (!liste.isConnected) clearInterval(zaman); else if (!document.hidden) yukle(); }, 20000);
+    masa.pencere("Okey çetelesi" + (ad && ad.textContent.trim() ? " · " + ad.textContent.trim() : ""),
+      h("div", { sinif: "cetele koyu oda-cetelesi" },
+        h("section", { sinif: "stack oyun-listesi" }, h("h2", { sinif: "sec" }, "Oyunlar"), liste), ayrinti),
+      [{ yazi: "Kapat", ana: true }], "tam", () => clearInterval(zaman));
+    ciz();
+    yukle();
   }
 
-  function ceteleGoster() {
-    if (!durum || !durum.oyun) return ceteleSayfasi();
-    masa.pencere("Çetele · bu oyun", masa.h("div", { sinif: "cetele koyu" }, OkeyCetele.ciz(durum.oyun)),
-      [{ yazi: "Odanın bütün oyunları", is: ceteleSayfasi }, { yazi: "Kapat", ana: true }], true);
-  }
+  const ceteleGoster = ceteleSayfasi;
 
   function temaPaneli() {
     masa.pencere("Taş ve masa teması", OkeyTema.panel(temaKaydet), [{ yazi: "Kapat", ana: true }], true,

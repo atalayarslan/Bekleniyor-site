@@ -425,13 +425,13 @@
       setTimeout(() => oge.remove(), 1700);
     }
 
-    // genis: çetele gibi büyük içerik için
+    // genis: çetele gibi büyük içerik için; "tam": masa alanını neredeyse tamamen kaplar (odanın çetelesi)
     // kapaninca: pencere nasıl kapanırsa kapansın (düğme ya da dışına tıklama) çağrılır
     function pencere(baslik, govde, tuslar = [], genis = false, kapaninca = null) {
       kok.querySelectorAll(".okey-pencere").forEach((x) => x.remove());
       const kapat = () => { p.remove(); if (kapaninca) kapaninca(); };
       const p = h("div", { sinif: "okey-pencere", onclick: (e) => e.target === p && kapat() },
-        h("div", { sinif: genis ? "okey-genis" : "" }, h("h3", {}, baslik), govde,
+        h("div", { sinif: genis === "tam" ? "okey-genis okey-tam" : genis ? "okey-genis" : "" }, h("h3", {}, baslik), govde,
           h("div", { sinif: "alt-tuslar" }, (tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) =>
             h("button", { sinif: "okey-tus" + (t.ana ? " ana" : ""), onclick: () => { kapat(); t.is && t.is(); } }, t.yazi)))));
       kok.append(p);

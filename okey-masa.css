@@ -509,6 +509,14 @@
   box-shadow: 0 30px 60px rgba(0,0,0,.6);
 }
 .okey-pencere > div.okey-genis { width: min(860px, 92%); max-width: none; max-height: 88%; background: #0d1612; border-color: #2a3b31; }
+/* Odanın çetelesi: masa alanını kaplar; oyun listesi ve çetele ayrı ayrı kayar, dar alanda alt alta */
+.okey-pencere > div.okey-tam { width: 96%; height: 94%; max-height: 94%; display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
+.okey-tam .oda-cetelesi { flex: 1; min-height: 0; display: grid; grid-template-columns: 320px 1fr; gap: 20px; background: none; }
+.okey-tam .oda-cetelesi > section { min-height: 0; overflow: auto; padding-right: 4px; align-content: start; }
+@container (max-width: 760px) {
+  .okey-tam .oda-cetelesi { display: block; overflow: auto; }
+  .okey-tam .oda-cetelesi > section { overflow: visible; margin-bottom: 18px; }
+}
 .okey-pencere h3 { margin: 0 0 12px; font-size: 20px; }
 .okey-pencere table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .okey-pencere th, .okey-pencere td { padding: 8px 6px; border-bottom: 1px solid #2a2a2a; text-align: center; }
