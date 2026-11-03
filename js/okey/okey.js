@@ -252,7 +252,7 @@
     const a = benSiram ? acilisDurumu() : null;
 
     let yazi;
-    if (!E) yazi = oturan < 4 ? "Masa: " + oturan + "/4 · 4 kişi olunca oyun başlar" : "Masa dolu · " + (oturuyorum() ? "'Oyunu başlat'a bas" : "oyun başlamak üzere");
+    if (!E) yazi = oturan < 4 ? "Masa: " + oturan + "/4 · 4 kişi olunca oyun başlar" + (oturuyorum() ? " · boş koltuklara bot ekleyebilirsin" : "") :"Masa dolu · " + (oturuyorum() ? "'Oyunu başlat'a bas" : "oyun başlamak üzere");
     else if (E.bitti) yazi = E.sonuc ? E.sonuc.baslik : "El bitti";
     else if (benSiram) yazi = E.asama === "cek" ? "Sıra sende: desteden çek ya da soldan al" : "Taşını at" + (E.acti[k] ? " (işlemek için pere sürükle)" : " ya da elini aç");
     else yazi = ad(E.sira) + " oynuyor…";
@@ -277,7 +277,7 @@
       const yancilar = (kol.yancilar || []).map((y) => ({ ad: y.ad, renk: "#7c5cff" }));
       if (kol.bos) return { bos: true, yancilar };
       return {
-        ad: kol.ad, renk: RENKLER[s], ben: s === k, bagli: kol.bagli, devralinabilir: kol.devralinabilir, yancilar,
+        ad: kol.ad, renk: RENKLER[s], ben: s === k, bagli: kol.bagli, devralinabilir: kol.devralinabilir, bot: kol.bot, yancilar,
         puan: toplam ? toplam[s].top : 0, ceza: E ? E.cezalar[s] : 0, tasSayisi: E ? E.tasSayilari[s] : 0,
         acti: E ? E.acti[s] : null, acilisDegeri: E ? E.acilisDegeri[s] : 0
       };
@@ -291,7 +291,7 @@
       okey: E ? E.okey : { r: 0, n: 1 }, gosterge: E ? E.gosterge : null, gostergeMasada: E ? E.gostergeMasada : true,
       desteSayisi: E ? E.desteSayisi : 0, sira, asama: E ? E.asama : null, benimSiram: benSiram,
       bitti: !elVar, sonrakiYazi: oturuyorum() && oturan === 4 ? (E ? "Sonraki el" : "Oyunu başlat") : null,
-      sure: kalanSure(), izleyici, izlenen: yanci != null ? gorunen(yanci) : null,
+      sure: kalanSure(), izleyici, izlenen: yanci != null ? gorunen(yanci) : null, botEkle: oturuyorum(),
       atilanlar: [0, 1, 2, 3].map((v) => (E ? E.atilanlar[sunucudaki(v)] : [])),
       perler: E ? E.perler.map((p) => Object.assign({}, p, { sahip: gorunen(p.sahip) })) : [],
       durumYazisi: yazi,
@@ -309,7 +309,8 @@
   function kalanSure() {
     const E = durum && durum.el;
     const toplam = (durum && durum.ayar.sure) || 30;
-    if (!E || E.bitti) return { kalan: toplam, toplam };
+    // Bot birkaç saniyede oynar; halkası boşalıyormuş gibi görünmesin
+    if (!E || E.bitti || (durum.koltuklar[E.sira] && durum.koltuklar[E.sira].bot)) return { kalan: toplam, toplam };
     return { kalan: Math.max(0, (E.sureBitis - (Date.now() + ofset)) / 1000), toplam };
   }
   function sureyiIslet() {
@@ -446,6 +447,8 @@
     yanciOl: (v) => { const s = sunucudaki(v); gonder({ t: "yanci", koltuk: durum.ben.yanci === s ? null : s }); },
     masayaDon: () => gonder({ t: "yanci", koltuk: null }),
     otur: (v) => gonder({ t: "otur", koltuk: sunucudaki(v) }),
+    botEkle: (v) => gonder({ t: "bot", koltuk: sunucudaki(v) }),
+    botCikar: (v) => gonder({ t: "botCikar", koltuk: sunucudaki(v) }),
     sonrakiEl: () => gonder({ t: durum && durum.el ? "sonraki" : "basla" }),
     cetele: ceteleGoster,
     kurallar: kurallariGoster

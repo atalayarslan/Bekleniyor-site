@@ -42,7 +42,7 @@
   }
 
   function avatar(kisi, sure) {
-    const a = h("div", { sinif: "okey-avatar", stil: { background: kisi.renk } }, (kisi.ad || "?")[0].toUpperCase());
+    const a = h("div", { sinif: "okey-avatar", stil: { background: kisi.renk } }, kisi.bot ? "🤖" : (kisi.ad || "?")[0].toUpperCase());
     if (sure) {
       const cevre = 2 * Math.PI * 24;
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -159,12 +159,13 @@
 
       // Koltuklar
       const koltuklar = g.koltuklar.map((kol, k) => {
-        // Boş koltuk: izleyici oturabilir
+        // Boş koltuk: izleyici oturabilir; masada oturan bot ekleyebilir
         if (kol.bos) {
           return h("div", { sinif: "koltuk bos k" + k, veri: { koltuk: k } },
             h("div", { sinif: "okey-avatar", stil: { background: "rgba(255,255,255,.08)" } }, "+"),
             h("div", {}, h("div", { sinif: "ad" }, "Boş koltuk"),
-              g.izleyici && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Otur") : null));
+              g.izleyici && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Otur") : null,
+              g.botEkle && olaylar.botEkle ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botEkle(k) }, "🤖 Bot ekle") : null));
         }
         const siraOnda = g.sira === k && !g.bitti;
         const yancilar = h("div", { sinif: "yancilar" },
@@ -173,7 +174,10 @@
           // Yancı olmak sadece masada oturmayanlara (izleyicilere) açık; oyuncular başkasının taşına bakamaz
           g.izleyici && !kol.bos ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.yanciOl(k) }, g.izlenen === k ? "İzliyorsun" : "Yancı ol") : null,
           // Oyuncu el ortasında kalktı ya da uzun süredir yok: izleyici yerine oturup elini devralabilir
-          g.izleyici && kol.devralinabilir && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Yerine otur") : null);
+          g.izleyici && kol.devralinabilir && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Yerine otur") : null,
+          // Botu el aralarında masadakiler çıkarabilir; kalkıp giden oyuncunun yerine bot konabilir
+          kol.bot && g.botEkle && g.bitti && olaylar.botCikar ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botCikar(k) }, "Botu çıkar") : null,
+          !kol.bot && kol.devralinabilir && g.botEkle && olaylar.botEkle ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botEkle(k) }, "🤖 Yerine bot koy") : null);
         return h("div", { sinif: "koltuk k" + k + (siraOnda ? " sira" : "") + (kol.bagli === false ? " kopuk" : ""), veri: { koltuk: k } },
           avatar(kol, siraOnda ? g.sure : null),
           h("div", {},

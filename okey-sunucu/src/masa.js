@@ -4,6 +4,7 @@
 //
 // İstemci → sunucu: { t: "merhaba", kart?, misafir?: { id, ad }, ad?, foto? }   (ilk mesaj; kart = Firebase ID token)
 //   "otur" {koltuk} · "kalk" · "yanci" {koltuk|null} · "ayar" {esli?, elSayisi?, sure?} · "basla" · "sonraki"
+//   "bot" {koltuk} · "botCikar" {koltuk}   (masada oturan boş koltuğa bot koyar; bot sunucuda oynar)
 //   "cek" · "soldanAl" · "geriBirak" · "at" {id} · "ac" {gruplar: [[id]]} · "isle" {id, per}
 // Sunucu → istemci: { t: "guncel", olaylar: [...], durum: {...} } (kişiye özel) · { t: "hata", metin }
 
@@ -13,6 +14,8 @@ import { kartiDogrula } from "./kimlik.js";
 const YONETICI = "erayaksuhome@outlook.com";
 const DB = "https://bekleniyor-e16eb-default-rtdb.europe-west1.firebasedatabase.app";
 const KOLTUK_BEKLEME = 120 * 1000;   // bağlantısı kopanın koltuğu bu kadar onun için tutulur
+const BOT_BEKLEME = 1600;            // botun sırası gelince oynamadan önce bekleme (ms)
+const BOT_ADLARI = ["Bot Ayşe", "Bot Mehmet", "Bot Zeynep", "Bot Can"];
 
 const yeniMasa = () => ({
   oda: null, ayar: { esli: false, elSayisi: 11, sure: 30 }, kurucu: null,
@@ -125,6 +128,13 @@ export class OkeyMasasi {
 
   koltugum(kim) { return this.m.koltuklar.findIndex((k) => k && k.kim === kim); }
   yetkili(ben) { return ben.yonetici || (ben.uid && ben.uid === this.sahip.uid); }
+  botMu(k) { const x = this.m.koltuklar[k]; return !!(x && x.bot); }
+  // Koltuktaki kişi bağlı değil ve tutma süresi geçti: yerine oturulabilir (bot da koltuğunu bırakır)
+  bosaldi(kol) {
+    if (kol.bot) return true;
+    const bagli = this.baglilar().some((x) => x.ben.kim === kol.kim);
+    return !bagli && !!kol.ayrildi && Date.now() - kol.ayrildi >= KOLTUK_BEKLEME;
+  }
 
   // ---------- mesajlar ----------
   async isle_(ben, ws, mesaj) {
@@ -137,26 +147,49 @@ export class OkeyMasasi {
         const h = Number(mesaj.koltuk);
         if (!(h >= 0 && h < 4)) return "Geçersiz koltuk";
         if (k >= 0) return "Zaten oturuyorsun";
-        // Koltuk boşsa ya da sahibi bağlı değil ve tutma süresi geçtiyse oturulur (oyun sürüyorsa eli devralınır)
+        // Koltuk boşsa, botsa ya da sahibi bağlı değil ve tutma süresi geçtiyse oturulur (oyun sürüyorsa eli devralınır)
         const kol = m.koltuklar[h];
-        const bagli = this.baglilar().some((x) => x.ben.kim === (kol && kol.kim));
-        if (kol && (bagli || !kol.ayrildi || Date.now() - kol.ayrildi < KOLTUK_BEKLEME)) return "Bu koltuk dolu";
-        if (!m.koltuklar.some(Boolean) && !oyunSuruyor) m.kurucu = ben.kim;
+        if (kol && !this.bosaldi(kol)) return "Bu koltuk dolu";
+        if (!m.koltuklar.some((x) => x && !x.bot) && !oyunSuruyor) m.kurucu = ben.kim;
         m.koltuklar[h] = { kim: ben.kim, ad: ben.ad, foto: ben.foto, ayrildi: null };
         ben.yanci = null;
         ws.serializeAttachment(ben);
+        if (oyunSuruyor && E.sira === h) this.sureyiKur();   // botun kısa süresi yerine oyuncunun tur süresi
         return;
       }
       case "kalk":
         if (k < 0) return;
         // Oyun sürüyorsa eli masada kalır; koltuğa başkası oturup devam edebilir, kimse oturmazsa süre dolunca oynanır
         m.koltuklar[k] = oyunSuruyor ? Object.assign({}, m.koltuklar[k], { ayrildi: 1, kim: "bos:" + k }) : null;
-        // Masada kimse kalmadı: kurucu yok, el oynanmıyorsa yarım oyun kapanır (yeni gelen türü/el sayısını seçebilsin)
-        if (!m.koltuklar.some(Boolean)) {
+        // Masada (botlar dışında) kimse kalmadı: botlar da kalkar, kurucu yok, yarım oyun kapanır
+        // (yeni gelen türü/el sayısını seçebilsin). El sürüyorsa kalkanın koltuğu dolu kaldığı için buraya girilmez.
+        if (!m.koltuklar.some((x) => x && !x.bot)) {
           m.kurucu = null;
+          m.koltuklar = [null, null, null, null];
           if (m.oyun && !m.oyun.bitis && !oyunSuruyor) m.oyun.bitis = Date.now();
         }
         return;
+      case "bot": {
+        if (k < 0 && !this.yetkili(ben)) return "Bot eklemek için önce masaya otur";
+        const h = Number(mesaj.koltuk);
+        if (!(h >= 0 && h < 4)) return "Geçersiz koltuk";
+        const kol = m.koltuklar[h];
+        if (kol && (kol.bot || !this.bosaldi(kol))) return "Bu koltuk dolu";
+        m.koltuklar[h] = { kim: "bot:" + h, ad: BOT_ADLARI[h], foto: "", ayrildi: null, bot: true };
+        if (oyunSuruyor) {
+          if (m.oyun.oyuncular[h]) m.oyun.oyuncular[h].ad = BOT_ADLARI[h];
+          if (E.sira === h) this.sureyiKur();
+        }
+        return;
+      }
+      case "botCikar": {
+        if (k < 0 && !this.yetkili(ben)) return "Botu çıkarmak için önce masaya otur";
+        const h = Number(mesaj.koltuk);
+        if (!this.botMu(h)) return "Bu koltukta bot yok";
+        if (oyunSuruyor) return "El sürerken bot çıkarılamaz; el bitince çıkarabilirsin";
+        m.koltuklar[h] = null;
+        return;
+      }
       case "yanci": {
         if (k >= 0) return "Oyuncular yancı olamaz";
         const h = mesaj.koltuk == null ? null : Number(mesaj.koltuk);
@@ -224,19 +257,27 @@ export class OkeyMasasi {
   }
 
   turBaslat() {
+    this.m.el.buTurActi = false;
+    this.sureyiKur();
+  }
+
+  // Sıradakinin süresi: oyuncuya tur süresi, bota kısa bir bekleme (bot da bu alarmla oynar)
+  sureyiKur() {
     const E = this.m.el;
-    E.buTurActi = false;
-    E.sureBitis = Date.now() + this.m.ayar.sure * 1000;
+    E.sureBitis = Date.now() + (this.botMu(E.sira) ? BOT_BEKLEME : this.m.ayar.sure * 1000);
     this.ctx.storage.setAlarm(E.sureBitis);
   }
 
-  // Süre doldu: sıradaki oyuncunun yerine oynanır (bağlantısı kopmuş ya da koltuğu boş da olsa oyun ilerler)
+  // Süre doldu: sıradaki oyuncunun yerine oynanır (bağlantısı kopmuş ya da koltuğu boş da olsa oyun ilerler); botsa bot oynar
   async alarm() {
     const E = this.m.el;
     if (!E || E.bitti) return;
     if (Date.now() < E.sureBitis - 200) return this.ctx.storage.setAlarm(E.sureBitis);
-    this.olaylar = [{ tur: "sure", k: E.sira }];
-    this.otomatik(E.sira);
+    const k = E.sira;
+    const bot = this.botMu(k);
+    this.olaylar = bot ? [] : [{ tur: "sure", k }];
+    if (bot) this.botOyna(k); else this.otomatik(k);
+    if (!E.bitti && E.sira === k) this.sureyiKur();   // hamle bir sebeple olmadıysa masa takılı kalmasın
     await this.kaydet();
     this.yayinla();
   }
@@ -245,9 +286,118 @@ export class OkeyMasasi {
     const E = this.m.el;
     if (E.yandan) this.geriBirak(k);
     if (E.asama === "cek") { this.cek(k); if (E.bitti) return; }
+    this.enAzYarayaniAt(k);
+  }
+
+  // ---------- bot ----------
+  // Bot: işine yarayacaksa soldan alır, yoksa desteden çeker; açabiliyorsa açar (seri, olmazsa çift), açtıysa yeni
+  // perlerini koyar ve uyan taşları işler; sonra en az işe yarayan taşı atar.
+  botOyna(k) {
+    const E = this.m.el;
+    if (E.asama === "cek") {
+      if (this.botSoldanIster(k)) this.soldanAl(k);
+      else { this.cek(k); if (E.bitti) return; }
+    }
+    this.botAcIsle(k);
+    // Soldan aldığı taşı kullanamadıysa geri bırakır ve desteden çeker
+    if (E.yandan) {
+      this.geriBirak(k);
+      this.cek(k);
+      if (E.bitti) return;
+      this.botAcIsle(k);
+    }
+    this.enAzYarayaniAt(k, this.botKorunan(k));
+  }
+
+  botPerleri(el) {
+    const E = this.m.el;
+    const ayar = this.ayar();
+    const gruplar = K.gruplariBul(K.seriDiz(el, E.okey), 99).filter((g) => g.length >= 3 && K.perCoz(g, E.okey, ayar));
+    // Bütün taşlar perdeyse atacak taş kalmaz: en küçük per elde kalır
+    if (gruplar.reduce((t, g) => t + g.length, 0) >= el.length) gruplar.sort((a, b) => b.length - a.length).pop();
+    return gruplar;
+  }
+
+  // Eldeki çiftler (aynı renk ve sayı); okeyler en büyük teklerle eşleşir. Bir taş elde kalacak şekilde.
+  botCiftleri(el) {
+    const E = this.m.el;
+    const okeyler = el.filter((t) => K.okeyMi(t, E.okey));
+    const kume = new Map();
+    for (const t of el) {
+      if (K.okeyMi(t, E.okey)) continue;
+      const a = K.kimlik(t, E.okey);
+      const x = a.r * 14 + a.n;
+      if (!kume.has(x)) kume.set(x, []);
+      kume.get(x).push(t);
+    }
+    const ciftler = [];
+    const tekler = [];
+    for (const g of kume.values()) (g.length >= 2 ? ciftler.push([g[0], g[1]]) : tekler.push(g[0]));
+    tekler.sort((a, b) => K.kimlik(b, E.okey).n - K.kimlik(a, E.okey).n);
+    for (const o of okeyler) if (tekler.length) ciftler.push([tekler.shift(), o]);
+    if (ciftler.length * 2 >= el.length) ciftler.pop();
+    return ciftler;
+  }
+
+  botAcIsle(k) {
+    const E = this.m.el;
+    const ayar = this.ayar();
+    const kimlikler = (g) => g.map((t) => t.id);
+    if (E.acti[k] === "cift") {
+      const ciftler = this.botCiftleri(E.eller[k]);
+      if (ciftler.length) this.ac(k, ciftler.map(kimlikler));
+      return;
+    }
+    const gruplar = this.botPerleri(E.eller[k]);
+    if (gruplar.length) this.ac(k, gruplar.map(kimlikler));
+    if (!E.acti[k]) {
+      // Seriyle açamadı: yeterince çifti varsa çift açar (soldan aldığı taşla açacaksa o taş çiftlerde olmalı)
+      const ciftler = this.botCiftleri(E.eller[k]);
+      if (ciftler.length >= K.acmaBaraji(E.acilislar, "cift", k, ayar)) this.ac(k, ciftler.map(kimlikler));
+      return;
+    }
+    if (E.acti[k] !== "seri") return;
+    for (const t of E.eller[k].slice()) {
+      if (E.eller[k].length <= 1) break;
+      const i = E.perler.findIndex((p) => K.isle(p, t, E.okey, ayar));
+      if (i >= 0) this.isle(k, t.id, i);
+    }
+  }
+
+  // Soldaki taş yeni bir per tamamlıyorsa (açmadıysa açmaya yetiyorsa) ya da işlenebiliyorsa alınır
+  botSoldanIster(k) {
+    const E = this.m.el;
+    const ayar = this.ayar();
+    const yigin = E.atilanlar[(k + 3) % 4];
+    const tas = yigin[yigin.length - 1];
+    if (!tas || K.okeyMi(tas, E.okey) || E.acti[k] === "cift") return false;
+    const el = [...E.eller[k], tas];
+    const gruplar = this.botPerleri(el);
+    if (!gruplar.some((g) => g.includes(tas))) return !!E.acti[k] && E.perler.some((p) => K.isle(p, tas, E.okey, ayar));
+    if (E.acti[k]) return true;
+    const deger = gruplar.reduce((t, g) => t + K.perCoz(g, E.okey, ayar).puan, 0);
+    return deger >= K.acmaBaraji(E.acilislar, "seri", k, ayar);
+  }
+
+  // Atarken tutulacak taşlar: seri açtıysa/açacaksa perlerdeki, çift açtıysa ya da çifte gidiyorsa çiftlerdeki
+  botKorunan(k) {
+    const E = this.m.el;
     const el = E.eller[k];
+    const ciftler = this.botCiftleri(el);
+    const ciftle = E.acti[k] === "cift" || (!E.acti[k] && ciftler.length >= 4);
+    const taslar = ciftle ? ciftler.flat() : K.gruplariBul(K.seriDiz(el, E.okey), 99).filter((g) => g.length >= 3 && K.perCoz(g, E.okey, this.ayar())).flat();
+    return new Set(taslar.map((t) => t.id));
+  }
+
+  // Atılacak taş: elde en az işe yarayan; korunan taş (varsayılan: ıstakada geçerli bir perin parçası), okey ve işlek taş tutulur
+  enAzYarayaniAt(k, korunan) {
+    const E = this.m.el;
+    const el = E.eller[k];
+    const ayar = this.ayar();
+    const perde = korunan || new Set(K.gruplariBul(K.seriDiz(el, E.okey), 99).filter((g) => g.length >= 3 && K.perCoz(g, E.okey, ayar)).flat().map((t) => t.id));
     const puanla = (t) => {
       if (K.okeyMi(t, E.okey)) return 1e6;
+      if (perde.has(t.id)) return 1e4;
       const a = K.kimlik(t, E.okey);
       let p = 0;
       for (const x of el) {
@@ -505,8 +655,8 @@ export class OkeyMasasi {
       ben: { koltuk: k, yanci: k >= 0 ? null : ben.yanci, ad: ben.ad, yetkili: this.yetkili(ben), kurucu: m.kurucu === ben.kim },
       ayar: m.ayar,
       koltuklar: m.koltuklar.map((x, i) => (x ? {
-        ad: x.ad, foto: x.foto, bagli: bagli.has(x.kim), bos: false, yancilar: yancilar[i],
-        devralinabilir: !bagli.has(x.kim) && !!x.ayrildi && Date.now() - x.ayrildi >= KOLTUK_BEKLEME
+        ad: x.ad, foto: x.foto, bagli: !!x.bot || bagli.has(x.kim), bos: false, yancilar: yancilar[i], bot: !!x.bot,
+        devralinabilir: this.bosaldi(x)
       } : { bos: true, yancilar: yancilar[i] })),
       izleyici: this.baglilar().filter((x) => this.koltugum(x.ben.kim) < 0).length,
       oyun: m.oyun,
