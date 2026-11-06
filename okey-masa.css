@@ -5,8 +5,8 @@
 :root {
   --tas-g: 46px;              /* oyuncunun taş genişliği */
   --tas-y: 64px;
-  --kucuk-g: 30px;            /* masadaki taşlar */
-  --kucuk-y: 41px;
+  --kucuk-g: 34px;            /* masadaki taşlar (perler, atılanlar, gösterge) */
+  --kucuk-y: 46px;
   --altin: #f3c34a;
 
   /* TEMA (js/temalar.js değiştirir). Tema sadece bu temel renkleri verir; açık/koyu tonlar aşağıda türetilir. */
@@ -51,8 +51,8 @@
 
 /* Masa + ıstaka birlikte ölçeklenir (ekrana sığsın diye; JS --olcek verir) */
 .okey-sahne {
-  width: 1180px;
-  height: 970px;
+  width: 1260px;
+  height: 1016px;
   position: absolute;
   left: 50%;
   top: 50%;
@@ -70,9 +70,9 @@
   position: absolute;
   left: 50%;
   top: 70px;
-  width: 1100px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
-  height: 650px;
-  margin-left: -550px;
+  width: 1180px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
+  height: 696px;
+  margin-left: -590px;
   perspective: 1500px;
   perspective-origin: 50% 0%;
 }
@@ -181,7 +181,7 @@
 
 .tas.kucuk {
   width: var(--kucuk-g); height: var(--kucuk-y);
-  font-size: 18px; border-radius: 5px; padding: 3px 0 5px; cursor: default;
+  font-size: 21px; border-radius: 5px; padding: 3px 0 5px; cursor: default;
   box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--tas-kenar), 0 3px 0 var(--tas-kenar-2), 0 4px 6px rgba(0,0,0,.35);
 }
 .tas.kucuk .nokta { width: 6px; height: 6px; }
@@ -197,7 +197,7 @@
 /* ---------- Orta: deste ve gösterge ---------- */
 .orta {
   position: absolute;
-  left: 50%; top: 254px;
+  left: 50%; top: 274px;
   transform: translate(-50%, -50%) scale(1.35);
   transform-style: preserve-3d;
   display: flex; align-items: flex-end; gap: 22px;
@@ -274,9 +274,9 @@
 .atilan.a0.acik.hedef { box-shadow: inset 0 0 0 3px rgba(243,195,74,.95); background: rgba(243,195,74,.18); }
 .atilan.a0 .atilan-etiket { bottom: 8px; }
 .atilan-ipucu { position: absolute; top: 10px; font-size: 13px; font-weight: 800; color: rgba(255,255,255,.55); pointer-events: none; }
-.atilan.a1 { right: 110px; top: 4px; }       /* sağdakinin: sağ üst */
-.atilan.a2 { left: 110px; top: 4px; }        /* karşıdakinin: sol üst */
-.atilan.a3 { left: 110px; bottom: 16px; width: 100px; height: 110px; }   /* soldakinin: sol alt — benim alabileceğim */
+.atilan.a1 { right: 118px; top: 4px; }       /* sağdakinin: sağ üst */
+.atilan.a2 { left: 118px; top: 4px; }        /* karşıdakinin: sol üst */
+.atilan.a3 { left: 118px; bottom: 16px; width: 100px; height: 110px; }   /* soldakinin: sol alt — benim alabileceğim */
 .atilan.hedef { background: radial-gradient(circle, rgba(243,195,74,.35), transparent 70%); }
 .atilan.alinabilir { cursor: pointer; }
 .atilan-etiket { position: absolute; bottom: -18px; font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.5); white-space: nowrap; }
@@ -362,15 +362,14 @@
 }
 /* Her oyuncunun perleri kendi alanında; alan dolarsa (JS) alan biraz küçültülerek sığdırılır, başkasınınkine taşmaz.
    Benimki altta tam genişlik, yandakiler deste ile ıstakaları arasında, karşıdaki üstte. */
-.per-alani.p0 { left: 120px; right: 120px; top: 336px; height: 142px; }
-.per-alani.p2 { left: 215px; right: 215px; top: 84px; height: 94px; }
-.per-alani.p1 { right: 118px; top: 184px; width: 308px; height: 148px; }
-.per-alani.p3 { left: 118px; top: 184px; width: 308px; height: 148px; }
+.per-alani.p0 { left: 128px; right: 128px; top: 360px; height: 160px; }
+.per-alani.p2 { left: 230px; right: 230px; top: 88px; height: 104px; }
+.per-alani.p1 { right: 126px; top: 198px; width: 340px; height: 158px; }
+.per-alani.p3 { left: 126px; top: 198px; width: 340px; height: 158px; }
 .per-alani { transform-origin: top center; }
 .per-alani.p1 { transform-origin: top right; }
 .per-alani.p3 { transform-origin: top left; }
-.per-alani.p1, .per-alani.p2, .per-alani.p3 { gap: 10px 16px; --kucuk-g: 25px; --kucuk-y: 34px; }   /* rakiplerin perleri biraz küçük */
-.per-alani.p1 .tas.kucuk, .per-alani.p2 .tas.kucuk, .per-alani.p3 .tas.kucuk { font-size: 15px; }
+.per-alani.p1, .per-alani.p2, .per-alani.p3 { gap: 10px 16px; }   /* rakiplerin perleri de aynı boyda (okunsun) */
 .per { display: flex; gap: 1px; padding: 3px; border-radius: 7px; transition: box-shadow .15s ease, background .15s ease; }
 /* Fare üstündeki per (ve üstüne taş sürüklenen per) sarı, parlayan bir dikdörtgenle çevrilir */
 .per:hover, .per.isle-hedef {

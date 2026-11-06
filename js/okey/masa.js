@@ -77,7 +77,7 @@
     function sigdir() {
       const r = kok.getBoundingClientRect();
       if (!r.width) return;
-      olcek = Math.min(r.width / 1540, r.height / 980, 1.25);   // yan koltuklar masanın dışında durur
+      olcek = Math.min(r.width / 1620, r.height / 1026, 1.25);   // yan koltuklar masanın dışında durur
       sahne.style.setProperty("--olcek", olcek);
     }
     new ResizeObserver(sigdir).observe(kok);
