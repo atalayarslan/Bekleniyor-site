@@ -18,7 +18,7 @@
     ciftBaraji: 5,         // çiftle açma barajı
     acmayan: 202,          // el sonunda açamamış oyuncu
     bitiren: 101,          // bitiren eksi yazar
-    gostergeCifti: true,   // çift açan, göstergenin aynısıyla göstergeyi çift yapabilir
+    gostergeCifti: false,  // açık olsa: çift açan, göstergenin aynısıyla göstergeyi çift yapabilir (ortadaki gösterge alınamaz)
     ceza: 101,           // işlek alınmadı, okey atma, hatalı açma, yandan alıp açamama, sıra dışı
     tasCarpani: 10,        // açtıran / işlek alınan taş: sayısı × bu
     elinOkeyi: 101,        // elde kalan her okey
@@ -26,7 +26,7 @@
     ciftKat: 2,            // çift açmış rakibin kalanı
     bitirenKatlanir: true,
     esYazmaz: true,
-    onIkiOnUcBir: true,    // 12-13-1 serisi geçerli
+    onIkiOnUcBir: false,   // açık olsa: 12-13-1 serisi geçerli (seri 13'te biter)
     okeyDegistirme: true,
     elSayisi: 11,
     sure: 30
@@ -427,6 +427,29 @@
     return ciftler;
   }
 
+  // Eldeki bütün çiftler, taşların ıstakadaki yerine bakmadan (Çift diz'in bulacağı sayıyla aynı): aynı taşlar
+  // ikişer, okeyler kalan teklerin en yükseğiyle. Bir taş atmak için elde kalacak şekilde kısaltılır.
+  function eldekiCiftler(el, okey) {
+    const kume = new Map();
+    for (const t of el) {
+      if (okeyMi(t, okey)) continue;
+      const a = kimlik(t, okey);
+      const x = a.r * 14 + a.n;
+      if (!kume.has(x)) kume.set(x, []);
+      kume.get(x).push(t);
+    }
+    const ciftler = [];
+    const tekler = [];
+    for (const g of kume.values()) {
+      for (let i = 0; i + 1 < g.length; i += 2) ciftler.push([g[i], g[i + 1]]);
+      if (g.length % 2) tekler.push(g[g.length - 1]);
+    }
+    tekler.sort((a, b) => kimlik(b, okey).n - kimlik(a, okey).n);
+    for (const o of el.filter((t) => okeyMi(t, okey))) if (tekler.length) ciftler.push([tekler.shift(), o]);
+    if (ciftler.length * 2 >= el.length) ciftler.pop();
+    return ciftler;
+  }
+
   // Dizilişi (gruplar arasında null) ıstaka yuvalarına yerleştirir. Gruplar arasında hep bir boşluk kalır
   // (yoksa yan yana gelen iki per tek grup sayılır). Satır sonuna sığmayan grup alt satıra geçer.
   // Yer yetmezse önce alt satıra geçirme bırakılır, sonra sondaki gruplar (dizmede en sonda duran
@@ -474,7 +497,7 @@
   const OkeyKurallar = {
     RENK_ADLARI, VARSAYILAN,
     desteOlustur, karistir, okeyiBul, okeyMi, kimlik, dagit,
-    perCoz, ciftMi, gostergeCiftiMi, acilisDegerlendir, acmaBaraji, isle, islekMi, okeyDegistir,
+    perCoz, ciftMi, gostergeCiftiMi, eldekiCiftler, acilisDegerlendir, acmaBaraji, isle, islekMi, okeyDegistir,
     tasDegeri, kalanPuani, elSonu, desteBitti, ceza,
     gruplariBul, gruptakiPerler, gruptakiCiftler, istakadakiCiftler, seriDiz, ciftDiz, istakayaYerlestir
   };

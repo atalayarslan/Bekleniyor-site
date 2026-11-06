@@ -168,6 +168,11 @@ export class OkeyMasasi {
   koltugum(kim) { return this.m.koltuklar.findIndex((k) => k && k.kim === kim); }
   yetkili(ben) { return ben.yonetici || (ben.uid && ben.uid === this.sahip.uid); }
   botMu(k) { const x = this.m.koltuklar[k]; return !!(x && x.bot); }
+  // Açmış oyuncu bu türde (seri/çift) koyabilir mi: kendi açtığı türse ya da masada o türle açmış başka biri varsa
+  turSerbest(k, tur) {
+    const acti = this.m.el.acti;
+    return acti[k] === tur || acti.some((x, i) => i !== k && x === tur);
+  }
   // Koltuktaki kişi bağlı değil ve tutma süresi geçti: yerine oturulabilir (bot da koltuğunu bırakır)
   bosaldi(kol) {
     if (kol.bot) return true;
@@ -191,6 +196,8 @@ export class OkeyMasasi {
         if (kol && !this.bosaldi(kol)) return "Bu koltuk dolu";
         if (!m.koltuklar.some((x) => x && !x.bot) && !oyunSuruyor) m.kurucu = ben.kim;
         m.koltuklar[h] = { kim: ben.kim, ad: ben.ad, foto: ben.foto, ayrildi: null };
+        // Botun (ya da gidenin) yerine oturan: çetelede o koltuk artık onun adıyla görünür
+        if (m.oyun && !m.oyun.bitis && m.oyun.oyuncular[h]) m.oyun.oyuncular[h].ad = ben.ad;
         ben.yanci = null;
         ws.serializeAttachment(ben);
         if (oyunSuruyor && E.sira === h) this.sureyiKur();   // botun kısa süresi yerine oyuncunun tur süresi
@@ -383,10 +390,10 @@ export class OkeyMasasi {
     const E = this.m.el;
     const ayar = this.ayar();
     const kimlikler = (g) => g.map((t) => t.id);
-    const gruplar = this.botPerleri(E.eller[k]);
+    // Açmışsa sadece koyabildiği türleri koyar (çift açan per, seri açan çift: masada o türle açan varsa)
+    const gruplar = !E.acti[k] || this.turSerbest(k, "seri") ? this.botPerleri(E.eller[k]) : [];
     if (gruplar.length) this.ac(k, gruplar.map(kimlikler));
-    if (E.acti[k] === "cift") {
-      // Çift açan: perlerinden sonra yeni çiftlerini de koyar
+    if (E.acti[k] && this.turSerbest(k, "cift")) {
       const ciftler = this.botCiftleri(E.eller[k]);
       if (ciftler.length) this.ac(k, ciftler.map(kimlikler));
     }
@@ -412,8 +419,9 @@ export class OkeyMasasi {
     if (!tas || K.okeyMi(tas, E.okey)) return false;
     const el = [...E.eller[k], tas];
     const gruplar = this.botPerleri(el);
-    if (!gruplar.some((g) => g.includes(tas))) return !!E.acti[k] && E.perler.some((p) => K.isle(p, tas, E.okey, ayar));
-    if (E.acti[k]) return true;
+    const islenir = () => E.perler.some((p) => K.isle(p, tas, E.okey, ayar));
+    if (!gruplar.some((g) => g.includes(tas))) return !!E.acti[k] && islenir();
+    if (E.acti[k]) return this.turSerbest(k, "seri") || islenir();
     const deger = gruplar.reduce((t, g) => t + K.perCoz(g, E.okey, ayar).puan, 0);
     return deger >= K.acmaBaraji(E.acilislar, "seri", k, ayar);
   }
@@ -425,8 +433,10 @@ export class OkeyMasasi {
     const ciftler = this.botCiftleri(el);
     const ciftle = E.acti[k] === "cift" || (!E.acti[k] && ciftler.length >= 4);
     const perTaslari = () => K.gruplariBul(K.seriDiz(el, E.okey), 99).filter((g) => g.length >= 3 && K.perCoz(g, E.okey, this.ayar())).flat();
-    // Çift açan per de koyabildiği için ikisini de tutar
-    const taslar = E.acti[k] === "cift" ? [...ciftler.flat(), ...perTaslari()] : ciftle ? ciftler.flat() : perTaslari();
+    // Açmışsa koyabildiği türlerin taşlarını tutar
+    const taslar = E.acti[k]
+      ? [...(this.turSerbest(k, "cift") ? ciftler.flat() : []), ...(this.turSerbest(k, "seri") ? perTaslari() : [])]
+      : ciftle ? ciftler.flat() : perTaslari();
     return new Set(taslar.map((t) => t.id));
   }
 
@@ -580,8 +590,10 @@ export class OkeyMasasi {
     }
     const ciftMi = taslar.every((g) => g.length <= 2);
     const tur = ciftMi ? "cift" : "seri";
-    // Çift açan sonradan seri/grup per de koyabilir; seri açan çift koyamaz
-    if (E.acti[k] === "seri" && tur === "cift") return "Seri açan çift koyamaz";
+    // Açtığı türün dışındakini (seri açan çift, çift açan per) ancak masada o türle açmış başka biri varsa koyabilir
+    if (E.acti[k] && !this.turSerbest(k, tur)) {
+      return tur === "cift" ? "Masada çift açan yokken seri açan çift koyamaz" : "Masada perle açan yokken çift açan per koyamaz";
+    }
     let deger = 0;
     if (tur === "cift") {
       const tekler = taslar.filter((g) => g.length === 1);
@@ -615,6 +627,10 @@ export class OkeyMasasi {
       E.acilislar.push({ oyuncu: k, tur, deger });
       E.buTurActi = true;
       this.olaylar.push({ tur: "acti", k, deger, cift: tur === "cift" });
+      // 7 ya da daha çok çiftle açan: diğer herkese (eşlide sadece iki rakibe) ceza
+      if (tur === "cift" && deger >= 7) {
+        for (let j = 0; j < 4; j++) if (j !== k && !(this.m.ayar.esli && (k + 2) % 4 === j)) this.ceza(j, ayar.ceza, "7 çiftle açıldı");
+      }
     } else {
       this.olaylar.push({ tur: "perKoydu", k });
     }
@@ -634,9 +650,9 @@ export class OkeyMasasi {
     const tas = el[i];
     const degisim = K.okeyDegistir(per, tas, E.okey, ayar);
     if (degisim) {
+      // Yerden okey alınabilir; perin sahibine ceza yazılmaz
       E.perler[perNo] = Object.assign({ sahip: per.sahip }, degisim.per);
       el[i] = degisim.alinan;
-      if (per.sahip !== k && !(this.m.ayar.esli && (k + 2) % 4 === per.sahip)) this.ceza(per.sahip, ayar.ceza, "Okeyi alındı");
     } else {
       const yeni = K.isle(per, tas, E.okey, ayar);
       if (!yeni) return "Bu taş o pere işlenmiyor";

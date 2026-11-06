@@ -177,7 +177,9 @@
     const a = ayar();
     const gruplar = K.gruplariBul(yuvalar, SATIR);
     const seri = gruplar.flatMap((g) => K.gruptakiPerler(g, E.okey, a));
-    const cift = K.istakadakiCiftler(gruplar, E.okey, gostergeIcin(E), a);
+    // Çiftler elin tamamından sayılır (yan yana dizmek gerekmez); seri açan sonradan çift koyacaksa ıstakada dizdikleri
+    const elinCiftleri = K.eldekiCiftler(benimTaslarim(), E.okey);
+    const cift = E.acti[k] === "seri" ? K.istakadakiCiftler(gruplar, E.okey, gostergeIcin(E), a) : elinCiftleri;
     const seriDeger = seri.reduce((t, g) => t + K.perCoz(g, E.okey, a).puan, 0);
     const kalan = benimTaslarim().length;
     const seriTas = seri.reduce((t, x) => t + x.length, 0);
@@ -189,8 +191,9 @@
       return gs.flat().some((t) => !K.okeyMi(t, E.okey) && ((x) => x.r === y.r && x.n === y.n)(K.kimlik(t, E.okey)));
     };
     if (E.acti[k]) {
-      // Çift açan da seri/grup per koyabilir (önce perler gider, çiftler bir sonraki basışta); seri açan çift koyamaz
-      const yeni = E.acti[k] === "cift" && !seri.length ? cift : seri;
+      // Açtığı türün dışındakini ancak masada o türle açmış başka biri varsa koyabilir (önce perler, çiftler sonraki basışta)
+      const serbest = (tur) => E.acti[k] === tur || E.acti.some((x, i) => i !== k && x === tur);
+      const yeni = serbest("seri") && seri.length ? seri : serbest("cift") ? cift : [];
       return { acti: true, gruplar: yeni, yeniPer: yeni.length > 0 && kalan - yeni.reduce((t, x) => t + x.length, 0) >= 1 };
     }
     const seriBaraj = K.acmaBaraji(E.acilislar, "seri", k, a);
@@ -423,10 +426,13 @@
       "Soldan aldığın taşla o tur açmak (açtıysan işlemek) zorundasın. Denemek için alabilirsin: vazgeçersen taşa çift tıkla ya da sola geri sürükle, ceza yok; sonra desteden çek. Elinde ikizi varsa ikiziyle açmak da olur.",
       "Soldan aldığın taşla elini açarsan taşı atana taşın 10 katı ceza yazılır. Elini önceden açtıysan soldan alıp per koyman ya da işlemen ceza yazdırmaz.",
       "Açmak için yan yana dizdiğin geçerli perlerin toplamı en az 101 (ya da 5 çift). Katlamalı: senden önce açanın puanını geçmelisin.",
-      "Çift açan sonradan seri ya da grup per de koyabilir; seri açan çift koyamaz.",
+      "Seri 13'te biter: 12-13-1 geçmez, 1-2-3 geçer.",
+      "Açtığın türün dışındakini (seri açtıysan çift, çift açtıysan per) ancak masada o türle açmış başka biri varsa koyabilirsin.",
+      "7 ya da daha çok çiftle açan olursa diğer herkese (eşlide iki rakibe) 101 ceza yazılır.",
+      "Masadaki bir perdeki okeyin yerine asıl taşı koyup okeyi alabilirsin; perin sahibine ceza yazılmaz.",
       "Masadaki bir pere uyan taşı atmak işlektir: sıradaki (henüz açmamışken) alırsa taş×10, kimse almazsa 101 ceza.",
       "Okey atmak 101 ceza (bitiş taşı değilse). Okeyle bitirirsen herkesin puanı katlanır.",
-      "Çift açarken göstergenin aynısı elindeyse göstergeyle çift yapılır.",
+      "Ortadaki gösterge alınamaz; göstergeyle çift yapılmaz.",
       "Taşı sürükleyip ıstakada yerini değiştir, 'Attığın' alanına bırakıp at (ya da çift tıkla), masadaki bir pere bırakıp işle. Sağ tık taşı yatırır."
     ].map((x) => h("p", {}, "• " + x))));
   }
@@ -498,6 +504,18 @@
     if (new URLSearchParams(location.search).has("okey")) masayiAc(true);
   }
 
+  // Odadan çıkarıldı (başka sekmede/cihazda odaya girdi ya da odadan atıldı): masa kapanır, bağlantı kesilir.
+  // Kalk gönderilmez (aynı kişi başka sekmede masada olabilir); sunucu bağlantısı kalmayan oyuncuyu "bağlantı yok"
+  // sayar, el sürmüyorsa 2 dk sonra koltuğu boşaltır, el sürüyorsa yerine bot ya da başkası oturabilir.
+  function ayril() {
+    masayiAc(false);
+    const eski = ws;
+    ws = null;
+    durum = null;
+    if (eski) { eski.onclose = null; eski.onmessage = null; eski.close(); }
+    dugmeyiGuncelle();
+  }
+
   kur();
-  window.okeyMasasi = { ac: () => masayiAc(true), kapat: () => masayiAc(false) };
+  window.okeyMasasi = { ac: () => masayiAc(true), kapat: () => masayiAc(false), ayril };
 })();

@@ -404,6 +404,8 @@ function odadanCikarildi(mesaj) {
   muzikRef.child("sonAyrilma").set(firebase.database.ServerValue.TIMESTAMP).catch(() => { });
   if (aktifOturumUid) db.ref("aktifOturum/" + aktifOturumUid).off();
   aktifOturumUid = null;
+  // Okey masasındaki bağlantı da kapanır; yoksa odada olmayan kişi masada bağlı görünür
+  if (window.okeyMasasi) okeyMasasi.ayril();
   try { oynatici.stopVideo(); } catch (e) { }
   yuklenenId = null;
   asansor.pause();
