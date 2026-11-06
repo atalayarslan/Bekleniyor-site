@@ -175,8 +175,11 @@
       iskelet.alanlar.forEach((alan, k) => {
         alan.replaceChildren(...perler[k]);
         // Alana sığmıyorsa (başkasının alanına taşmasın diye) alan biraz küçültülür; normalde taşlar küçülmez
+        // (ölçerken perler alanın başına toplanır; yayılmış hâlde taşma yukarı doğru da olabilir ve ölçülmez)
         alan.style.transform = "";
+        alan.style.alignContent = alan.style.justifyContent = "flex-start";
         const tasma = Math.max(alan.scrollHeight / (alan.clientHeight || 1), alan.scrollWidth / (alan.clientWidth || 1));
+        alan.style.alignContent = alan.style.justifyContent = "";
         if (tasma > 1) alan.style.transform = "scale(" + Math.max(0.6, 1 / tasma).toFixed(3) + ")";
       });
 
