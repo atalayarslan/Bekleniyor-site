@@ -190,7 +190,15 @@ export class OkeyMasasi {
       case "otur": {
         const h = Number(mesaj.koltuk);
         if (!(h >= 0 && h < 4)) return "Geçersiz koltuk";
-        if (k >= 0) return "Zaten oturuyorsun";
+        if (k === h) return;
+        if (k >= 0) {
+          // Koltuk değiştirme: sadece oyun yokken ya da bitmişken (çetelede puanlar koltuğa yazılır), boş koltuğa
+          if (oyunSuruyor || (m.oyun && !m.oyun.bitis)) return "Oyun sürerken koltuk değiştirilemez";
+          if (m.koltuklar[h]) return "Bu koltuk dolu";
+          m.koltuklar[h] = m.koltuklar[k];
+          m.koltuklar[k] = null;
+          return;
+        }
         // Koltuk boşsa, botsa ya da sahibi bağlı değil ve tutma süresi geçtiyse oturulur (oyun sürüyorsa eli devralınır)
         const kol = m.koltuklar[h];
         if (kol && !this.bosaldi(kol)) return "Bu koltuk dolu";
@@ -315,7 +323,8 @@ export class OkeyMasasi {
     this.olaylar = [];
     let degisti = this.kopuklariIsle();
     const E = this.m.el;
-    if (E && !E.bitti && Date.now() >= E.sureBitis - 200) {
+    // Süre tam dolunca oynanır (ekrandaki halka bittiği an); alarm birkaç ms erken çalarsa yeniden kurulur
+    if (E && !E.bitti && Date.now() >= E.sureBitis - 30) {
       const k = E.sira;
       const bot = this.botMu(k);
       if (!bot) this.olaylar.push({ tur: "sure", k });

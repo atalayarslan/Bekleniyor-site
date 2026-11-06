@@ -51,8 +51,8 @@
 
 /* Masa + ıstaka birlikte ölçeklenir (ekrana sığsın diye; JS --olcek verir) */
 .okey-sahne {
-  width: 1060px;
-  height: 900px;
+  width: 1180px;
+  height: 970px;
   position: absolute;
   left: 50%;
   top: 50%;
@@ -70,9 +70,9 @@
   position: absolute;
   left: 50%;
   top: 70px;
-  width: 980px;
-  height: 580px;
-  margin-left: -490px;
+  width: 1100px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
+  height: 650px;
+  margin-left: -550px;
   perspective: 1500px;
   perspective-origin: 50% 0%;
 }
@@ -197,7 +197,7 @@
 /* ---------- Orta: deste ve gösterge ---------- */
 .orta {
   position: absolute;
-  left: 50%; top: 224px;
+  left: 50%; top: 254px;
   transform: translate(-50%, -50%) scale(1.35);
   transform-style: preserve-3d;
   display: flex; align-items: flex-end; gap: 22px;
@@ -241,8 +241,8 @@
 .atilan { --dx: -1; --dy: 0; --ay: -1; }
 .atilan.a0 { --dx: -1; --dy: 0; --ay: -1; }      /* sağ alt: sola */
 .atilan.a3 { --dx: 1; --dy: 0; --ay: -1; }       /* sol alt: sağa */
-.atilan.a1 { --dx: -1; --dy: .4; --ay: 1; }      /* sağ üst: sola ve aşağı */
-.atilan.a2 { --dx: 1; --dy: .4; --ay: 1; }       /* sol üst: sağa ve aşağı */
+.atilan.a1 { --dx: -1; --dy: 0; --ay: .25; }     /* sağ üst: üst kenar boyunca sola (perlerin üstüne inmesin) */
+.atilan.a2 { --dx: 1; --dy: 0; --ay: .25; }      /* sol üst: üst kenar boyunca sağa */
 .atilan .tas {
   position: absolute;
   transform: translate(calc(var(--k) * -1px), calc(var(--k) * -1.2px)) rotate(calc(var(--k) * -2.5deg));
@@ -260,10 +260,10 @@
 .okey-surukleme .atilan:hover .tas {           /* taş sürüklerken yığın açılmasın */
   transform: translate(calc(var(--k) * -1px), calc(var(--k) * -1.2px)) rotate(calc(var(--k) * -2.5deg));
 }
-/* Keçenin (928 × 528) yerleşimi, yukarıdan aşağı:
-     17–75   karşıdakinin ıstakası          80–158  karşıdakinin perleri
-     ~170–245 deste + gösterge (ortada)     160–295 yandakilerin perleri (kendi kenarlarında, ortanın iki yanı)
-     300–400 benim perlerim (geniş şerit)   404–520 atılan taşlar (alt sıra); benim atma alanım geniş
+/* Keçenin (1048 × 598) yerleşimi, yukarıdan aşağı:
+     17–75   karşıdakinin ıstakası          84–176  karşıdakinin perleri
+     ~195–275 deste + gösterge (ortada)     180–335 yandakilerin perleri (kendi kenarlarında, ortanın iki yanı)
+     340–460 benim perlerim (geniş şerit)   462–590 atılan taşlar (alt sıra); benim atma alanım geniş
    Atılan taşlar köşelerde: yandaki ıstakaların ve üstteki ıstakanın dışında kalır. */
 .atilan.a0 {                                  /* benim attığım: sağ altta geniş alan, rahat bırakılsın */
   right: 90px; bottom: 8px; width: 300px; height: 108px;
@@ -274,9 +274,9 @@
 .atilan.a0.acik.hedef { box-shadow: inset 0 0 0 3px rgba(243,195,74,.95); background: rgba(243,195,74,.18); }
 .atilan.a0 .atilan-etiket { bottom: 8px; }
 .atilan-ipucu { position: absolute; top: 10px; font-size: 13px; font-weight: 800; color: rgba(255,255,255,.55); pointer-events: none; }
-.atilan.a1 { right: 100px; top: 18px; }      /* sağdakinin: sağ üst */
-.atilan.a2 { left: 100px; top: 18px; }       /* karşıdakinin: sol üst */
-.atilan.a3 { left: 100px; bottom: 16px; width: 100px; height: 110px; }   /* soldakinin: sol alt — benim alabileceğim */
+.atilan.a1 { right: 110px; top: 4px; }       /* sağdakinin: sağ üst */
+.atilan.a2 { left: 110px; top: 4px; }        /* karşıdakinin: sol üst */
+.atilan.a3 { left: 110px; bottom: 16px; width: 100px; height: 110px; }   /* soldakinin: sol alt — benim alabileceğim */
 .atilan.hedef { background: radial-gradient(circle, rgba(243,195,74,.35), transparent 70%); }
 .atilan.alinabilir { cursor: pointer; }
 .atilan-etiket { position: absolute; bottom: -18px; font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.5); white-space: nowrap; }
@@ -359,10 +359,14 @@
   display: flex; flex-wrap: wrap; gap: 10px 14px;
   align-content: flex-start;
 }
-.per-alani.p0 { left: 115px; right: 115px; top: 300px; height: 100px; justify-content: center; }
-.per-alani.p2 { left: 200px; right: 200px; top: 80px; height: 78px; justify-content: center; }
-.per-alani.p1 { right: 115px; top: 160px; width: 210px; height: 135px; justify-content: flex-end; }
-.per-alani.p3 { left: 115px; top: 160px; width: 210px; height: 135px; }
+/* Her oyuncunun perleri kendi alanında; alan dolarsa (JS) alan biraz küçültülerek sığdırılır, başkasınınkine taşmaz */
+.per-alani.p0 { left: 130px; right: 130px; top: 340px; height: 118px; justify-content: center; }
+.per-alani.p2 { left: 215px; right: 215px; top: 84px; height: 92px; justify-content: center; }
+.per-alani.p1 { right: 120px; top: 180px; width: 265px; height: 155px; justify-content: flex-end; }
+.per-alani.p3 { left: 120px; top: 180px; width: 265px; height: 155px; }
+.per-alani { transform-origin: top center; }
+.per-alani.p1 { transform-origin: top right; }
+.per-alani.p3 { transform-origin: top left; }
 .per-alani.p1, .per-alani.p2, .per-alani.p3 { gap: 6px 10px; --kucuk-g: 25px; --kucuk-y: 34px; }   /* rakiplerin perleri biraz küçük */
 .per-alani.p1 .tas.kucuk, .per-alani.p2 .tas.kucuk, .per-alani.p3 .tas.kucuk { font-size: 15px; }
 .per { display: flex; gap: 1px; padding: 3px; border-radius: 7px; transition: box-shadow .15s ease, background .15s ease; }
@@ -372,6 +376,11 @@
   box-shadow: 0 0 0 2px rgba(243,195,74,.95), 0 0 14px 4px rgba(243,195,74,.55), inset 0 0 10px rgba(243,195,74,.25);
 }
 .per.isle-hedef { background: rgba(243,195,74,.25); }
+/* 6 ve daha uzun per 3'erli sıralar halinde: 1-2-3 altta, 4-5-6 onun üstünde, 7-8-9 daha üstte; sıralar biraz
+   üst üste biner ve sağa kayar. Alttaki sıra öndedir, böylece her taşın sayısı görünür (alttaki noktalar örtülür). */
+.per.uclu { flex-direction: column-reverse; align-items: flex-start; gap: 0; }
+.per-sira { display: flex; gap: 1px; position: relative; z-index: calc(20 - var(--s)); margin-left: calc(var(--s) * 7px); }
+.per-sira + .per-sira { margin-bottom: calc(var(--kucuk-y) * -0.5); }
 
 /* ---------- Koltuklar (masanın dışında, düz) ---------- */
 .koltuk {
@@ -396,11 +405,13 @@
   position: relative;
 }
 .koltuk .okey-avatar svg { position: absolute; inset: -5px; width: 54px; height: 54px; transform: rotate(-90deg); }
-.koltuk .okey-avatar circle { fill: none; stroke: var(--altin); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.koltuk .okey-avatar circle { fill: none; stroke: var(--altin); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
 .koltuk .ad { font-weight: 800; font-size: 15px; line-height: 1.1; }
 .koltuk .alt { font-size: 12px; color: #a7a7a7; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .koltuk .puan { font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
 .koltuk.bos { opacity: .85; border-style: dashed; }
+.koltuk .okey-avatar.oturulur { cursor: pointer; transition: background .15s ease, box-shadow .15s ease; }
+.koltuk .okey-avatar.oturulur:hover { background: rgba(29,185,84,.35) !important; box-shadow: 0 0 0 2px rgba(29,185,84,.8), 0 0 12px rgba(29,185,84,.45); }
 .koltuk.kopuk { opacity: .6; }
 .koltuk.sira { border-color: rgba(243,195,74,.7); box-shadow: 0 0 0 1px rgba(243,195,74,.5), 0 0 22px rgba(243,195,74,.25); }
 .okey-rozet { font-size: 10.5px; font-weight: 900; padding: 2px 7px; border-radius: 999px; background: #1db954; color: #000; }
@@ -459,6 +470,14 @@
   transition: opacity .15s ease; position: relative;
 }
 .istaka-per.acik { opacity: 1; }
+/* Perin tutamacı: çerçevenin üst kenarı boyunca ince şerit (görünmez; üstüne gelince çerçeve ve puan görünür) */
+.istaka-per-tut { position: absolute; left: 0; right: 0; top: -14px; height: 16px; pointer-events: auto; cursor: grab; z-index: 3; }
+.istaka-per-tut:active { cursor: grabbing; }
+.per-surukleniyor {
+  position: fixed; z-index: 1000; pointer-events: none; display: flex; gap: 3px; padding: 4px; border-radius: 10px;
+  box-shadow: 0 0 0 2px rgba(243,195,74,.95), 0 18px 24px rgba(0,0,0,.45); background: rgba(243,195,74,.12);
+}
+.per-surukleniyor .tas { cursor: grabbing; }
 .istaka-per span {
   position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
   padding: 1px 8px; border-radius: 999px; background: var(--altin); color: #2a1a00; font-size: 11px; font-weight: 900; white-space: nowrap;
@@ -501,6 +520,14 @@
 
 /* ---------- Uçan taş (animasyon) ---------- */
 .ucan-tas { position: fixed; z-index: 999; pointer-events: none; }
+
+/* Kalk onayı: "Hayır" büyük ve kırmızı, "Evet" soluk */
+.okey-tus.kirmizi { background: #e5484d; color: #fff; padding: 12px 34px; font-size: 16px; box-shadow: 0 6px 18px rgba(229,72,77,.4); }
+.okey-tus.kirmizi:hover { background: #f2555a; }
+.okey-tus.soluk { background: transparent; color: rgba(255,255,255,.38); font-weight: 600; }
+.okey-tus.soluk:hover { color: rgba(255,255,255,.6); }
+.kalk-not { color: #a7a7a7; font-size: 13px; margin: 0; }
+.kalk-not:empty { display: none; }
 
 /* ---------- Pencere (el sonu, çetele, kurallar) ---------- */
 .okey-pencere {

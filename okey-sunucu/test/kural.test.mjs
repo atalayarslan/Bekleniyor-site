@@ -129,6 +129,26 @@ for (const esli of [false, true]) {
   console.log("✓ botun yerine oturan Deniz çetelede de Deniz göründü");
 }
 
+// 2g) Koltuk değiştirme: oyun sürerken olmaz, oyun yokken boş koltuğa geçilir
+{
+  const ws = { send: () => { }, serializeAttachment: () => { } };
+  const kayit = masa.m.koltuklar.slice();
+  const oyun = masa.m.oyun;
+  const ben = { kim: "m:ali", ad: "Ali", foto: "" };
+  masa.m.koltuklar = [{ kim: "m:ali", ad: "Ali", foto: "", ayrildi: null }, null, kayit[2], null];
+  masa.m.oyun = { bitis: null, oyuncular: [] };
+  masa.m.el.bitti = true;
+  assert.strictEqual(await masa.isle_(ben, ws, { t: "otur", koltuk: 1 }), "Oyun sürerken koltuk değiştirilemez");
+  masa.m.oyun.bitis = Date.now();
+  assert.strictEqual(await masa.isle_(ben, ws, { t: "otur", koltuk: 2 }), "Bu koltuk dolu");
+  assert.strictEqual(await masa.isle_(ben, ws, { t: "otur", koltuk: 3 }), undefined);
+  assert.strictEqual(masa.m.koltuklar[3].kim, "m:ali");
+  assert.strictEqual(masa.m.koltuklar[0], null);
+  masa.m.koltuklar = kayit;
+  masa.m.oyun = oyun;
+  console.log("✓ oyun sürerken koltuk değişmedi; oyun bitince boş koltuğa geçildi");
+}
+
 // 3) Önceden açmış oyuncu soldan (işlek) taş alıp per koyar: atana ceza yok
 {
   const E = el(1, "cek");

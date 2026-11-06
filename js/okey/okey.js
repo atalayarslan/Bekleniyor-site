@@ -166,6 +166,24 @@
     uygula();
   }
 
+  // Istakadaki bir peri (bas..son yuvaları) bütün olarak taşır; hedef, perin ilk taşının gideceği yuva. Satır sonuna
+  // taşıyorsa per sola çekilir. Gideceği yuvalarda başka taş varsa taşınmaz (per yerinde kalır).
+  function perTasi(bas, son, hedef) {
+    if (!oturuyorum()) return;
+    const uzunluk = son - bas + 1;
+    const satirBasi = Math.floor(hedef / SATIR) * SATIR;
+    hedef = Math.min(hedef, satirBasi + SATIR - uzunluk);
+    if (hedef === bas) return;
+    const taslar = yuvalar.slice(bas, son + 1);
+    const yeni = yuvalar.slice();
+    for (let i = bas; i <= son; i++) yeni[i] = null;
+    for (let i = 0; i < uzunluk; i++) if (yeni[hedef + i]) { masa.bildir("Per oraya sığmıyor, boş bir yere bırak"); return; }
+    taslar.forEach((t, i) => { yeni[hedef + i] = t; });
+    yuvalar = yeni;
+    yeniId = null;
+    uygula();
+  }
+
   // ---------- açış ve işleme (doğrulama sunucuda; burada düğmelerin durumu ve gönderilecek gruplar) ----------
   function ayar() { return Object.assign({}, K.VARSAYILAN, durum.ayar); }
   const benimTaslarim = () => yuvalar.filter(Boolean);
@@ -253,7 +271,8 @@
     const oturan = durum.koltuklar.filter((x) => !x.bos).length;
     const elVar = E && !E.bitti;
     const benSiram = elVar && oturuyorum() && E.sira === k;
-    const a = benSiram ? acilisDurumu() : null;
+    // Seri/çift bilgisi sıra başkasındayken de görünür; düğmeler yalnız sıra bendeyken çalışır
+    const a = elVar && oturuyorum() ? acilisDurumu() : null;
 
     let yazi;
     if (!E) yazi = oturan < 4 ? "Masa: " + oturan + "/4 · 4 kişi olunca oyun başlar" + (oturuyorum() ? " · boş koltuklara bot ekleyebilirsin" : "") :"Masa dolu · " + (oturuyorum() ? "'Oyunu başlat'a bas" : "oyun başlamak üzere");
@@ -289,13 +308,14 @@
 
     const ekTuslar = [{ yazi: "🎨 Tema", ipucu: "Taş, ıstaka ve masa teması", is: temaPaneli }];
     if (durum.ben.kurucu || durum.ben.yetkili) ekTuslar.push({ yazi: "⚙️ Ayarlar", ipucu: "Oyun türü, el sayısı, tur süresi", is: ayarPaneli });
-    if (oturuyorum()) ekTuslar.push({ yazi: "🚪 Kalk", ipucu: "Koltuktan kalk", is: () => gonder({ t: "kalk" }) });
+    if (oturuyorum()) ekTuslar.push({ yazi: "🚪 Kalk", ipucu: "Koltuktan kalk", is: kalkSor });
 
     masa.ciz({
       okey: E ? E.okey : { r: 0, n: 1 }, gosterge: E ? E.gosterge : null, gostergeMasada: E ? E.gostergeMasada : true,
       desteSayisi: E ? E.desteSayisi : 0, sira, asama: E ? E.asama : null, benimSiram: benSiram,
       bitti: !elVar, sonrakiYazi: oturuyorum() && oturan === 4 ? (E ? "Sonraki el" : "Oyunu başlat") : null,
       sure: kalanSure(), izleyici, izlenen: yanci != null ? gorunen(yanci) : null, botEkle: oturuyorum(),
+      koltukDegisir: oturuyorum() && !elVar && !(durum.oyun && !durum.oyun.bitis),
       atilanlar: [0, 1, 2, 3].map((v) => (E ? E.atilanlar[sunucudaki(v)] : [])),
       perler: E ? E.perler.map((p) => Object.assign({}, p, { sahip: gorunen(p.sahip) })) : [],
       durumYazisi: yazi,
@@ -310,6 +330,14 @@
     sureyiIslet();
   }
 
+  // Kalkmadan önce sorulur. "Hayır" kırmızı ve belirgin, "Evet" soluk: göz önce kalmaya gitsin.
+  // Pencerenin dışına tıklamak da "Hayır" sayılır.
+  function kalkSor() {
+    masa.pencere("Masadan ayrılmak istiyor musunuz?",
+      masa.h("p", { sinif: "kalk-not" }, durum.el && !durum.el.bitti ? "El sürüyor: kalkarsan elin masada kalır, yerine başkası ya da bot oturabilir." : ""),
+      [{ yazi: "Evet", sinif: "soluk", is: () => gonder({ t: "kalk" }) }, { yazi: "Hayır", sinif: "kirmizi" }]);
+  }
+
   function kalanSure() {
     const E = durum && durum.el;
     const toplam = (durum && durum.ayar.sure) || 30;
@@ -319,7 +347,13 @@
   }
   function sureyiIslet() {
     clearInterval(sureZamani);
-    sureZamani = setInterval(() => { if (masa && durum && acik) masa.sureGuncelle(kalanSure()); }, 500);
+    // Halka çeyrek saniyede bir, geçişi (.25 sn) bitince varacağı değere ayarlanır: gerçek süreden geride kalmaz,
+    // halka tam bittiğinde süre dolar. Masa yeniden çizilince (diz düğmeleri) halka zıplamaz.
+    sureZamani = setInterval(() => {
+      if (!masa || !durum || !acik) return;
+      const s = kalanSure();
+      masa.sureGuncelle({ kalan: Math.max(0, s.kalan - 0.25), toplam: s.toplam });
+    }, 250);
   }
 
   function sonucuGoster(baslik) {
@@ -443,6 +477,7 @@
     tasAt: (id) => gonder(durum && durum.el && durum.el.yandanId === id ? { t: "geriBirak" } : { t: "at", id }),
     geriBirak: () => gonder({ t: "geriBirak" }),
     tasTasi,
+    perTasi,
     ac,
     isle: (id, per) => gonder({ t: "isle", id, per }),
     isleHepsi: () => {

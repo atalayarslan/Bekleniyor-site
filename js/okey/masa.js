@@ -65,6 +65,8 @@
     // Sürüklenen taş: sıra başkasındayken masa sürükleme sırasında yeniden çizilebilir; yeni çizilen ıstakada da
     // bu taş soluk (hayalet) kalsın diye kimliği tutulur
     let surukleneId = null;
+    // Yeni çekilen taşın giriş animasyonu bir kez oynar; masa yeniden çizilince (başkası oynadıkça) tekrar sekmez
+    let sekenId = null;
 
     const sahne = h("div", { sinif: "okey-sahne" });
     // Tema/Ayarlar/Kalk/Çetele/Kurallar: ölçeklenen masanın dışında, ekranın sağ üst köşesinde (üstteki koltuğu örtmez)
@@ -75,7 +77,7 @@
     function sigdir() {
       const r = kok.getBoundingClientRect();
       if (!r.width) return;
-      olcek = Math.min(r.width / 1420, r.height / 910, 1.25);   // yan koltuklar masanın dışında durur
+      olcek = Math.min(r.width / 1540, r.height / 980, 1.25);   // yan koltuklar masanın dışında durur
       sahne.style.setProperty("--olcek", olcek);
     }
     new ResizeObserver(sigdir).observe(kok);
@@ -128,22 +130,28 @@
             : tasOgesi(g.gosterge, okey, { kucuk: true }),
           h("small", {}, g.gostergeMasada === false ? "Alındı" : "Gösterge")));
 
-      // Rakip ıstakaları: ahşap ıstaka, taşlar masada ayakta (arkalarını görürüz)
+      // Rakip ıstakaları: ahşap ıstaka, taşlar masada ayakta (arkalarını görürüz). Kimin elinde kaç taş kaldığı
+      // belli olmasın diye herkeste hep 21 taş, perler dizilmiş gibi aralıklı gruplar halinde görünür.
       for (const k of [1, 2, 3]) {
         const kol = g.koltuklar[k];
         const istaka = iskelet.istakalar[k];
         istaka.hidden = !!kol.bos;
-        if (kol.bos || istaka.dataset.sayi === String(kol.tasSayisi)) continue;   // taş sayısı değişmediyse dokunma
-        istaka.dataset.sayi = kol.tasSayisi;
+        if (kol.bos || istaka.dataset.dizili) continue;
+        istaka.dataset.dizili = "1";
         const taslar = h("div", { sinif: "ri-taslar" });
-        // Istaka sabit boyda (15 taşlık, iki sıra). Taşlar iki sıraya bölünür: ön sıra sahibine yakın,
-        // arka sıra bir basamak yukarıda. Her taş kalınlığı olan küçük bir blok (ön, arka, üst, iki yan yüz).
-        const onSira = Math.min(15, Math.ceil(kol.tasSayisi / 2));
-        for (let i = 0; i < kol.tasSayisi; i++) {
-          const arkada = i >= onSira;
-          taslar.append(h("div", { sinif: "ri-tas", stil: { "--c": arkada ? i - onSira : i, "--r": arkada ? 1 : 0 } },
-            h("i", { sinif: "y-on" }), h("i", { sinif: "y-arka" }), h("i", { sinif: "y-ust" }), h("i", { sinif: "y-sol" }), h("i", { sinif: "y-sag" })));
-        }
+        // Istaka sabit boyda (15 taşlık, iki sıra): ön sıra sahibine yakın, arka sıra bir basamak yukarıda.
+        // Her sıra boşluklarla ayrılmış gruplar (ön 3·4·3, arka 4·3·4 = 21). Her taş kalınlığı olan küçük bir blok.
+        const SIRALAR = [[3, 4, 3], [4, 3, 4]];
+        SIRALAR.forEach((gruplar, r) => {
+          let c = r ? 1 : 0;
+          for (const adet of gruplar) {
+            for (let i = 0; i < adet; i++, c++) {
+              taslar.append(h("div", { sinif: "ri-tas", stil: { "--c": c, "--r": r } },
+                h("i", { sinif: "y-on" }), h("i", { sinif: "y-arka" }), h("i", { sinif: "y-ust" }), h("i", { sinif: "y-sol" }), h("i", { sinif: "y-sag" })));
+            }
+            c++;   // gruplar arasında bir taşlık boşluk
+          }
+        });
         istaka.replaceChildren(h("div", { sinif: "ri-taban" }), h("div", { sinif: "ri-basamak" }), h("div", { sinif: "ri-sirt" }), taslar);
       }
 
@@ -154,17 +162,36 @@
       const perler = [[], [], [], []];
       g.perler.forEach((per, i) => {
         const oge = h("div", { sinif: "per", veri: { per: i }, title: "İşlemek için taşı buraya sürükle" });
-        per.taslar.forEach((tas) => oge.append(tasOgesi(tas, okey, { kucuk: true })));
+        const tas = (t) => tasOgesi(t, okey, { kucuk: true });
+        // 6 ve daha uzun per masada 3'erli sıralar halinde (yer kaplamasın); iki ucuna da işlenir (bırakılan yer per)
+        if (per.taslar.length >= 6) {
+          oge.classList.add("uclu");
+          for (let s = 0; s * 3 < per.taslar.length; s++) {
+            oge.append(h("div", { sinif: "per-sira", stil: { "--s": s } }, per.taslar.slice(s * 3, s * 3 + 3).map(tas)));
+          }
+        } else per.taslar.forEach((t) => oge.append(tas(t)));
         perler[per.sahip].push(oge);
       });
-      iskelet.alanlar.forEach((alan, k) => alan.replaceChildren(...perler[k]));
+      iskelet.alanlar.forEach((alan, k) => {
+        alan.replaceChildren(...perler[k]);
+        // Alana sığmıyorsa (başkasının alanına taşmasın diye) alan biraz küçültülür; normalde taşlar küçülmez
+        alan.style.transform = "";
+        const tasma = Math.max(alan.scrollHeight / (alan.clientHeight || 1), alan.scrollWidth / (alan.clientWidth || 1));
+        if (tasma > 1) alan.style.transform = "scale(" + Math.max(0.6, 1 / tasma).toFixed(3) + ")";
+      });
 
       // Koltuklar
       const koltuklar = g.koltuklar.map((kol, k) => {
         // Boş koltuk: izleyici oturabilir; masada oturan bot ekleyebilir
         if (kol.bos) {
+          // "+": izleyici oturur; oturan oyuncu (el sürmüyorsa) bu koltuğa geçer
+          const oturulur = olaylar.otur && (g.izleyici || g.koltukDegisir);
           return h("div", { sinif: "koltuk bos k" + k, veri: { koltuk: k } },
-            h("div", { sinif: "okey-avatar", stil: { background: "rgba(255,255,255,.08)" } }, "+"),
+            h("div", {
+              sinif: "okey-avatar" + (oturulur ? " oturulur" : ""), stil: { background: "rgba(255,255,255,.08)" },
+              title: oturulur ? (g.izleyici ? "Bu koltuğa otur" : "Bu koltuğa geç") : null,
+              onclick: oturulur ? () => olaylar.otur(k) : null
+            }, "+"),
             h("div", {}, h("div", { sinif: "ad" }, "Boş koltuk"),
               g.izleyici && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Otur") : null,
               g.botEkle && olaylar.botEkle ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botEkle(k) }, "🤖 Bot ekle") : null));
@@ -243,8 +270,15 @@
       for (let s = 0; s < 2; s++) {
         const satir = h("div", { sinif: "istaka-satir" });
         for (const p of (b.perler || []).filter((p) => Math.floor(p.bas / SATIR) === s)) {
+          // Çerçevenin üst kenarı (puan etiketiyle) tutamaçtır: oradan sürükleyince bütün per birlikte taşınır
+          const tutamac = b.saltOkunur ? null : h("div", { sinif: "istaka-per-tut", title: "Peri bütün olarak taşımak için buradan sürükle" });
           const cerceve = h("div", { sinif: "istaka-per", stil: { gridColumn: (p.bas % SATIR + 1) + " / " + (p.son % SATIR + 2) } },
-            h("span", {}, p.yazi));
+            tutamac, h("span", {}, p.yazi));
+          if (tutamac) {
+            tutamac.addEventListener("pointerenter", () => cerceve.classList.add("acik"));
+            tutamac.addEventListener("pointerleave", () => cerceve.classList.remove("acik"));
+            tutamac.addEventListener("pointerdown", (e) => perSurukle(e, p, cerceve));
+          }
           satir.append(cerceve);
           for (let i = p.bas; i <= p.son; i++) perIcin.set(i, cerceve);
         }
@@ -258,7 +292,7 @@
           const tas = b.yuvalar[i];
           if (tas) {
             const oge = tasOgesi(tas, okey, {
-              sinif: [tas.id === b.yandanId && "yandan", tas.id === b.yeniId && "yeni",
+              sinif: [tas.id === b.yandanId && "yandan", tas.id === b.yeniId && tas.id !== sekenId && "yeni",
                 b.islenebilir && b.islenebilir.has(tas.id) && "islenebilir"].filter(Boolean).join(" ")
             });
             if (oge.classList.contains("islenebilir")) oge.title += " · masadaki bir pere işlenebilir";
@@ -281,6 +315,7 @@
         }
         istaka.append(satir);
       }
+      sekenId = b.yeniId;
 
       const bant = h("div", { sinif: "istaka-bandi" });
       if (b.yanciBandi) {
@@ -369,6 +404,62 @@
       addEventListener("pointercancel", birak);
     }
 
+    // Istakadaki bir peri çerçevesinin üst kenarından tutup bütün olarak taşı. Perin taşlarının bir kopyası
+    // fareyle gezer; bırakınca perin ilk taşının altına geldiği yuva hedeftir (sığmazsa per yerinde kalır).
+    function perSurukle(e, p, cerceve) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const taslar = [...sahne.querySelectorAll(".istaka .yuva")].filter((y) => {
+        const i = Number(y.dataset.yuva);
+        return i >= p.bas && i <= p.son;
+      }).map((y) => y.querySelector(".tas")).filter(Boolean);
+      if (!taslar.length) return;
+      const ilk = taslar[0].getBoundingClientRect();
+      const fark = { x: e.clientX - ilk.left, y: e.clientY - ilk.top };
+      const kopya = h("div", { sinif: "per-surukleniyor" }, taslar.map((t) => t.cloneNode(true)));
+      kopya.style.transform = "scale(" + olcek + ") rotate(-2deg)";
+      kopya.style.transformOrigin = "0 0";
+      let hedef = null;
+      const vurgula = (yeni) => {
+        if (hedef === yeni) return;
+        if (hedef) hedef.classList.remove("hedef");
+        hedef = yeni;
+        if (hedef) hedef.classList.add("hedef");
+      };
+      let basladi = false;
+      const hareket = (ev) => {
+        if (!basladi) {
+          if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 5) return;
+          basladi = true;
+          document.body.append(kopya);
+          taslar.forEach((t) => t.classList.add("hayalet"));
+          document.body.classList.add("okey-surukleme");
+        }
+        kopya.style.left = ev.clientX - fark.x + "px";
+        kopya.style.top = ev.clientY - fark.y + "px";
+        // Hedef: kopyadaki ilk taşın ortasının altındaki yuva
+        const x = ev.clientX - fark.x + ilk.width / 2;
+        const y = ev.clientY - fark.y + ilk.height / 2;
+        vurgula(document.elementsFromPoint(x, y).map((o) => o.closest("[data-yuva]")).find(Boolean) || null);
+      };
+      const birak = () => {
+        removeEventListener("pointermove", hareket);
+        removeEventListener("pointerup", birak);
+        removeEventListener("pointercancel", birak);
+        document.body.classList.remove("okey-surukleme");
+        cerceve.classList.remove("acik");
+        if (!basladi) return;
+        kopya.remove();
+        taslar.forEach((t) => t.classList.remove("hayalet"));
+        const son = hedef;
+        vurgula(null);
+        if (son && olaylar.perTasi) olaylar.perTasi(p.bas, p.son, Number(son.dataset.yuva));
+      };
+      addEventListener("pointermove", hareket);
+      addEventListener("pointerup", birak);
+      addEventListener("pointercancel", birak);
+    }
+
     // ---------- animasyon ve bildirim ----------
     // Bir taşı (ön ya da arka yüzüyle) iki öğe arasında uçurur. Masa eğik olduğu için ekrandaki kutular kullanılır.
     // Sekme arka plandayken tarayıcı animasyonları ilerletmez; oyun beklemesin diye o zaman uçuş atlanır,
@@ -439,7 +530,7 @@
       const p = h("div", { sinif: "okey-pencere", onclick: (e) => e.target === p && kapat() },
         h("div", { sinif: genis === "tam" ? "okey-genis okey-tam" : genis ? "okey-genis" : "" }, h("h3", {}, baslik), govde,
           h("div", { sinif: "alt-tuslar" }, (tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) =>
-            h("button", { sinif: "okey-tus" + (t.ana ? " ana" : ""), onclick: () => { kapat(); t.is && t.is(); } }, t.yazi)))));
+            h("button", { sinif: "okey-tus" + (t.ana ? " ana" : "") + (t.sinif ? " " + t.sinif : ""), onclick: () => { kapat(); t.is && t.is(); } }, t.yazi)))));
       kok.append(p);
     }
 
