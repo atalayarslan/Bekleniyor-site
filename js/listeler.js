@@ -212,7 +212,7 @@ function yeniListePenceresi() {
   pencereAc("Yeni liste", [
     el("label", { className: "alan" }, "Liste adı", adKutusu),
     el("label", { className: "alan" }, "Liste linki (isteğe bağlı)", linkKutusu),
-    el("p", { className: "not" }, "Spotify listesindeki şarkılar ilk çalındıklarında YouTube'da bulunur. Spotify, aracı üzerinden listenin ilk 100 şarkısını verir."),
+    el("p", { className: "not" }, "Spotify listesindeki şarkılar ilk çalındıklarında YouTube'da bulunur. Spotify ve YouTube listelerinden 300 şarkıya kadar alınır (Spotify'ın kendi hazırladığı listelerde ilk 100)."),
     el("button", { type: "button", className: "tus-kucuk", onclick: yerImiPenceresi }, "🔖 YouTube'daki listeyi birebir kopyala"),
     durum
   ], [

@@ -17,8 +17,41 @@ const kart = bul(await yt.json());
 const yazi = (x) => typeof x === "string" ? x : (x && (x.content || x.simpleText)) || "";
 return kart ? yazi(kart.subtitle).slice(0, 80) : "";
 }
+// Spotify resmi Web API (Client Credentials): liste/albümün tamamı sayfa sayfa (en fazla 300 şarkı) okunur.
+// Anahtarlar Cloudflare'de gizli değişken (SPOTIFY_ID, SPOTIFY_SECRET); yoksa ya da API reddederse (Spotify'ın kendi
+// editoryal listeleri yeni uygulamalara kapalı) gömme sayfasına dönülür (orası en fazla 100 şarkı verir).
+const SPOTIFY_SINIR = 300;
+let spotifyJeton = null;
+async function spotifyErisim(env) {
+if (!env || !env.SPOTIFY_ID || !env.SPOTIFY_SECRET) return null;
+if (spotifyJeton && spotifyJeton.bitis > Date.now() + 60000) return spotifyJeton.deger;
+const y = await fetch("https://accounts.spotify.com/api/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + btoa(env.SPOTIFY_ID + ":" + env.SPOTIFY_SECRET) }, body: "grant_type=client_credentials" });
+if (!y.ok) throw new Error("jeton " + y.status + " " + (await y.text()).slice(0, 120));
+const j = await y.json();
+spotifyJeton = { deger: j.access_token, bitis: Date.now() + (j.expires_in || 3600) * 1000 };
+return spotifyJeton.deger;
+}
+async function apidenOku(tur, id, env) {
+const jeton = await spotifyErisim(env);
+if (!jeton) return null;
+const basliklar = { "Authorization": "Bearer " + jeton };
+const al = async (adres) => { const y = await fetch(adres, { headers: basliklar }); if (!y.ok) throw new Error(String(y.status)); return y.json(); };
+const kok = "https://api.spotify.com/v1/" + tur + "s/" + id;
+const bilgi = await al(kok + (tur === "playlist" ? "?fields=name&market=TR" : "?market=TR"));
+const sarkilar = [];
+let adres = tur === "playlist" ? kok + "/tracks?limit=100&market=TR&fields=next,items(track(name,duration_ms,artists(name)))" : kok + "/tracks?limit=50&market=TR";
+while (adres && sarkilar.length < SPOTIFY_SINIR) {
+const sayfa = await al(adres);
+for (const o of sayfa.items || []) {
+const s = tur === "playlist" ? o.track : o;
+if (s && s.name) sarkilar.push({ baslik: s.name, sanatci: (s.artists || []).map((a) => a.name).join(", "), sure: Math.round((s.duration_ms || 0) / 1000) });
+}
+adres = sayfa.next;
+}
+return { ad: bilgi.name, sarkilar: sarkilar.slice(0, SPOTIFY_SINIR) };
+}
 export default {
-async fetch(istek) {
+async fetch(istek, env) {
 const kaynak = istek.headers.get("Origin") || "";
 const cors = { "Access-Control-Allow-Origin": IZINLI.includes(kaynak) ? kaynak : IZINLI[0], "Access-Control-Allow-Methods": "GET, OPTIONS", "Vary": "Origin" };
 if (istek.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -49,6 +82,12 @@ return yanitla({ tur: "mix", ad: liste.title || "YouTube Mix", sarkilar });
 const link = p.get("link") || "";
 const e = link.match(/open\.spotify\.com\/(?:intl-[\w-]+\/)?(track|playlist|album)\/([A-Za-z0-9]{22})/);
 if (!e) return yanitla({ hata: "Gecerli bir Spotify sarki, liste ya da album linki degil." }, 400);
+if (e[1] !== "track") {
+let sebep = "";
+const api = await apidenOku(e[1], e[2], env).catch((h) => { sebep = String(h && h.message || h); return null; });
+if (p.get("tani")) return yanitla({ tani: { anahtarVar: !!(env && env.SPOTIFY_ID && env.SPOTIFY_SECRET), jeton: !!spotifyJeton, sebep, sarki: api ? api.sarkilar.length : 0 } });
+if (api && api.sarkilar.length) return yanitla({ tur: e[1], kaynak: "api", ad: api.ad || "Spotify listesi", sarkilar: api.sarkilar });
+}
 const sayfa = await fetch("https://open.spotify.com/embed/" + e[1] + "/" + e[2], { headers: { "User-Agent": TARAYICI, "Accept-Language": "tr,en;q=0.8" }, cf: { cacheTtl: 3600, cacheEverything: true } });
 if (!sayfa.ok) return yanitla({ hata: "Spotify sayfasi acilamadi (" + sayfa.status + "). Liste gizli olabilir." }, 502);
 const html = await sayfa.text();
