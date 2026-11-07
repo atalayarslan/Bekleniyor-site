@@ -12,16 +12,31 @@ $gunluk = Join-Path $klasor "tunel.log"
 $Host.UI.RawUI.WindowTitle = "Bekleniyor reklamsız akış"
 
 Write-Host "Bekleniyor reklamsız akış başlatılıyor..." -ForegroundColor Cyan
-$sunucu = Start-Process -FilePath (Join-Path $klasor "venv\Scripts\python.exe") `
-    -ArgumentList @("-I", "-W", "ignore", "`"$PSScriptRoot\sunucu.py`"") -PassThru -WindowStyle Hidden
-if (Test-Path $gunluk) { Remove-Item $gunluk }
-# Hızlı tünel: hesap ve alan adı gerekmez, her açılışta yeni bir *.trycloudflare.com adresi verir.
-# Sadece 127.0.0.1:8790'daki akış sunucusunu dışarıya açar; bilgisayarda port açılmaz, ev IP'si gizli kalır.
-$tunel = Start-Process -FilePath (Join-Path $klasor "cloudflared.exe") `
-    -ArgumentList @("tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:8790", "--logfile", "`"$gunluk`"") `
-    -PassThru -WindowStyle Hidden
+$sunucu = $null
+$tunel = $null
 
 try {
+    # Pencere çarpıyla kapatılınca sunucu ve tünel arkada çalışmaya devam ediyordu; yeni açılış eski tünelin kilitli
+    # tuttuğu günlüğü silemeyip hata veriyordu. Önce önceki açılışlardan kalanlar kapatılır.
+    $eskiler = Get-CimInstance Win32_Process | Where-Object {
+        ($_.Name -eq "python.exe" -and $_.CommandLine -match "akis-sunucusu\\sunucu\.py") -or
+        ($_.Name -eq "cloudflared.exe" -and $_.CommandLine -match "Bekleniyor-akis")
+    }
+    if ($eskiler) {
+        Write-Host "Önceki açılıştan kalan akış kapatılıyor..." -ForegroundColor DarkGray
+        foreach ($e in $eskiler) { Stop-Process -Id $e.ProcessId -Force -ErrorAction SilentlyContinue }
+        Start-Sleep -Seconds 1
+    }
+    if (Test-Path $gunluk) { Remove-Item $gunluk -Force -ErrorAction SilentlyContinue }
+
+    $sunucu = Start-Process -FilePath (Join-Path $klasor "venv\Scripts\python.exe") `
+        -ArgumentList @("-I", "-W", "ignore", "`"$PSScriptRoot\sunucu.py`"") -PassThru -WindowStyle Hidden
+    # Hızlı tünel: hesap ve alan adı gerekmez, her açılışta yeni bir *.trycloudflare.com adresi verir.
+    # Sadece 127.0.0.1:8790'daki akış sunucusunu dışarıya açar; bilgisayarda port açılmaz, ev IP'si gizli kalır.
+    $tunel = Start-Process -FilePath (Join-Path $klasor "cloudflared.exe") `
+        -ArgumentList @("tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:8790", "--logfile", "`"$gunluk`"") `
+        -PassThru -WindowStyle Hidden
+
     $adres = $null
     for ($i = 0; $i -lt 60 -and -not $adres; $i++) {
         Start-Sleep -Seconds 1
