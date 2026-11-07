@@ -8,6 +8,9 @@
   "use strict";
   const K = window.OkeyKurallar;
   const SATIR = 15;   // ıstakada bir satırdaki yuva
+  // Masadaki per alanlarının dikey sınırları (keçe içinde, okey-masa.css ile aynı): yan alanların üstü ve
+  // benim alanımın altı (altında atılan taşlar durur)
+  const YAN_UST = 212, ALAN_ALT = 566;
 
   function h(etiket, ozellik, ...cocuklar) {
     const oge = document.createElement(etiket);
@@ -77,7 +80,7 @@
     function sigdir() {
       const r = kok.getBoundingClientRect();
       if (!r.width) return;
-      olcek = Math.min(r.width / 1620, r.height / 1026, 1.25);   // yan koltuklar masanın dışında durur
+      olcek = Math.min(r.width / 1700, r.height / 1070, 1.25);   // yan koltuklar masanın dışında durur
       sahne.style.setProperty("--olcek", olcek);
     }
     new ResizeObserver(sigdir).observe(kok);
@@ -94,7 +97,12 @@
       const yiginlar = [0, 1, 2, 3].map((k) => {
         const kutu = h("div", {
           sinif: "atilan a" + k, veri: k === 0 ? { hedef: "at" } : { atilan: k },
-          onclick: () => k === 3 && kutu.classList.contains("alinabilir") && olaylar.soldanAl()
+          onclick: () => k === 3 && !sonSurukleme() && kutu.classList.contains("alinabilir") && olaylar.soldanAl()
+        });
+        // Yığının üstündeki (gösterilebilir) taşı bir pere sürükleyince "işlek" diye gösterilir
+        kutu.addEventListener("pointerdown", (e) => {
+          const oge = e.target.closest(".tas");
+          if (oge && oge.dataset.gosterilebilir === "1") islekSurukle(e, oge);
         });
         if (k === 0 || k === 3) kutu.append(h("div", { sinif: "atilan-etiket" }, k === 0 ? "Attığın" : "Soldan al"));
         return kutu;
@@ -172,9 +180,20 @@
         } else per.taslar.forEach((t) => oge.append(tas(t)));
         perler[per.sahip].push(oge);
       });
-      iskelet.alanlar.forEach((alan, k) => {
-        alan.replaceChildren(...perler[k]);
-        // Alana sığmıyorsa (başkasının alanına taşmasın diye) alan biraz küçültülür; normalde taşlar küçülmez
+      iskelet.alanlar.forEach((alan, k) => alan.replaceChildren(...perler[k]));
+      // Benim alanım (altta, tam genişlik) sadece perlerimin gerektirdiği kadar yüksek olur; kalan yükseklik yandakilerin
+      // alanlarına kalır (yan alanlar benimkinin üstünde biter). Böylece boş yer kalmaz, taşlar küçülmez.
+      const [p0, p1, , p3] = iskelet.alanlar;
+      p0.style.transform = "";
+      p0.style.height = "auto";
+      p0.style.alignContent = "flex-start";
+      const benimYuk = perler[0].length ? Math.min(Math.max(p0.offsetHeight, 70), ALAN_ALT - YAN_UST - 120) : 70;
+      p0.style.alignContent = "";
+      p0.style.top = ALAN_ALT - benimYuk + "px";
+      p0.style.height = benimYuk + "px";
+      for (const yan of [p1, p3]) yan.style.height = ALAN_ALT - benimYuk - 8 - YAN_UST + "px";
+      iskelet.alanlar.forEach((alan) => {
+        // Alana yine de sığmıyorsa (başkasının alanına taşmasın diye) alan biraz küçültülür
         // (ölçerken perler alanın başına toplanır; yayılmış hâlde taşma yukarı doğru da olabilir ve ölçülmez)
         alan.style.transform = "";
         alan.style.alignContent = alan.style.justifyContent = "flex-start";
@@ -262,7 +281,68 @@
         }
         oge.style.visibility = "";
         oge.style.setProperty("--k", yigin.length - 1 - i);
+        // İşlek diye gösterilen taş kilitli (kimse alamaz); en üstteki taş gösterilebilir olabilir
+        oge.classList.toggle("kilitli", !!(g.kilitliler && g.kilitliler.has(tas.id)));
+        const gosterilir = !!(g.gosterilebilir && g.gosterilebilir.yigin === k && g.gosterilebilir.tasId === tas.id && i === yigin.length - 1);
+        oge.dataset.gosterilebilir = gosterilir ? "1" : "";
+        oge.title = gosterilir ? "İşlek mi? Bir pere sürükleyip göster" : oge.classList.contains("kilitli") ? "İşlek diye gösterildi, alınamaz" : "";
       });
+    }
+
+    // Atılan taşı bir pere sürükleyip "işlek" diye göster. Sürüklenen kopya fareyle gezer; bırakılan yer bir perse
+    // sunucuya bildirilir (işlek mi değil mi orada karar verilir). Sürükleme sonrası yığına tıklama sayılmaz.
+    let surukBitti = 0;
+    const sonSurukleme = () => Date.now() - surukBitti < 300;
+    function islekSurukle(e, oge) {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      const kutu = oge.getBoundingClientRect();
+      const fark = { x: e.clientX - kutu.left, y: e.clientY - kutu.top };
+      let kopya = null;
+      let hedef = null;
+      const vurgula = (yeni) => {
+        if (hedef === yeni) return;
+        if (hedef) hedef.classList.remove("isle-hedef");
+        hedef = yeni;
+        if (hedef) hedef.classList.add("isle-hedef");
+      };
+      const hareket = (ev) => {
+        if (!kopya) {
+          if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 5) return;
+          kopya = oge.cloneNode(true);
+          kopya.classList.add("surukleniyor");
+          kopya.style.transform = "scale(" + olcek + ") rotate(-4deg)";
+          kopya.style.transformOrigin = "0 0";
+          document.body.append(kopya);
+          document.body.classList.add("okey-surukleme");
+        }
+        kopya.style.left = ev.clientX - fark.x + "px";
+        kopya.style.top = ev.clientY - fark.y + "px";
+        vurgula(document.elementsFromPoint(ev.clientX, ev.clientY).map((x) => x.closest("[data-per]")).find(Boolean) || null);
+      };
+      const birak = () => {
+        removeEventListener("pointermove", hareket);
+        removeEventListener("pointerup", birak);
+        removeEventListener("pointercancel", birak);
+        document.body.classList.remove("okey-surukleme");
+        if (!kopya) return;
+        surukBitti = Date.now();
+        kopya.remove();
+        const son = hedef;
+        vurgula(null);
+        if (son && olaylar.islekGoster) olaylar.islekGoster(Number(son.dataset.per));
+      };
+      addEventListener("pointermove", hareket);
+      addEventListener("pointerup", birak);
+      addEventListener("pointercancel", birak);
+    }
+
+    // İşlek gösterilen per bir an kırmızı parlar
+    function islekVurgula(perNo) {
+      const per = sahne.querySelector(`[data-per="${perNo}"]`);
+      if (!per) return;
+      per.classList.add("islek-gosterildi");
+      setTimeout(() => per.classList.remove("islek-gosterildi"), 1800);
     }
     function istakaCiz() {
       const b = g.benim;
@@ -549,6 +629,6 @@
       perAlani: (k) => sahne.querySelector(".per-alani.p" + k)
     };
 
-    return { ciz, sureGuncelle, ucur, bildir, puanUcur, pencere, oge, h, tasOgesi };
+    return { ciz, sureGuncelle, ucur, bildir, puanUcur, pencere, oge, h, tasOgesi, islekVurgula };
   };
 })();

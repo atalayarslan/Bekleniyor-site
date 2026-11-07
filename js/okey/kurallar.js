@@ -183,10 +183,10 @@
     return null;
   }
 
-  // İşlek taş: masadaki herhangi bir pere işlenebilen taş. Okey her zaman işlektir.
+  // İşlek taş: masadaki herhangi bir pere işlenebilen (ya da perdeki okeyin yerine geçebilen) taş. Okey her zaman işlektir.
   function islekMi(tas, perler, okey, ayar = VARSAYILAN) {
     if (okeyMi(tas, okey)) return true;
-    return perler.some((p) => isle(p, tas, okey, ayar));
+    return perler.some((p) => isle(p, tas, okey, ayar) || okeyDegistir(p, tas, okey, ayar));
   }
 
   // Okey değiştirme: perdeki okeyin yerine geçtiği gerçek taş konur, okey alınır. Kütte 4 renk tamam olmalı.

@@ -5,8 +5,8 @@
 :root {
   --tas-g: 46px;              /* oyuncunun taş genişliği */
   --tas-y: 64px;
-  --kucuk-g: 34px;            /* masadaki taşlar (perler, atılanlar, gösterge) */
-  --kucuk-y: 46px;
+  --kucuk-g: 40px;            /* masadaki taşlar (perler, atılanlar, gösterge) */
+  --kucuk-y: 54px;
   --altin: #f3c34a;
 
   /* TEMA (js/temalar.js değiştirir). Tema sadece bu temel renkleri verir; açık/koyu tonlar aşağıda türetilir. */
@@ -51,8 +51,8 @@
 
 /* Masa + ıstaka birlikte ölçeklenir (ekrana sığsın diye; JS --olcek verir) */
 .okey-sahne {
-  width: 1260px;
-  height: 1016px;
+  width: 1340px;
+  height: 1060px;
   position: absolute;
   left: 50%;
   top: 50%;
@@ -70,9 +70,9 @@
   position: absolute;
   left: 50%;
   top: 70px;
-  width: 1180px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
-  height: 696px;
-  margin-left: -590px;
+  width: 1260px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
+  height: 740px;
+  margin-left: -630px;
   perspective: 1500px;
   perspective-origin: 50% 0%;
 }
@@ -181,10 +181,10 @@
 
 .tas.kucuk {
   width: var(--kucuk-g); height: var(--kucuk-y);
-  font-size: 21px; border-radius: 5px; padding: 3px 0 5px; cursor: default;
+  font-size: 25px; border-radius: 6px; padding: 4px 0 6px; cursor: default;
   box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--tas-kenar), 0 3px 0 var(--tas-kenar-2), 0 4px 6px rgba(0,0,0,.35);
 }
-.tas.kucuk .nokta { width: 6px; height: 6px; }
+.tas.kucuk .nokta { width: 7px; height: 7px; }
 .tas.kucuk.okey::before { font-size: 8px; top: 1px; right: 2px; }
 
 /* Kapalı taş (uçarken): gerçek okeyde taşların arkası da fildişidir */
@@ -197,7 +197,7 @@
 /* ---------- Orta: deste ve gösterge ---------- */
 .orta {
   position: absolute;
-  left: 50%; top: 274px;
+  left: 50%; top: 290px;
   transform: translate(-50%, -50%) scale(1.35);
   transform-style: preserve-3d;
   display: flex; align-items: flex-end; gap: 22px;
@@ -278,6 +278,14 @@
 .atilan.a2 { left: 118px; top: 4px; }        /* karşıdakinin: sol üst */
 .atilan.a3 { left: 118px; bottom: 16px; width: 100px; height: 110px; }   /* soldakinin: sol alt — benim alabileceğim */
 .atilan.hedef { background: radial-gradient(circle, rgba(243,195,74,.35), transparent 70%); }
+/* İşlek gösterme: üstteki taş tutulup pere sürüklenebilir; gösterilen taş kırmızı çerçeveli ve kilitli */
+.atilan .tas[data-gosterilebilir="1"] { cursor: grab; }
+.atilan .tas.kilitli { box-shadow: 0 0 0 2.5px #e5484d, 0 0 12px rgba(229,72,77,.6), 0 3px 0 var(--tas-kenar); }
+.atilan .tas.kilitli::after {
+  content: "İŞLEK"; position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%);
+  font-size: 9px; font-weight: 900; letter-spacing: .04em; color: #fff; background: #e5484d; padding: 1px 4px; border-radius: 4px;
+}
+.per.islek-gosterildi { box-shadow: 0 0 0 3px #e5484d, 0 0 18px 6px rgba(229,72,77,.6); background: rgba(229,72,77,.18); }
 .atilan.alinabilir { cursor: pointer; }
 .atilan-etiket { position: absolute; bottom: -18px; font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.5); white-space: nowrap; }
 
@@ -362,10 +370,10 @@
 }
 /* Her oyuncunun perleri kendi alanında; alan dolarsa (JS) alan biraz küçültülerek sığdırılır, başkasınınkine taşmaz.
    Benimki altta tam genişlik, yandakiler deste ile ıstakaları arasında, karşıdaki üstte. */
-.per-alani.p0 { left: 128px; right: 128px; top: 360px; height: 160px; }
-.per-alani.p2 { left: 230px; right: 230px; top: 88px; height: 104px; }
-.per-alani.p1 { right: 126px; top: 198px; width: 340px; height: 158px; }
-.per-alani.p3 { left: 126px; top: 198px; width: 340px; height: 158px; }
+.per-alani.p0 { left: 128px; right: 128px; top: 438px; height: 126px; }
+.per-alani.p2 { left: 240px; right: 240px; top: 84px; height: 122px; }
+.per-alani.p1 { right: 120px; top: 212px; width: 370px; height: 220px; }
+.per-alani.p3 { left: 120px; top: 212px; width: 370px; height: 220px; }
 .per-alani { transform-origin: top center; }
 .per-alani.p1 { transform-origin: top right; }
 .per-alani.p3 { transform-origin: top left; }
@@ -511,7 +519,7 @@
 .gosterge-durum .tamam { color: #1db954; }
 
 .durum-yazisi {
-  position: absolute; left: 50%; top: 626px; transform: translateX(-50%);   /* masanın ön kenarında */
+  position: absolute; left: 50%; top: 772px; transform: translateX(-50%);   /* masanın ön kenarında (perlerin altında) */
   padding: 7px 14px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff;
   font-size: 13.5px; font-weight: 800; white-space: nowrap; z-index: 6; pointer-events: none;
 }

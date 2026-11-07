@@ -109,6 +109,12 @@
         else if (o.tur === "ceza") { masa.puanUcur(v, o.miktar); masa.bildir(ad(o.k) + ": " + o.neden + (o.miktar > 0 ? " +" : " ") + o.miktar, "ceza"); }
         else if (o.tur === "acti") masa.bildir(ad(o.k) + " " + o.deger + (o.cift ? " çift" : "") + " ile açtı");
         else if (o.tur === "sure") masa.bildir(ad(o.k) + ": süre doldu, otomatik oynandı");
+        else if (o.tur === "islekGosterildi") {
+          masa.islekVurgula(o.per);
+          masa.bildir("⚠️ " + ad(o.k) + " gösterdi: " + ad(o.atan) + " işlek taş attı", "ceza");
+          await new Promise((r) => setTimeout(r, 1400));   // ceza yazısından önce okunsun
+        }
+        else if (o.tur === "islekDegil") masa.bildir(ad(o.k) + " gösterdi ama taş o pere işlenmiyor (ceza yok)");
       } catch (e) { }
     }
   }
@@ -318,6 +324,10 @@
       koltukDegisir: oturuyorum() && !elVar && !(durum.oyun && !durum.oyun.bitis),
       atilanlar: [0, 1, 2, 3].map((v) => (E ? E.atilanlar[sunucudaki(v)] : [])),
       perler: E ? E.perler.map((p) => Object.assign({}, p, { sahip: gorunen(p.sahip) })) : [],
+      // İşlek gösterme: başkasının son attığı taş (kendi attığımı gösteremem); gösterilip kilitlenen taşlar
+      gosterilebilir: E && E.sonAtilan && oturuyorum() && E.sonAtilan.atan !== k && E.perler.length
+        ? { yigin: gorunen(E.sonAtilan.atan), tasId: E.sonAtilan.tasId } : null,
+      kilitliler: new Set(E ? E.kilitliler || [] : []),
       durumYazisi: yazi,
       acilis: a && (a.acti ? { acti: true, yeniPer: a.yeniPer } : a),
       tuslar: {
@@ -464,7 +474,8 @@
       "Açtığın türün dışındakini (seri açtıysan çift, çift açtıysan per) ancak masada o türle açmış başka biri varsa koyabilirsin.",
       "7 ya da daha çok çiftle açan olursa diğer herkese (eşlide iki rakibe) 101 ceza yazılır.",
       "Masadaki bir perdeki okeyin yerine asıl taşı koyup okeyi alabilirsin; perin sahibine ceza yazılmaz.",
-      "Masadaki bir pere uyan taşı atmak işlektir: sıradaki (henüz açmamışken) alırsa taş×10, kimse almazsa 101 ceza.",
+      "İşlek taş (masadaki bir pere uyan taş) atılırsa ceza kendiliğinden yazılmaz: kime atıldıysa onun sırası bitene kadar masadaki herkes (eşlide takım arkadaşı da, botlar da) taşı yığından bir pere sürükleyip gösterebilir. Gerçekten işlekse atana 101 ceza yazılır ve o taş artık kimse tarafından alınamaz. İşlek değilse bir şey olmaz. Kimse fark etmezse açmış biri o taşı alıp işleyebilir.",
+      "Son taşını işlek atan da bitirir; el sonunda 101 işlek cezası yazılır. El deste bitince kapanırsa son atılan taş işlekse onu atana da yazılır.",
       "Okey atmak 101 ceza (bitiş taşı değilse). Okeyle bitirirsen herkesin puanı katlanır.",
       "Ortadaki gösterge alınamaz; göstergeyle çift yapılmaz.",
       "Taşı sürükleyip ıstakada yerini değiştir, 'Attığın' alanına bırakıp at (ya da çift tıkla), masadaki bir pere bırakıp işle. Sağ tık taşı yatırır."
@@ -480,6 +491,7 @@
     perTasi,
     ac,
     isle: (id, per) => gonder({ t: "isle", id, per }),
+    islekGoster: (per) => gonder({ t: "islekGoster", per }),
     isleHepsi: () => {
       if (!islenebilirler().length) return masa.bildir("İşlenecek taş yok");
       isleHepsiSuruyor = true;

@@ -240,6 +240,11 @@ export class OkeyMasasi {
         m.koltuklar[h] = null;
         return;
       }
+      // İşlek gösterme: sıra kimde olursa olsun masada oturan herkes yapabilir
+      case "islekGoster":
+        if (k < 0) return "Önce masaya otur";
+        if (!oyunSuruyor) return "El sürmüyor";
+        return this.islekGoster(k, Number(mesaj.per));
       case "yanci": {
         if (k >= 0) return "Oyuncular yancı olamaz";
         const h = mesaj.koltuk == null ? null : Number(mesaj.koltuk);
@@ -299,7 +304,7 @@ export class OkeyMasasi {
       gosterge: d.gosterge, okey: d.okey, deste: d.deste, eller: d.eller,
       atilanlar: [[], [], [], []], perler: [], acilislar: [],
       acti: [null, null, null, null], acilisDegeri: [0, 0, 0, 0], cezalar: [0, 0, 0, 0],
-      sira: m.baslayan, asama: "at", gostergeMasada: true, yandan: null, bekleyenIslek: null,
+      sira: m.baslayan, asama: "at", gostergeMasada: true, yandan: null, sonAtilan: null, kilitliler: [],
       buTurActi: false, bitti: false, sonuc: null, sureBitis: 0
     };
     this.olaylar.push({ tur: "dagit" });
@@ -426,7 +431,7 @@ export class OkeyMasasi {
     const ayar = this.ayar();
     const yigin = E.atilanlar[(k + 3) % 4];
     const tas = yigin[yigin.length - 1];
-    if (!tas || K.okeyMi(tas, E.okey)) return false;
+    if (!tas || K.okeyMi(tas, E.okey) || (E.kilitliler || []).includes(tas.id)) return false;
     const el = [...E.eller[k], tas];
     const gruplar = this.botPerleri(el);
     const islenir = () => E.perler.some((p) => K.isle(p, tas, E.okey, ayar));
@@ -489,20 +494,65 @@ export class OkeyMasasi {
     this.olaylar.push({ tur: "ceza", k, miktar, neden });
   }
 
-  islekCoz(alindi) {
+  // ---------- işlek: "fark eden söyler" ----------
+  // İşlek taş atılınca ceza kendiliğinden yazılmaz. Atılan taşı, kime atıldıysa onun sırası bitene kadar masadaki
+  // herkes (eşli oyunda takım arkadaşı da) bir pere sürükleyip "işlek" diye gösterebilir: gerçekten işlekse atana
+  // 101 ceza yazılır ve o taş artık kimse tarafından alınamaz. İşlek değilse bir şey olmaz (yanlış gösterene ceza yok).
+  // Kimse fark etmezse açmış biri o taşı soldan alıp kullanabilir; ceza yok. E.sonAtilan her atılan taş için tutulur
+  // (sadece işlek olanlar değil), böylece görünümden hangi taşın işlek olduğu anlaşılmaz.
+  islekGoster(k, perNo) {
     const E = this.m.el;
-    const b = E.bekleyenIslek;
-    if (!b) return;
-    E.bekleyenIslek = null;
-    if (alindi) this.ceza(b.atan, K.ceza("islekAlindi", b.tas, E.okey, this.ayar()), "İşlek taş atıldı, alındı");
-    else this.ceza(b.atan, K.ceza("islekAlinmadi", b.tas, E.okey, this.ayar()), "İşlek taş attı");
+    const s = E.sonAtilan;
+    if (!s || s.gosterildi) return "Gösterilecek taş yok";
+    if (k === s.atan) return "Kendi attığın taşı gösteremezsin";
+    const yigin = E.atilanlar[s.atan];
+    const tas = yigin[yigin.length - 1];
+    if (!tas || tas.id !== s.tasId) return "Taş artık yerde değil";
+    const ayar = this.ayar();
+    const per = E.perler[perNo];
+    // Atılan okeyin kendi cezası var; işlek sayılmaz
+    if (!per || K.okeyMi(tas, E.okey) || !(K.isle(per, tas, E.okey, ayar) || K.okeyDegistir(per, tas, E.okey, ayar))) {
+      this.olaylar.push({ tur: "islekDegil", k, atan: s.atan, tas });
+      return;
+    }
+    s.gosterildi = true;
+    (E.kilitliler = E.kilitliler || []).push(tas.id);
+    this.olaylar.push({ tur: "islekGosterildi", k, atan: s.atan, tas, per: perNo });
+    this.ceza(s.atan, ayar.ceza, "İşlek taş attı");
+  }
+
+  // Botlar işlek taşı hemen fark edip gösterir (eşli oyunda takım arkadaşınınkini göstermez)
+  botlarIslekBakar() {
+    const E = this.m.el;
+    const s = E.sonAtilan;
+    if (!s || s.gosterildi) return;
+    const tas = E.atilanlar[s.atan][E.atilanlar[s.atan].length - 1];
+    if (!tas || K.okeyMi(tas, E.okey)) return;
+    const ayar = this.ayar();
+    const perNo = E.perler.findIndex((p) => K.isle(p, tas, E.okey, ayar) || K.okeyDegistir(p, tas, E.okey, ayar));
+    if (perNo < 0) return;
+    for (let j = 1; j < 4; j++) {
+      const b = (s.atan + j) % 4;
+      if (this.botMu(b) && !(this.m.ayar.esli && (s.atan + 2) % 4 === b)) return this.islekGoster(b, perNo);
+    }
+  }
+
+  // El biterken gösterilmeye fırsat kalmayan son atılan işlek taş: atana ceza (bitiren de olsa)
+  sonIslegiCezalandir() {
+    const E = this.m.el;
+    const s = E.sonAtilan;
+    if (!s || s.gosterildi) return;
+    const yigin = E.atilanlar[s.atan];
+    const tas = yigin[yigin.length - 1];
+    E.sonAtilan = null;
+    if (!tas || tas.id !== s.tasId || K.okeyMi(tas, E.okey) || !E.perler.length) return;
+    if (K.islekMi(tas, E.perler, E.okey, this.ayar())) this.ceza(s.atan, this.ayar().ceza, "Son taşı işlek attı");
   }
 
   cek(k) {
     const E = this.m.el;
     if (E.asama !== "cek") return "Önce taşını at";
     if (!E.deste.length) return this.desteBitti();
-    this.islekCoz(false);
     const tas = E.deste.shift();
     E.eller[k].push(tas);
     E.asama = "at";
@@ -516,9 +566,10 @@ export class OkeyMasasi {
     const tas = yigin[yigin.length - 1];
     if (!tas) return "Solda taş yok";
     if (K.okeyMi(tas, E.okey)) return "Atılan okey yandan alınamaz";
+    if ((E.kilitliler || []).includes(tas.id)) return "Bu taş işlek diye gösterildi, alınamaz";
     yigin.pop();
     E.eller[k].push(tas);
-    E.yandan = { tas, islek: !!(E.bekleyenIslek && E.bekleyenIslek.tas.id === tas.id) };
+    E.yandan = { tas };
     E.asama = "at";
     this.olaylar.push({ tur: "soldanAl", k, tas });
   }
@@ -544,15 +595,13 @@ export class OkeyMasasi {
     return taslar.some((t) => !K.okeyMi(t, E.okey) && ((x) => x.r === y.r && x.n === y.n)(K.kimlik(t, E.okey)));
   }
 
-  // Soldan alınan taş kullanıldı. Taşı atana ceza sadece alan onunla elini açtıysa yazılır; daha önce açmış
-  // oyuncu soldan alıp per koyar ya da işlerse atana ceza yok (işlek taş cezası da kalkar).
+  // Soldan alınan taş kullanıldı. Taşı atana ceza sadece alan onunla elini açtıysa yazılır (açtıran taş); daha önce
+  // açmış oyuncu soldan alıp per koyar ya da işlerse atana ceza yok (işlek olsa da: kimse fark edip göstermedi).
   yandanKullanildi(k) {
     const E = this.m.el;
-    const { tas, islek } = E.yandan;
+    const { tas } = E.yandan;
     E.yandan = null;
-    if (E.acti[k] && !E.buTurActi) { E.bekleyenIslek = null; return; }
-    if (islek) return this.islekCoz(true);
-    E.bekleyenIslek = null;
+    if (E.acti[k] && !E.buTurActi) return;
     const sol = (k + 3) % 4;
     if (!(this.m.ayar.esli && (k + 2) % 4 === sol)) this.ceza(sol, K.ceza("acTiranTas", tas, E.okey, this.ayar()), "Açtıran taş attı");
   }
@@ -572,9 +621,15 @@ export class OkeyMasasi {
     const [tas] = el.splice(i, 1);
     E.atilanlar[k].push(tas);
     this.olaylar.push({ tur: "at", k, tas });
-    if (sonTas) return this.elBitti(k, { okey: K.okeyMi(tas, E.okey), cift: E.acti[k] === "cift", elden: E.buTurActi });
+    // Önceki atılan taşın gösterilme süresi bu oyuncunun sırasıyla bitti; şimdi bu taş gösterilebilir
+    E.sonAtilan = { atan: k, tasId: tas.id, gosterildi: false };
+    if (sonTas) {
+      // Son taşı işlek atan bitirir ama kimse göstermeye fırsat bulamadığı için cezası el sonunda yazılır
+      this.sonIslegiCezalandir();
+      return this.elBitti(k, { okey: K.okeyMi(tas, E.okey), cift: E.acti[k] === "cift", elden: E.buTurActi });
+    }
     if (K.okeyMi(tas, E.okey)) this.ceza(k, K.ceza("okeyAtma", tas, E.okey, this.ayar()), "Okey attı");
-    else if (E.perler.length && K.islekMi(tas, E.perler, E.okey, this.ayar())) E.bekleyenIslek = { atan: k, tas };
+    this.botlarIslekBakar();
     this.siradaki();
   }
 
@@ -687,6 +742,7 @@ export class OkeyMasasi {
 
   desteBitti() {
     const E = this.m.el;
+    this.sonIslegiCezalandir();
     this.elKapat(null, null, K.desteBitti({ oyuncular: this.oyuncuDurumlari(), okey: E.okey, ayar: this.ayar() }), "Deste bitti, kimse bitiremedi");
   }
 
@@ -735,6 +791,9 @@ export class OkeyMasasi {
         gosterge: E.gosterge, okey: E.okey, gostergeMasada: E.gostergeMasada, desteSayisi: E.deste.length,
         atilanlar: E.atilanlar, perler: E.perler, acilislar: E.acilislar, acti: E.acti, acilisDegeri: E.acilisDegeri,
         cezalar: E.cezalar, sira: E.sira, asama: E.asama, sureBitis: E.sureBitis, bitti: E.bitti, sonuc: E.sonuc,
+        // İşlek gösterme: son atılan taş (işlek olup olmadığı söylenmez) ve gösterilip kilitlenen taşlar
+        sonAtilan: E.sonAtilan && !E.sonAtilan.gosterildi ? { atan: E.sonAtilan.atan, tasId: E.sonAtilan.tasId } : null,
+        kilitliler: E.kilitliler || [],
         tasSayilari: E.eller.map((x) => x.length),
         taslar: izlenen != null && izlenen >= 0 ? E.eller[izlenen] : null,
         yandanId: k >= 0 && E.sira === k && E.yandan ? E.yandan.tas.id : null
