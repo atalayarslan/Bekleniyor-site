@@ -39,7 +39,7 @@ assert.ok(masa.m.koltuklar[0].ayrildi > 0, "kopuk A işaretlenmedi");
 assert.ok(alarm && alarm >= masa.m.koltuklar[0].ayrildi + 119000, "boşalma alarmı kurulmadı");
 let son = ws.giden.at(-1).durum.koltuklar;
 assert.strictEqual(son[0].bagli, false);
-assert.strictEqual(son[0].devralinabilir, false);
+assert.strictEqual(son[0].devralinabilir, true, "bağlantısı olmayanın yerine hemen bot konabilmeli");
 console.log("✓ kapanış haberi gelmeden düşen A işaretlendi, 2 dk sonrası için alarm kuruldu");
 
 // Süre geçmiş gibi: alarm çalar, A'nın koltuğu boşalır, Slash ve bot kalır
@@ -58,6 +58,19 @@ assert.ok(masa.m.el && !masa.m.el.bitti, "el başlamadı");
 soketler.length = 0;
 await masa.webSocketClose(ws);
 assert.ok(masa.m.koltuklar[1].ayrildi > 0);
+// Siteyi kapatıp giden: el sürerken yerine hemen bot konabilir, sonra gelen botun yerine oturabilir
+{
+  const yedek = JSON.parse(JSON.stringify(masa.m.koltuklar[1]));
+  const ws2 = soket();
+  await masa.webSocketMessage(ws2, JSON.stringify({ t: "merhaba", misafir: { id: "denizdenizdeni", ad: "Deniz" } }));
+  masa.m.koltuklar[0] = { kim: "m:denizdenizdeni", ad: "Deniz", foto: "", ayrildi: null };   // Deniz masada oturuyor
+  await masa.webSocketMessage(ws2, JSON.stringify({ t: "bot", koltuk: 1 }));
+  assert.ok(masa.m.koltuklar[1].bot, "gidenin yerine hemen bot konamadı");
+  soketler.length = 0;
+  masa.m.koltuklar[0] = { kim: "bot:0", ad: "Bot Ayşe", foto: "", ayrildi: null, bot: true };
+  masa.m.koltuklar[1] = yedek;
+  console.log("✓ siteyi kapatıp gidenin yerine beklemeden bot kondu");
+}
 masa.m.koltuklar[1].ayrildi -= 121000;
 masa.m.el.sureBitis = Date.now() + 60000;
 await masa.alarm();

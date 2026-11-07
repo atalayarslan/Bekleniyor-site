@@ -173,11 +173,12 @@ export class OkeyMasasi {
     const acti = this.m.el.acti;
     return acti[k] === tur || acti.some((x, i) => i !== k && x === tur);
   }
-  // Koltuktaki kişi bağlı değil ve tutma süresi geçti: yerine oturulabilir (bot da koltuğunu bırakır)
+  // Koltuktaki kişinin bağlantısı yok: yerine hemen bot konabilir ya da başkası oturabilir (bot da koltuğunu bırakır).
+  // Giden geri gelirse koltuğu boşsa ya da bottaysa yeniden oturur. Tutma süresi sadece el aralarında koltuğu boşaltmak için.
   bosaldi(kol) {
     if (kol.bot) return true;
     const bagli = this.baglilar().some((x) => x.ben.kim === kol.kim);
-    return !bagli && !!kol.ayrildi && Date.now() - kol.ayrildi >= KOLTUK_BEKLEME;
+    return !bagli && !!kol.ayrildi;
   }
 
   // ---------- mesajlar ----------
