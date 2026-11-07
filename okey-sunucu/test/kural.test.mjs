@@ -91,6 +91,23 @@ for (const esli of [false, true]) {
   console.log("✓ okey yerden alındı, perin sahibine ceza yazılmadı");
 }
 
+// 2c2) Çiftteki okey de alınır: kırmızı 13 + okey çiftine asıl kırmızı 13 konup okey alınır
+{
+  const E = el(1, "at");
+  E.acti[1] = "seri";
+  const okeyTas = t(3, 1);
+  E.perler = [{ sahip: 2, tur: "cift", taslar: [t(0, 13), okeyTas] }];
+  const onUc = t(0, 13);
+  const yanlis = t(1, 13);
+  E.eller[1] = [onUc, yanlis, t(2, 2)];
+  assert.strictEqual(masa.isle(1, yanlis.id, 0), "Bu taş o pere işlenmiyor");
+  assert.strictEqual(masa.isle(1, onUc.id, 0), undefined);
+  assert.ok(E.eller[1].some((x) => x.id === okeyTas.id), "çiftteki okey ele geçmedi");
+  assert.deepStrictEqual(E.perler[0].taslar.map((x) => x.n + "/" + x.r), ["13/0", "13/0"]);
+  assert.strictEqual(E.perler[0].tur, "cift");
+  console.log("✓ çiftteki okey aynı taşla değiştirilip alındı; başka renk 13 olmadı");
+}
+
 // 2d) 12-13-1 serisi geçmez, gösterge çifti yok
 {
   const ayar = masa.ayar();

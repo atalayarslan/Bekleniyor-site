@@ -190,8 +190,20 @@
   }
 
   // Okey değiştirme: perdeki okeyin yerine geçtiği gerçek taş konur, okey alınır. Kütte 4 renk tamam olmalı.
+  // Çiftte okey, yanındaki taşın aynısının yerine geçer (kırmızı 13 + okey → kırmızı 13 konup okey alınır).
   function okeyDegistir(per, tas, okey, ayar = VARSAYILAN) {
-    if (!ayar.okeyDegistirme || per.tur === "cift" || okeyMi(tas, okey)) return null;
+    if (!ayar.okeyDegistirme || okeyMi(tas, okey)) return null;
+    if (per.tur === "cift") {
+      if (per.taslar.length !== 2) return null;
+      const i = per.taslar.findIndex((x) => okeyMi(x, okey));
+      const es = per.taslar[1 - i];
+      if (i < 0 || okeyMi(es, okey)) return null;
+      const a = kimlik(es, okey), t = kimlik(tas, okey);
+      if (a.r !== t.r || a.n !== t.n) return null;
+      const taslar = per.taslar.slice();
+      const alinan = taslar.splice(i, 1, tas)[0];
+      return { per: { tur: "cift", taslar }, alinan };
+    }
     if (per.tur === "kut" && per.taslar.length < 4) return null;
     const t = kimlik(tas, okey);
     const i = per.taslar.findIndex((x, k) => okeyMi(x, okey) && per.degerler[k].r === t.r && per.degerler[k].n === t.n);
