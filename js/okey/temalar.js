@@ -96,6 +96,16 @@
   const temalarim = () => oku("okeyTemalarim", []).map(temizle).filter(Boolean);
   function sec(t) { uygula(t); yaz("okeyTema", t); }
 
+  // Bir kişi en fazla 10 tema kaydedebilir (yönetici dahil)
+  const TEMA_SINIRI = 10;
+  // Aynı isim varsa Windows'taki dosya kopyaları gibi sonuna (1), (2)... eklenir. haricId: kendisi (üzerine kaydederken)
+  function benzersizAd(ad, haricId) {
+    const kullanilan = new Set([...HAZIR, ...temalarim()].filter((x) => x.id !== haricId).map((x) => x.ad));
+    const kok = String(ad || "Benim temam").replace(/ \(\d+\)$/, "").trim().slice(0, 24) || "Benim temam";
+    if (!kullanilan.has(kok)) return kok;
+    for (let i = 1; ; i++) if (!kullanilan.has(kok + " (" + i + ")")) return kok + " (" + i + ")";
+  }
+
   function kod(t) {
     const { ad, tas, sayilar, sahte, istaka, kece, ray, doku, desen, neon } = t;
     const metin = JSON.stringify({ ad, tas, sayilar, sahte, istaka, kece, ray, doku, desen, neon });
@@ -157,6 +167,7 @@
     function yapici() {
       // Seçili temadan başlanır; her değişiklik hemen bütün masaya uygulanır (arkada görünür)
       const t = JSON.parse(JSON.stringify(secili));
+      const kendiTemam = temalarim().some((x) => x.id === secili.id);
       const canli = () => { uygula(t); kodAlani.value = kod(t); };
       const renk = (etiket, deger, ata) => h("label", { sinif: "tema-alan" }, h("span", {}, etiket),
         h("input", { type: "color", value: deger, oninput: (e) => { ata(e.target.value); canli(); } }));
@@ -182,13 +193,25 @@
           secim("Istaka deseni", DESEN_ADI, t.desen, (v) => (t.desen = v)),
           h("label", { sinif: "tema-alan tema-kutu" }, h("input", { type: "checkbox", checked: t.neon, onchange: (e) => { t.neon = e.target.checked; canli(); } }), h("span", {}, "Neon rakamlar"))),
         h("div", { sinif: "tema-satir" }, ad,
+          // Kaydet: açık olan kendi temanın üzerine yazar (hazır temalar değişmez)
           h("button", {
-            sinif: "okey-tus ana", type: "button", onclick: () => {
-              const yeni = Object.assign({}, t, { id: "ozel-" + Date.now().toString(36), ad: ad.value.trim() || "Benim temam", aciklama: "Kendi temam" });
-              yaz("okeyTemalarim", [...temalarim(), yeni].slice(-12));
+            sinif: "okey-tus ana", type: "button", disabled: !kendiTemam,
+            title: kendiTemam ? "Bu temanın üzerine kaydet" : "Hazır tema değiştirilemez; 'Çoğalt ve kaydet' ile kendi kopyanı yap",
+            onclick: () => {
+              const guncel = Object.assign({}, t, { id: secili.id, ad: benzersizAd(ad.value.trim(), secili.id), aciklama: "Kendi temam" });
+              yaz("okeyTemalarim", temalarim().map((x) => (x.id === secili.id ? guncel : x)));
+              temaSec(guncel);
+            }
+          }, "Kaydet"),
+          // Çoğalt ve kaydet: değişikliklerle yeni bir tema
+          h("button", {
+            sinif: "okey-tus" + (kendiTemam ? "" : " ana"), type: "button", onclick: () => {
+              if (temalarim().length >= TEMA_SINIRI) { hata.textContent = "En fazla " + TEMA_SINIRI + " tema kaydedebilirsin; önce birini sil (✕)."; return; }
+              const yeni = Object.assign({}, t, { id: "ozel-" + Date.now().toString(36), ad: benzersizAd(ad.value.trim()), aciklama: "Kendi temam" });
+              yaz("okeyTemalarim", [...temalarim(), yeni]);
               temaSec(yeni);
             }
-          }, "Kaydet ve kullan"),
+          }, "Çoğalt ve kaydet"),
           h("button", { sinif: "okey-tus", type: "button", onclick: () => { uygula(secili); ciz(); } }, "Vazgeç")),
         h("div", { sinif: "tema-satir" }, h("span", { sinif: "tema-etiket" }, "Paylaşım kodu"), kodAlani,
           h("button", { sinif: "okey-tus", type: "button", onclick: () => { kodAlani.select(); navigator.clipboard && navigator.clipboard.writeText(kodAlani.value); } }, "Kopyala")),
@@ -197,7 +220,9 @@
             sinif: "okey-tus", type: "button", onclick: () => {
               const gelen = koddan(yapistir.value);
               if (!gelen) { hata.textContent = "Bu kod okunamadı."; return; }
-              yaz("okeyTemalarim", [...temalarim(), gelen].slice(-12));
+              if (temalarim().length >= TEMA_SINIRI) { hata.textContent = "En fazla " + TEMA_SINIRI + " tema kaydedebilirsin; önce birini sil (✕)."; return; }
+              gelen.ad = benzersizAd(gelen.ad);
+              yaz("okeyTemalarim", [...temalarim(), gelen]);
               temaSec(gelen);
             }
           }, "Yükle")), hata);
@@ -208,7 +233,7 @@
       return [
         h("p", { sinif: "tema-not" }, "Tema sadece senin ekranını değiştirir: taşların, ıstakaların ve masa. Seçtiğin hemen uygulanır."),
         h("h4", {}, "Hazır temalar"), kartlar(HAZIR, false),
-        benim.length ? h("h4", {}, "Benim temalarım") : null, benim.length ? kartlar(benim, true) : null,
+        benim.length ? h("h4", {}, "Benim temalarım (" + benim.length + "/" + TEMA_SINIRI + ")") : null, benim.length ? kartlar(benim, true) : null,
         h("h4", {}, "Kendi temanı yap"), yapici()
       ].filter(Boolean);
     }
@@ -216,5 +241,5 @@
     return kok;
   }
 
-  window.OkeyTema = { HAZIR, uygula, sec, kayitli, temalarim, kod, koddan, temizle, panel, onizleme };
+  window.OkeyTema = { HAZIR, uygula, sec, kayitli, temalarim, kod, koddan, temizle, panel, onizleme, benzersizAd, TEMA_SINIRI };
 })();

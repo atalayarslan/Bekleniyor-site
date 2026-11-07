@@ -308,4 +308,23 @@ for (const esli of [false, true]) {
   console.log("✓ son taşı işlek atan bitirdi ve 101 yedi; deste bitince son atılan işlek de cezalı");
 }
 
+// 7) Çetele silme: sadece oda sahibi/yönetici; tek oyun ya da hepsi; süren oyun silinmez
+{
+  const ws = { send: () => { }, serializeAttachment: () => { } };
+  const oyun = (id, bitis) => ({ id, bitis, oyuncular: [], eller: [], cezalar: [] });
+  await new Promise((r) => setTimeout(r, 30));   // önceki ellerin çeteleye yazması (beklenmeyen kayıt) bitsin
+  await ctx.storage.put("oyunlar", [oyun("a", 1), oyun("b", 2), oyun("c", 3), oyun("suren", null)]);
+  masa.m.oyun = oyun("suren", null);
+  const misafir = { kim: "m:x", ad: "X" };
+  const sahip = { kim: "u:s", uid: "s", ad: "Sahip", yonetici: true };
+  assert.strictEqual(await masa.isle_(misafir, ws, { t: "ceteleSil", id: "a" }), "Çeteleyi sadece oda sahibi silebilir");
+  assert.ok((await masa.isle_(sahip, ws, { t: "ceteleSil", id: "suren" })).startsWith("Süren oyun silinemez"));
+  assert.strictEqual(await masa.isle_(sahip, ws, { t: "ceteleSil", id: "b" }), undefined);
+  assert.deepStrictEqual((await ctx.storage.get("oyunlar")).map((o) => o.id), ["a", "c", "suren"]);
+  assert.strictEqual(await masa.isle_(sahip, ws, { t: "ceteleSil" }), undefined);
+  assert.deepStrictEqual((await ctx.storage.get("oyunlar")).map((o) => o.id), ["suren"]);
+  assert.ok(masa.m.oyun && masa.m.oyun.id === "suren", "süren oyun silindi");
+  console.log("✓ çeteleyi misafir silemedi; oda sahibi tek oyun ve hepsini sildi, süren oyun kaldı");
+}
+
 console.log("\n✓ kural denemesi geçti");

@@ -240,6 +240,19 @@ export class OkeyMasasi {
         m.koltuklar[h] = null;
         return;
       }
+      // Çeteleyi temizleme: sadece oda sahibi (ve yönetici). Tek oyun ({id}) ya da hepsi; süren oyun silinmez.
+      case "ceteleSil": {
+        if (!this.yetkili(ben)) return "Çeteleyi sadece oda sahibi silebilir";
+        const suren = m.oyun && !m.oyun.bitis ? m.oyun.id : null;
+        if (mesaj.id && mesaj.id === suren) return "Süren oyun silinemez; oyun bitince silebilirsin";
+        const oyunlar = (await this.ctx.storage.get("oyunlar")) || [];
+        const kalan = mesaj.id ? oyunlar.filter((o) => o.id !== mesaj.id) : oyunlar.filter((o) => o.id === suren);
+        await this.ctx.storage.put("oyunlar", kalan);
+        // Bitmiş oyun silindiyse masadaki kaydı da gider (çetelede yeniden görünmesin)
+        if (m.oyun && m.oyun.bitis && (!mesaj.id || mesaj.id === m.oyun.id)) m.oyun = null;
+        this.olaylar.push({ tur: "ceteleSilindi" });
+        return;
+      }
       // İşlek gösterme: sıra kimde olursa olsun masada oturan herkes yapabilir
       case "islekGoster":
         if (k < 0) return "Önce masaya otur";

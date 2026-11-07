@@ -1633,9 +1633,9 @@ async function youtubeListesiCek(listeId) {
       sarkilar.push(sarkiKaydi({ videoId: id, baslik: o.snippet.title, kanal: o.snippet.videoOwnerChannelTitle || "" }));
     }
     sayfa = veri.nextPageToken || "";
-  } while (sayfa && sarkilar.length < 200);
+  } while (sayfa && sarkilar.length < 300);
   if (!sarkilar.length) throw new Error("Listede çalınabilir şarkı bulunamadı");
-  return { ad: ad.slice(0, 60), sarkilar };
+  return { ad: ad.slice(0, 60), sarkilar: sarkilar.slice(0, 300) };
 }
 
 // Yer imi düğmesinin kopyaladığı "watch_videos?video_ids=a,b,c&ad=..." linkindeki video kimlikleri

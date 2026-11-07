@@ -530,6 +530,23 @@
 /* ---------- Uçan taş (animasyon) ---------- */
 .ucan-tas { position: fixed; z-index: 999; pointer-events: none; }
 
+.tema-adi { align-self: center; color: #c9d4cc; font-weight: 800; font-size: 14px; margin-right: 6px; }
+
+/* Çetele: oda sahibi oyunları ✕ ile tek tek ya da "Hepsini sil" ile siler */
+.oda-cetelesi .silinir { position: relative; }
+.cetele-sil {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.08); color: #ff8a7a; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer;
+  opacity: .55; transition: opacity .15s ease, background .15s ease;
+}
+.silinir:hover .cetele-sil, .cetele-sil:focus-visible { opacity: 1; }
+.cetele-sil:hover { background: rgba(229,72,77,.3); color: #fff; }
+.cetele-hepsini-sil {
+  float: right; border: 0; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 800;
+  background: rgba(229,72,77,.18); color: #ff8a7a; cursor: pointer;
+}
+.cetele-hepsini-sil:hover { background: rgba(229,72,77,.35); color: #fff; }
+
 /* Kalk onayı: "Hayır" büyük ve kırmızı, "Evet" soluk */
 .okey-tus.kirmizi { background: #e5484d; color: #fff; padding: 12px 34px; font-size: 16px; box-shadow: 0 6px 18px rgba(229,72,77,.4); }
 .okey-tus.kirmizi:hover { background: #f2555a; }

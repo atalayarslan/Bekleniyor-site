@@ -393,8 +393,17 @@
       else liste.replaceChildren(...hepsi.map((o) => {
         const k = OkeyCetele.kart(o, () => { secili = o.id; ciz(); });
         if (o.id === secili) k.classList.add("on");
+        // Oda sahibi oyunları tek tek silebilir (süren oyun hariç)
+        if (yetkili() && !(durum.oyun && o.id === durum.oyun.id && !durum.oyun.bitis)) {
+          k.classList.add("silinir");
+          k.append(h("button", {
+            sinif: "cetele-sil", title: "Bu oyunu çeteleden sil",
+            onclick: (e) => { e.stopPropagation(); if (confirm("Bu oyun çeteleden silinsin mi? Geri alınamaz.")) sil(o.id); }
+          }, "✕"));
+        }
         return k;
       }));
+      hepsiniSil.hidden = !yetkili() || !hepsi.some((o) => !(durum.oyun && o.id === durum.oyun.id && !durum.oyun.bitis));
       const oyun = hepsi.find((o) => o.id === secili);
       ayrinti.replaceChildren(...(oyun ? [OkeyCetele.ciz(oyun)] : []));
     }
@@ -410,11 +419,24 @@
       }
     }
 
+    const yetkili = () => !!(durum && durum.ben.yetkili);
+    function sil(id) {
+      gonder(id ? { t: "ceteleSil", id } : { t: "ceteleSil" });
+      if (id === secili) secili = null;
+      oyunlar = (oyunlar || []).filter((o) => id && o.id !== id);
+      setTimeout(yukle, 600);
+      ciz();
+    }
+    const hepsiniSil = h("button", {
+      sinif: "cetele-hepsini-sil", title: "Odanın bütün okey çetelesini sil (süren oyun kalır)",
+      onclick: () => { if (confirm("Odanın bütün okey çetelesi silinsin mi? Süren oyun kalır. Geri alınamaz.")) sil(null); }
+    }, "🗑 Hepsini sil");
+
     const ad = document.getElementById("odaAdi");
     const zaman = setInterval(() => { if (!liste.isConnected) clearInterval(zaman); else if (!document.hidden) yukle(); }, 20000);
     masa.pencere("Okey çetelesi" + (ad && ad.textContent.trim() ? " · " + ad.textContent.trim() : ""),
       h("div", { sinif: "cetele koyu oda-cetelesi" },
-        h("section", { sinif: "stack oyun-listesi" }, h("h2", { sinif: "sec" }, "Oyunlar"), liste), ayrinti),
+        h("section", { sinif: "stack oyun-listesi" }, h("h2", { sinif: "sec" }, "Oyunlar", hepsiniSil), liste), ayrinti),
       [{ yazi: "Kapat", ana: true }], "tam", () => clearInterval(zaman));
     ciz();
     yukle();
@@ -423,8 +445,10 @@
   const ceteleGoster = ceteleSayfasi;
 
   function temaPaneli() {
-    masa.pencere("Taş ve masa teması", OkeyTema.panel(temaKaydet), [{ yazi: "Kapat", ana: true }], true,
-      () => OkeyTema.uygula(OkeyTema.kayitli()));
+    // Kapat düğmesinin yanında kullanılan temanın adı yazar
+    const adEtiketi = masa.h("span", { sinif: "tema-adi" }, "Tema: " + OkeyTema.kayitli().ad);
+    masa.pencere("Taş ve masa teması", OkeyTema.panel((t) => { temaKaydet(t); adEtiketi.textContent = "Tema: " + t.ad; }),
+      [{ oge: adEtiketi }, { yazi: "Kapat", ana: true }], true, () => OkeyTema.uygula(OkeyTema.kayitli()));
   }
 
   // Giriş yapmışsa tema hesabına da yazılır (her cihazda aynı tema gelsin). Paylaşım koduyla saklanır.

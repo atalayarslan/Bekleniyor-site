@@ -41,11 +41,17 @@ function istatistikBaslat() {
     }
   });
 
+  // Arka plandaki sekmede tarayıcı sayacı yavaşlatır (dakikada bire kadar): süre saniye saymakla değil, geçen gerçek
+  // zamanla eklenir (bilgisayar uykudan dönünce uyuduğu süre sayılmasın diye bir seferde en fazla 2 dk).
+  let sonTik = Date.now();
   setInterval(() => {
-    if (!kullanici) return;
+    const simdi = Date.now();
+    const gecen = Math.min(120, Math.max(0, Math.round((simdi - sonTik) / 1000)));
+    sonTik = simdi;
+    if (!kullanici || !sayanSekmeyim()) return;
     const durum = suankiDurum();
-    if (durum.sitede) birikenSitede++;
-    if (durum.dinleme) birikenDinleme++;
+    if (durum.sitede) birikenSitede += gecen;
+    if (durum.dinleme) birikenDinleme += gecen;
     // Saymaya başlayınca ya da durunca (değişiklik 3 sn sürerse; şarkı bir anlık yüklenirken değil)
     // hemen kaydedilir; başkalarının ekranındaki canlı sayaç doğru kalsın
     const farkli = sonDurum && (durum.sitede !== sonDurum.sitede || durum.dinleme !== sonDurum.dinleme);
@@ -60,10 +66,25 @@ function istatistikBaslat() {
   addEventListener("pagehide", () => istatistikGonder(true));
 }
 
-// Sekme görünürken ya da arka planda müzik çalarken sitede sayılır; müzik çalarken dinlemede
+// Site açık olduğu sürece (sekme arkada ya da pencere küçültülmüş olsa da) sitede sayılır; şarkı çaldıkça dinlemede
+// sayılır (sekme arkada olsa da), sadece ses tamamen kapalıysa durur
 function suankiDurum() {
-  const dinliyor = muzikDinleniyor();
-  return { sitede: document.visibilityState === "visible" || dinliyor, dinleme: dinliyor };
+  return { sitede: true, dinleme: muzikDinleniyor() };
+}
+
+// Aynı tarayıcıda birden çok sekme açıksa süre iki kat sayılmasın: sadece bir sekme sayar. Sayan sekme her saniye
+// tarayıcı hafızasına "buradayım" yazar; 5 sn yazmazsa (kapandıysa) başka sekme devralır.
+const SEKME_KIMLIGI = Math.random().toString(36).slice(2);
+function sayanSekmeyim() {
+  try {
+    const simdi = Date.now();
+    const kayit = JSON.parse(localStorage.getItem("istatistikSekme") || "null");
+    if (kayit && kayit.id !== SEKME_KIMLIGI && simdi - kayit.zaman < 5000) return false;
+    localStorage.setItem("istatistikSekme", JSON.stringify({ id: SEKME_KIMLIGI, zaman: simdi }));
+    return true;
+  } catch (e) {
+    return true;
+  }
 }
 
 let sonDurum = null;          // en son kaydedilen "sayıyor mu" durumu

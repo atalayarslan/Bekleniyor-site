@@ -612,7 +612,7 @@
       const kapat = () => { p.remove(); if (kapaninca) kapaninca(); };
       const p = h("div", { sinif: "okey-pencere", onclick: (e) => e.target === p && kapat() },
         h("div", { sinif: genis === "tam" ? "okey-genis okey-tam" : genis ? "okey-genis" : "" }, h("h3", {}, baslik), govde,
-          h("div", { sinif: "alt-tuslar" }, (tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) =>
+          h("div", { sinif: "alt-tuslar" }, (tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) => t.oge ||   // düğme yerine hazır öğe (ör. tema adı)
             h("button", { sinif: "okey-tus" + (t.ana ? " ana" : "") + (t.sinif ? " " + t.sinif : ""), onclick: () => { kapat(); t.is && t.is(); } }, t.yazi)))));
       kok.append(p);
     }
