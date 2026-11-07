@@ -1,0 +1,11 @@
+name = "bekleniyor-spotify"
+main = "worker.js"
+compatibility_date = "2024-10-01"
+
+[vars]
+SPOTIFY_ID = "9b08a6053e2b4f9a9b31831f41ccc8e1"
+
+# Spotify girişinin yenileme anahtarı burada saklanır (SPOTIFY_SECRET ayrıca gizli değişken)
+[[kv_namespaces]]
+binding = "KV"
+id = "3fa17648450a44f2bb77c96fb5327a67"
