@@ -178,7 +178,7 @@ async function dosyadanListeYukle() {
 function yeniListePenceresi() {
   if (!kullanici) return bildir("Liste için önce Google ile giriş yap");
   const adKutusu = el("input", { className: "metin-kutusu", maxLength: 60, placeholder: "Liste adı (linkten de alınabilir)" });
-  const linkKutusu = el("input", { className: "metin-kutusu", maxLength: 4000, placeholder: "YouTube ya da Spotify liste / albüm linki" });
+  const linkKutusu = el("input", { className: "metin-kutusu", maxLength: 100000, placeholder: "YouTube / Spotify linki ya da kopyalanan Spotify şarkıları" });
   const durum = el("p", { className: "not" });
   let calisiyor = false;
   const olustur = async () => {
@@ -196,7 +196,10 @@ function yeniListePenceresi() {
       let bilgi;
       const idler = youtubeIdListesiBul(link);
       const ytListe = youtubeListeIdBul(link);
-      if (idler) bilgi = await youtubeVideolariCek(idler, kopyaListeAdi(link));
+      const parcalar = spotifyParcaIdleri(link);
+      if (parcalar.length > 1) {
+        bilgi = await spotifyParcalariCek(parcalar, (n, top) => { durum.textContent = "Şarkılar okunuyor… " + n + " / " + top; });
+      } else if (idler) bilgi = await youtubeVideolariCek(idler, kopyaListeAdi(link));
       else if (ytListe) bilgi = await youtubeListesiCek(ytListe);
       else if (/open\.spotify\.com\/(intl-[\w-]+\/)?(playlist|album|track)\//.test(link)) bilgi = await spotifyListesiCek(link);
       else throw new Error("Bu bir YouTube ya da Spotify liste linki değil.");
@@ -212,7 +215,8 @@ function yeniListePenceresi() {
   pencereAc("Yeni liste", [
     el("label", { className: "alan" }, "Liste adı", adKutusu),
     el("label", { className: "alan" }, "Liste linki (isteğe bağlı)", linkKutusu),
-    el("p", { className: "not" }, "Spotify listesindeki şarkılar ilk çalındıklarında YouTube'da bulunur. Spotify ve YouTube listelerinden 300 şarkıya kadar alınır (Spotify'ın kendi hazırladığı listelerde ilk 100)."),
+    el("p", { className: "not" }, "Spotify listesindeki şarkılar ilk çalındıklarında YouTube'da bulunur. YouTube listelerinden 300 şarkıya kadar alınır. Spotify linkiyle başkasının listesinden ilk 100 şarkı gelir."),
+    el("p", { className: "not" }, el("b", {}, "Spotify listesinin tamamı için (500 şarkıya kadar): "), "bilgisayardaki Spotify uygulamasında listede bir şarkıya tıkla, ", el("b", {}, "Ctrl+A"), " sonra ", el("b", {}, "Ctrl+C"), " yap; buradaki link kutusuna ", el("b", {}, "Ctrl+V"), " ile yapıştır."),
     el("button", { type: "button", className: "tus-kucuk", onclick: yerImiPenceresi }, "🔖 YouTube'daki listeyi birebir kopyala"),
     durum
   ], [

@@ -1702,6 +1702,45 @@ async function spotifyListesiCek(link) {
   return { ad: String(veri.ad || "Spotify listesi").slice(0, 60), sarkilar };
 }
 
+// Spotify uygulamasında Ctrl+A / Ctrl+C ile kopyalanan şarkı linkleri (ya da spotify:track: adresleri).
+// Listenin sahibi önemli değil; şarkılar aracıda 40'arlı gruplar halinde tanınır.
+const SPOTIFY_YAPISTIRMA_SINIRI = 500;
+function spotifyParcaIdleri(metin) {
+  const idler = [...String(metin).matchAll(/(?:open\.spotify\.com\/(?:intl-[\w-]+\/)?track\/|spotify:track:)([A-Za-z0-9]{22})/g)].map((e) => e[1]);
+  return [...new Set(idler)];
+}
+async function spotifyParcalariCek(idler, ilerleme) {
+  if (!AYARLAR.spotifyAraci) throw new Error("Spotify aracısı tanımlı değil (config.js).");
+  idler = idler.slice(0, SPOTIFY_YAPISTIRMA_SINIRI);
+  const gruplar = [];
+  for (let i = 0; i < idler.length; i += 40) gruplar.push(idler.slice(i, i + 40));
+  const sonuclar = new Array(gruplar.length);
+  let biten = 0;
+  // Aynı anda 3 grup: hızlı ama aracıyı boğmadan
+  let sira = 0;
+  const isci = async () => {
+    while (sira < gruplar.length) {
+      const g = sira++;
+      try {
+        const veri = await (await fetch(AYARLAR.spotifyAraci + "?parcalar=" + gruplar[g].join(","))).json();
+        sonuclar[g] = veri.sarkilar || [];
+      } catch (e) {
+        sonuclar[g] = [];
+      }
+      biten++;
+      if (ilerleme) ilerleme(Math.min(idler.length, biten * 40), idler.length);
+    }
+  };
+  await Promise.all([isci(), isci(), isci()]);
+  const sarkilar = sonuclar.flat().filter((s) => s && s.baslik).map((s) => sarkiKaydi({
+    baslik: s.baslik,
+    kanal: s.sanatci,
+    arama: (s.sanatci ? s.sanatci.split(",")[0].trim() + " - " : "") + s.baslik
+  }));
+  if (!sarkilar.length) throw new Error("Yapıştırılan Spotify şarkıları okunamadı, biraz sonra tekrar dene.");
+  return { ad: "Spotify listesi", sarkilar };
+}
+
 async function aramaYap(metin) {
   const not = $("aramaNotu");
   not.textContent = "Aranıyor…";

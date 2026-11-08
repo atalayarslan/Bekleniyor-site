@@ -6,7 +6,7 @@
 //                                            (yoksa ""); şarkıyı firma yüklediyse bile asıl sanatçı
 // Yanıt: { tur, ad, sarkilar: [{ baslik, sanatci, sure?, videoId? }] }  /  { sanatcilar: { id: "Sanatçı" } }
 // Not: Cloudflare'in hızlı editöründe yazıldığı için girintisiz tutuldu.
-const IZINLI = ["https://atalayarslan.github.io", "http://localhost:8000"];
+const IZINLI = ["https://atalayarslan.github.io", "http://localhost:8000", "http://localhost:8002"];
 const TARAYICI = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 // YouTube'un izleme sayfasındaki "Bu videodaki müzik" kartı: videoAttributeViewModel { title: şarkı, subtitle: sanatçı }
 async function muzikSanatcisi(id) {
@@ -92,6 +92,29 @@ await env.KV.put("yenileme", j.refresh_token);
 spotifyJeton = null;
 return sayfaYaz("✅ Spotify bağlandı. Bu sekmeyi kapatabilirsin.");
 } catch (h) { return sayfaYaz("Bağlanamadı: " + String(h.message).replace(/[<>&]/g, "")); }
+}
+// ?parcalar=<id1,id2,... en fazla 40>: Spotify uygulamasında Ctrl+A/Ctrl+C ile kopyalanan şarkı linkleri.
+// Her şarkı tek tek okunur (Cloudflare'in istek başına 50 alt istek sınırı yüzünden en fazla 40).
+const parcalar = p.get("parcalar") || "";
+if (parcalar) {
+const idler = [...new Set(parcalar.split(",").filter((id) => /^[A-Za-z0-9]{22}$/.test(id)))].slice(0, 40);
+if (!idler.length) return yanitla({ hata: "Gecersiz Spotify sarki kimligi." }, 400);
+let erisim = null;
+try { erisim = await spotifyErisim(env); } catch (h) { }
+const sonuc = {};
+await Promise.all(idler.map(async (id) => {
+try {
+if (erisim) {
+const y = await fetch("https://api.spotify.com/v1/tracks/" + id + "?market=TR", { headers: { "Authorization": "Bearer " + erisim.deger } });
+if (y.ok) { const s = await y.json(); sonuc[id] = { baslik: s.name, sanatci: (s.artists || []).map((a) => a.name).join(", "), sure: Math.round((s.duration_ms || 0) / 1000) }; return; }
+}
+const g = await fetch("https://open.spotify.com/embed/track/" + id, { headers: { "User-Agent": TARAYICI }, cf: { cacheTtl: 86400, cacheEverything: true } });
+const v = (await g.text()).match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+const x = JSON.parse(v[1]).props.pageProps.state.data.entity;
+sonuc[id] = { baslik: x.name, sanatci: (x.artists || []).map((a) => a.name).join(", "), sure: Math.round((x.duration || 0) / 1000) };
+} catch (h) { }
+}));
+return new Response(JSON.stringify({ sarkilar: idler.filter((id) => sonuc[id] && sonuc[id].baslik).map((id) => sonuc[id]) }), { headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
 }
 const sanatci = p.get("sanatci") || "";
 if (sanatci) {
