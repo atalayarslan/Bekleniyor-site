@@ -257,6 +257,7 @@
     rotate(calc(var(--k) * var(--dx) * -2deg));
   transition-delay: calc(var(--k) * 28ms);
 }
+.atilan.kapali .tas, .atilan.kapali:hover .tas { transform: none; }   /* masa ayarı: önceki taşlar görünmez, en üstteki örter */
 .okey-surukleme .atilan:hover .tas {           /* taş sürüklerken yığın açılmasın */
   transform: translate(calc(var(--k) * -1px), calc(var(--k) * -1.2px)) rotate(calc(var(--k) * -2.5deg));
 }

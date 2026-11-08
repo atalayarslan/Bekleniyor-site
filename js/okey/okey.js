@@ -23,7 +23,7 @@
 
   let tus = null, kok = null, masa = null, ws = null, durum = null;
   let acik = false, yeniden = 0, ofset = 0, sureZamani = null;
-  let yuvalar = Array(YUVA).fill(null), elAnahtari = null, yeniId = null, isleHepsiSuruyor = false;
+  let yuvalar = Array(YUVA).fill(null), elAnahtari = null, yeniId = null;
   let kuyruk = Promise.resolve();   // olay animasyonları sırayla oynar, sonra durum çizilir
 
   const benimKoltugum = () => (durum ? durum.ben.koltuk : -1);
@@ -82,14 +82,13 @@
   }
 
   function mesajAl(m) {
-    if (m.t === "hata") { isleHepsiSuruyor = false; if (masa) masa.bildir(m.metin); return; }
+    if (m.t === "hata") { if (masa) masa.bildir(m.metin); return; }
     if (m.t !== "guncel") return;
     kuyruk = kuyruk.then(() => olaylariOynat(m.olaylar || [])).then(() => {
       durum = m.durum;
       ofset = durum.sunucuZamani - Date.now();
       dugmeyiGuncelle();
       uygula();
-      if (isleHepsiSuruyor) isleSiradaki();
       for (const o of m.olaylar || []) if (o.tur === "elBitti") sonucuGoster(o.baslik);
     }).catch(() => { });
   }
@@ -236,23 +235,6 @@
     gonder({ t: "ac", gruplar: gruplar.map((g) => g.map((t) => t.id)) });
   }
 
-  function islenebilirler() {
-    const E = durum && durum.el;
-    if (!E || E.bitti || !oturuyorum() || E.sira !== benimKoltugum() || E.asama !== "at" || !E.acti[benimKoltugum()]) return [];
-    const a = ayar();
-    return benimTaslarim().filter((t) => !K.okeyMi(t, E.okey)).map((t) => {
-      const i = E.perler.findIndex((p) => K.okeyDegistir(p, t, E.okey, a) || K.isle(p, t, E.okey, a));
-      return i >= 0 ? { tas: t, per: i } : null;
-    }).filter(Boolean);
-  }
-
-  // İşle düğmesi: işlenebilenler sırayla gönderilir; her cevaptan sonra yenisi (zincirleme) aranır, bir taş elde kalır
-  function isleSiradaki() {
-    const aday = islenebilirler()[0];
-    if (!aday || benimTaslarim().length <= 1) { isleHepsiSuruyor = false; return; }
-    gonder({ t: "isle", id: aday.tas.id, per: aday.per });
-  }
-
   function istakadakiPerler() {
     const E = durum.el;
     const a = ayar();
@@ -290,7 +272,7 @@
     const yanci = durum.ben.yanci;
     let benim;
     if (!izleyici) {
-      benim = { yuvalar, yandanId: E && E.yandanId, yeniId, perler: E ? istakadakiPerler() : [], islenebilir: new Set(islenebilirler().map((x) => x.tas.id)) };
+      benim = { yuvalar, yandanId: E && E.yandanId, yeniId, perler: E ? istakadakiPerler() : [] };
     } else if (yanci != null && E && E.taslar) {
       benim = { yuvalar: K.istakayaYerlestir(K.seriDiz(E.taslar, E.okey), YUVA, SATIR), saltOkunur: true, donulebilir: true,
         yanciBandi: "Yancısın · " + ad(yanci) + " · onun taşlarını görüyorsun" };
@@ -323,6 +305,7 @@
       sure: kalanSure(), izleyici, izlenen: yanci != null ? gorunen(yanci) : null, botEkle: oturuyorum(),
       koltukDegisir: oturuyorum() && !elVar && !(durum.oyun && !durum.oyun.bitis),
       atilanlar: [0, 1, 2, 3].map((v) => (E ? E.atilanlar[sunucudaki(v)] : [])),
+      atilanlarGorunur: !durum.ayar || durum.ayar.atilanlarGorunur !== false,
       perler: E ? E.perler.map((p) => Object.assign({}, p, { sahip: gorunen(p.sahip) })) : [],
       // İşlek gösterme: başkasının son attığı taş (kendi attığımı gösteremem); gösterilip kilitlenen taşlar
       gosterilebilir: E && E.sonAtilan && oturuyorum() && E.sonAtilan.atan !== k && E.perler.length
@@ -332,8 +315,7 @@
       acilis: a && (a.acti ? { acti: true, yeniPer: a.yeniPer } : a),
       tuslar: {
         ac: { etkin: benSiram && E.asama === "at" && a && (a.acti ? a.yeniPer : a.seriOlur || a.ciftOlur), yazi: E && E.acti[k] ? "Per koy" : "El aç",
-          ipucu: "Istakada yan yana dizdiğin geçerli perler masaya konur" },
-        isle: oturuyorum() && E && E.acti[k] ? { sayi: islenebilirler().length } : null
+          ipucu: "Istakada yan yana dizdiğin geçerli perler masaya konur" }
       },
       koltuklar, ekTuslar, benim
     });
@@ -480,11 +462,15 @@
       [5, 7, 9, 11, 15, 21, 0].map((n) => h("option", { value: n, selected: a.elSayisi === n ? "" : null }, n ? n + " el" : "Sınırsız")));
     const sureSec = h("select", { disabled: !durum.ben.yetkili, onchange: (e) => gonder({ t: "ayar", sure: Number(e.target.value) }) },
       [15, 20, 30, 45, 60, 90, 120].map((n) => h("option", { value: n, selected: a.sure === n ? "" : null }, n + " saniye")));
+    const atilanSec = h("select", { onchange: (e) => gonder({ t: "ayar", atilanlarGorunur: e.target.value === "acik" }) },
+      h("option", { value: "acik", selected: a.atilanlarGorunur !== false ? "" : null }, "Açık (üstüne gelince hepsi görünür)"),
+      h("option", { value: "kapali", selected: a.atilanlarGorunur === false ? "" : null }, "Kapalı (sadece en üstteki)"));
     const satir = (etiket, oge, not) => h("label", { sinif: "tema-alan", stil: { marginBottom: "10px" } }, h("span", {}, etiket), oge, not ? h("small", { stil: { color: "#93a59a", fontWeight: 600 } }, not) : null);
     masa.pencere("Masa ayarları", h("div", { sinif: "tema-paneli" },
       satir("Oyun türü", turSec, oyunSuruyor ? "Oyun sürerken değişmez" : "Masayı kuran seçer"),
       satir("Bir oyun kaç el", elSec, oyunSuruyor ? "Oyun sürerken değişmez" : null),
-      satir("Tur süresi", sureSec, durum.ben.yetkili ? "Oda sahibi değiştirir; sonraki turdan geçerli" : "Sadece oda sahibi değiştirebilir")));
+      satir("Tur süresi", sureSec, durum.ben.yetkili ? "Oda sahibi değiştirir; sonraki turdan geçerli" : "Sadece oda sahibi değiştirebilir"),
+      satir("Yanlarda atılan taşları görme", atilanSec, "Masadaki herkes için geçerli, hemen değişir")));
   }
 
   function kurallariGoster() {
@@ -516,11 +502,6 @@
     ac,
     isle: (id, per) => gonder({ t: "isle", id, per }),
     islekGoster: (per) => gonder({ t: "islekGoster", per }),
-    isleHepsi: () => {
-      if (!islenebilirler().length) return masa.bildir("İşlenecek taş yok");
-      isleHepsiSuruyor = true;
-      isleSiradaki();
-    },
     seriDiz: () => { if (oturuyorum() && durum.el) { yuvalar = K.istakayaYerlestir(K.seriDiz(benimTaslarim(), durum.el.okey), YUVA, SATIR); uygula(); } },
     ciftDiz: () => { if (oturuyorum() && durum.el) { yuvalar = K.istakayaYerlestir(K.ciftDiz(benimTaslarim(), durum.el.okey, gostergeIcin(durum.el)), YUVA, SATIR); uygula(); } },
     yanciOl: (v) => { const s = sunucudaki(v); gonder({ t: "yanci", koltuk: durum.ben.yanci === s ? null : s }); },

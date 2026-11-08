@@ -3,7 +3,7 @@
 // taşları). Kurallar sitedeki motorla aynı dosyadan gelir (js/okey/kurallar.js). Ayrıntılar: Okey/KURALLAR.md
 //
 // İstemci → sunucu: { t: "merhaba", kart?, misafir?: { id, ad }, ad?, foto? }   (ilk mesaj; kart = Firebase ID token)
-//   "otur" {koltuk} · "kalk" · "yanci" {koltuk|null} · "ayar" {esli?, elSayisi?, sure?} · "basla" · "sonraki"
+//   "otur" {koltuk} · "kalk" · "yanci" {koltuk|null} · "ayar" {esli?, elSayisi?, sure?, atilanlarGorunur?} · "basla" · "sonraki"
 //   "bot" {koltuk} · "botCikar" {koltuk}   (masada oturan boş koltuğa bot koyar; bot sunucuda oynar)
 //   "cek" · "soldanAl" · "geriBirak" · "at" {id} · "ac" {gruplar: [[id]]} · "isle" {id, per}
 // Sunucu → istemci: { t: "guncel", olaylar: [...], durum: {...} } (kişiye özel) · { t: "hata", metin }
@@ -18,7 +18,7 @@ const BOT_BEKLEME = 1600;            // botun sırası gelince oynamadan önce b
 const BOT_ADLARI = ["Bot Ayşe", "Bot Mehmet", "Bot Zeynep", "Bot Can"];
 
 const yeniMasa = () => ({
-  oda: null, ayar: { esli: false, elSayisi: 11, sure: 30 }, kurucu: null,
+  oda: null, ayar: { esli: false, elSayisi: 11, sure: 30, atilanlarGorunur: true }, kurucu: null,
   koltuklar: [null, null, null, null], oyun: null, el: null, baslayan: 0
 });
 const temizAd = (s, v) => String(s || v).replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 24) || v;
@@ -276,6 +276,11 @@ export class OkeyMasasi {
           if (m.oyun && !m.oyun.bitis) return "Oyun sürerken değiştirilemez";
           if ("esli" in mesaj) m.ayar.esli = !!mesaj.esli;
           if ("elSayisi" in mesaj) m.ayar.elSayisi = Math.max(0, Math.min(99, Math.round(Number(mesaj.elSayisi) || 0)));
+        }
+        // Yandaki yığınlarda daha önce atılan taşlar görülsün mü (kapalıysa yalnız en üstteki görünür)
+        if ("atilanlarGorunur" in mesaj) {
+          if (!kurucuMu && !this.yetkili(ben)) return "Bunu masayı kuran seçer";
+          m.ayar.atilanlarGorunur = !!mesaj.atilanlarGorunur;
         }
         return;
       }

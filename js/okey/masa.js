@@ -258,8 +258,9 @@
       kutu.classList.toggle("alinabilir", !!alinabilir);
       kutu.classList.toggle("parlak", !!alinabilir);
       kutu.classList.toggle("acik", !!atabilirim);
+      kutu.classList.toggle("kapali", g.atilanlarGorunur === false);
       kutu.title = (k === 3 ? "Soldan al (o tur açmak zorundasın)" : k === 0 ? "Atmak için taşı buraya bırak" : "") +
-        (yigin.length > 1 ? (k === 0 || k === 3 ? " · " : "") + "Üstüne gel: atılan " + yigin.length + " taşı gör" : "");
+        (yigin.length > 1 && g.atilanlarGorunur !== false ?(k === 0 || k === 3 ? " · " : "") + "Üstüne gel: atılan " + yigin.length + " taşı gör" : "");
 
       let ipucu = kutu.querySelector(".atilan-ipucu");
       if (atabilirim && !yigin.length && !ipucu) kutu.prepend(ipucu = h("div", { sinif: "atilan-ipucu" }, "Atmak için taşı buraya bırak"));
@@ -375,10 +376,8 @@
           const tas = b.yuvalar[i];
           if (tas) {
             const oge = tasOgesi(tas, okey, {
-              sinif: [tas.id === b.yandanId && "yandan", tas.id === b.yeniId && tas.id !== sekenId && "yeni",
-                b.islenebilir && b.islenebilir.has(tas.id) && "islenebilir"].filter(Boolean).join(" ")
+              sinif: [tas.id === b.yandanId && "yandan", tas.id === b.yeniId && tas.id !== sekenId && "yeni"].filter(Boolean).join(" ")
             });
-            if (oge.classList.contains("islenebilir")) oge.title += " · masadaki bir pere işlenebilir";
             if (yatiklar.has(tas.id)) oge.classList.add("yatik");
             if (tas.id === surukleneId) oge.classList.add("hayalet");
             if (!b.saltOkunur) {
@@ -420,12 +419,8 @@
               "Seri ", h("b", { sinif: a.seri >= a.seriBaraj ? "tamam" : "" }, String(a.seri)), " / " + a.seriBaraj,
               "  ·  Çift ", h("b", { sinif: a.cift >= a.ciftBaraj ? "tamam" : "" }, String(a.cift)), " / " + a.ciftBaraj
             ]) : null,
-          h("button", { sinif: "okey-tus ana", disabled: !g.tuslar.ac.etkin, title: g.tuslar.ac.ipucu || "", onclick: olaylar.ac }, g.tuslar.ac.yazi),
-          // İşle: işlenebilen taşları masadaki perlere işler (taşı pere sürükleyerek de olur)
-          g.tuslar.isle ? h("button", {
-            sinif: "okey-tus" + (g.tuslar.isle.sayi ? " ana" : ""), onclick: olaylar.isleHepsi,
-            title: "İşlenebilen taşları masadaki perlere işler (bir taş elde kalır). Taşı pere sürükleyerek de işleyebilirsin."
-          }, "İşle" + (g.tuslar.isle.sayi ? " (" + g.tuslar.isle.sayi + ")" : "")) : null
+          // İşleme yalnız taşı pere sürükleyerek yapılır; hangi taşın işlenebildiği gösterilmez (işlek taşı oyuncu kendisi fark etmeli)
+          h("button", { sinif: "okey-tus ana", disabled: !g.tuslar.ac.etkin, title: g.tuslar.ac.ipucu || "", onclick: olaylar.ac }, g.tuslar.ac.yazi)
         ].filter(Boolean));
       }
       return h("div", { sinif: "istaka-alani" }, istaka, bant);
