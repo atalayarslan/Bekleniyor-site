@@ -311,6 +311,62 @@ a {
   height: 1.1rem;
 }
 
+/* ---------- Giriş kapısı: Google girişi yapılana kadar sitenin tek görünen ekranı ---------- */
+.giris-kapisi {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: radial-gradient(circle at 50% 35%, #12301f 0%, #050806 70%);
+  color: #fff;
+  font-family: 'Nunito', Arial, sans-serif;
+}
+
+.giris-kapisi[hidden] {
+  display: none;
+}
+
+.giris-karti {
+  width: min(380px, 100%);
+  padding: 2rem 1.6rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.giris-logo {
+  font-family: 'Pacifico', cursive;
+  font-size: 2.2rem;
+  color: var(--vurgu);
+  margin-bottom: 0.6rem;
+}
+
+.giris-karti p {
+  margin: 0 0 1.2rem;
+  line-height: 1.5;
+}
+
+#girisKapisiTus {
+  display: flex;
+  justify-content: center;
+}
+
+#girisKapisiTus .google-tus {
+  padding: 0.75rem 1.4rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.giris-karti .giris-not {
+  margin: 1.1rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* ---------- Lobi ---------- */
 
 .lobi {

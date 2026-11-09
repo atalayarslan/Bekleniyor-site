@@ -11,6 +11,7 @@
 #   /hazirla?v=<kimlik>&tur=video|ses        -> şarkıyı önceden indirir
 #            &kismi=1  sadece başını (sıradaki şarkılar)   &bekle=1  çalmaya hazır olunca cevap verir
 #   /olay  (POST, JSON)                      -> sitedeki dinleyicilerin tarayıcılarında olanlar günlüğe yazılır
+# /akis, /hazirla ve /olay ayrıca &a=<erişim anahtarı> ister (aşağıda ANAHTAR).
 # Başka hiçbir dosyaya ya da adrese erişmez. Sadece 127.0.0.1'de dinler; dışarıya Cloudflare
 # tüneliyle açılır (baslat.bat).
 #
@@ -21,11 +22,13 @@
 # Dosya 2 MB olunca yenisine geçilir, en fazla 10 eski dosya saklanır (toplam ~22 MB).
 
 import hashlib
+import hmac
 import json
 import logging
 import logging.handlers
 import os
 import re
+import secrets
 import sys
 import threading
 import time
@@ -44,6 +47,10 @@ ONBELLEK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "onbellek") 
 ONBELLEK_SINIRI = 800 * 1024 * 1024  # önbellek bunu geçince en eski şarkılar silinir
 IZINLI = ("https://atalayarslan.github.io", "http://localhost:8000")
 KIMLIK = re.compile(r"^[A-Za-z0-9_-]{11}$")
+# Erişim anahtarı: baslat.ps1 her açılışta rastgele üretir ve siteye bildirir; site onu Firebase'de (sadece Google
+# girişli kişilerin okuyabildiği yerde) saklar. /akis, /hazirla ve /olay istekleri ?a=<anahtar> taşımazsa reddedilir;
+# böylece tünel adresini bir şekilde öğrenen yabancılar sunucuyu kullanamaz. Verilmezse rastgele üretilir.
+ANAHTAR = os.environ.get("BEKLENIYOR_ANAHTAR") or secrets.token_urlsafe(24)
 # video: görüntü+ses birlikte (YouTube bunu en fazla 360p verir; yedek olarak kullanılır)
 # video720: sadece görüntü, 720p (sesi "ses" akışından gelir, site ikisini birlikte çalar)
 # ses: sadece ses (telefonlar ve 720p görüntünün sesi)
@@ -425,10 +432,20 @@ class Isleyici(BaseHTTPRequestHandler):
                 return any(deger == i or deger.startswith(i + "/") for i in IZINLI)
         return True
 
-    def reddet(self):
+    def anahtar_dogru(self):
+        verilen = (urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("a") or [""])[0]
+        return hmac.compare_digest(verilen.encode(), ANAHTAR.encode())
+
+    def gizli_yol(self):
+        # Günlüğe erişim anahtarı yazılmaz
+        return re.sub(r"([?&]a=)[^&]*", r"\1***", self.path)[:120]
+
+    def reddet(self, sebep="başka siteden gelen istek reddedildi"):
         say("hata")
-        log("istek", "başka siteden gelen istek reddedildi", yol=self.path[:120],
+        log("istek", sebep, yol=self.gizli_yol(),
             kaynak=self.headers.get("Origin") or self.headers.get("Referer"), istemci=self.istemci())
+        # Okunmamış istek gövdesi (POST) aynı bağlantıdaki sonraki isteği bozmasın
+        self.close_connection = True
         return self.yanitla(403, {"hata": "izin yok"})
 
     def do_GET(self):
@@ -443,10 +460,12 @@ class Isleyici(BaseHTTPRequestHandler):
             return self.yanitla(404, {"hata": "yok"})
         if not self.izinli_mi():
             return self.reddet()
+        if not self.anahtar_dogru():
+            return self.reddet("erişim anahtarı olmayan istek reddedildi")
         kimlik = (sorgu.get("v") or [""])[0]
         tur = (sorgu.get("tur") or ["video"])[0]
         if not KIMLIK.match(kimlik) or tur not in BICIM:
-            log("istek", "geçersiz istek", yol=self.path[:120], istemci=self.istemci())
+            log("istek", "geçersiz istek", yol=self.gizli_yol(), istemci=self.istemci())
             return self.yanitla(400, {"hata": "geçersiz istek"})
         if adres.path == "/hazirla":
             # kismi=1: sadece başını indir (sıradaki şarkılar). bekle=1: çalmaya yetecek kadarı inene kadar
@@ -568,6 +587,8 @@ class Isleyici(BaseHTTPRequestHandler):
             return self.yanitla(404, {"hata": "yok"})
         if not self.izinli_mi():
             return self.reddet()
+        if not self.anahtar_dogru():
+            return self.reddet("erişim anahtarı olmayan istek reddedildi")
         uzunluk = int(self.headers.get("Content-Length") or 0)
         if uzunluk <= 0 or uzunluk > 4096:
             return self.yanitla(413, {"hata": "çok büyük"})

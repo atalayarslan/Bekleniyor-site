@@ -260,7 +260,7 @@ async function sanatcilariGetir() {
   if (sanatciKuyrugu.size) sanatciZamanlayici = setTimeout(sanatcilariGetir, 300);
   let veri = null;
   try {
-    veri = await (await fetch(AYARLAR.spotifyAraci + "?sanatci=" + idler.join(","))).json();
+    veri = await (await araciIstegi("sanatci=" + idler.join(","))).json();
   } catch (e) { }
   // Aracı bu özelliği bilmiyorsa (eski sürüm) ya da ulaşılamadıysa sonuç saklanmaz; 10 dk sonra tekrar sorulur
   if (!veri || !veri.sanatcilar) {
@@ -459,7 +459,42 @@ function firebaseBaslat() {
   }
 }
 
+// Site sadece Google hesabıyla (doğrulanmış e-postalı) girenlere açık. Firebase kuralları ve sunucular da aynı
+// şeyi ister; buradaki kontrol sadece ekranın doğru açılması için (asıl koruma kurallarda ve sunucularda).
+function googleHesabiMi(k) {
+  if (!k) return false;
+  const yerelDeneme = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !k.providerData;
+  return yerelDeneme || (k.emailVerified === true && (k.providerData || []).some((p) => p && p.providerId === "google.com"));
+}
+
+function googleGirisli() {
+  return googleHesabiMi(kullanici);
+}
+
+// Sonradan eklenen oturum dinleyicilerine (site giriş yapılınca başlatılır) şu anki durum bir kez daha bildirilir
+function oturumuYenidenBildir() {
+  oturumDinleyicileri.forEach((fn) => fn(kullanici));
+}
+
+// Sunuculara (Spotify aracısı, okey) giden isteklerde kim olduğunu kanıtlayan Firebase kimlik kartı
+async function kimlikKarti() {
+  if (!kullanici || !kullanici.getIdToken) return null;
+  try { return await kullanici.getIdToken(); } catch (e) { return null; }
+}
+
+// Spotify/YouTube aracısına istek: kimlik kartı başlıkta gider (aracı kartsız isteği reddeder)
+async function araciIstegi(sorgu) {
+  const kart = await kimlikKarti();
+  if (!kart) throw new Error("Önce Google hesabınla giriş yap.");
+  return fetch(AYARLAR.spotifyAraci + "?" + sorgu, { headers: { "Authorization": "Bearer " + kart } });
+}
+
 async function oturumDegisti(k) {
+  if (k && !googleHesabiMi(k)) {
+    // Google dışı (ya da e-postası doğrulanmamış) hesap: site açılmaz
+    try { await auth.signOut(); } catch (e) { }
+    k = null;
+  }
   kullanici = k;
   yonetici = false;
   yasakli = false;

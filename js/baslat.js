@@ -1,28 +1,50 @@
-// Sayfa açılışı: ?oda=... varsa odayı, yoksa lobiyi gösterir.
+// Sayfa açılışı: önce Google girişi istenir (giriş kapısı). Giriş yapılınca ?oda=... varsa oda, yoksa lobi açılır.
+// Girişten önce hiçbir veri okunmaz ve hiçbir şey başlatılmaz; çıkış yapılınca sayfa yenilenip kapıya dönülür.
 
 (function () {
+  if (new URLSearchParams(location.search).has("tani")) taniModunuAc();
+  yeniSurumuDenetle();
   const sorun = firebaseBaslat();
+  if (sorun) return girisKapisiniGoster(sorun);
+  let basladi = false;
+  oturumDegisince(() => {
+    if (googleGirisli()) {
+      $("girisKapisi").hidden = true;
+      if (!basladi) {
+        basladi = true;
+        siteyiBaslat();
+      }
+    } else if (basladi) {
+      // Çıkış yapıldı: açık kalan hiçbir dinleyici/görüntü kalmasın
+      location.reload();
+    } else {
+      girisKapisiniGoster();
+    }
+  });
+})();
+
+function girisKapisiniGoster(sorun) {
+  $("girisKapisi").hidden = false;
+  $("girisKapisiYazi").textContent = sorun || "Bekleniyor'a girmek için Google hesabınla giriş yap.";
+  $("girisKapisiTus").replaceChildren(sorun ? "" : googleTusu("Google ile giriş yap"));
+  $("girisKapisiNot").textContent = sorun ? "" : "Sadece Google hesabıyla girilebilir. Giriş yapmadan site görünmez.";
+}
+
+function siteyiBaslat() {
   const istenenOda = new URLSearchParams(location.search).get("oda");
-
   oturumDegisince(() => { if (yonetici) anaOdayiHazirla(); });
-
   if (istenenOda && gecerliOdaId(istenenOda)) {
     odayiBaslat(istenenOda);
-    if (sorun) {
-      $("kurulumUyarisi").textContent = sorun;
-      $("kurulumUyarisi").hidden = false;
-    }
   } else {
     lobiyiBaslat();
     siralamayiBaslat();
-    if (sorun) bildir(sorun);
   }
   istatistikBaslat();
   akisAdresiniKaydet();
   oturumRozetleriniCiz();
-  if (new URLSearchParams(location.search).has("tani")) taniModunuAc();
-  yeniSurumuDenetle();
-})();
+  // Şimdi eklenen dinleyiciler giriş bilgisini alsın
+  oturumuYenidenBildir();
+}
 
 // GitHub Pages sayfayı tarayıcıda 10 dk saklatıyor; güncellemeden sonra yenileyen eski sürümü görebiliyor.
 // Ara ara sayfanın en yeni hâli önbelleksiz okunur, içindeki ?v=N bizimkinden büyükse üstte
@@ -59,16 +81,20 @@ function yeniSurumuDenetle() {
 
 // Reklamsız akış sunucusu açılınca ("Bekleniyor akışı başlat.bat") yöneticinin tarayıcısında
 // ?akis=<tünel adresi> ile site açılır; adres Firebase'e yazılır ve bütün odalar onu kullanır.
+// Erişim anahtarı (&anahtar=) de birlikte saklanır; akış sunucusu anahtarsız isteği reddeder.
 function akisAdresiniKaydet() {
-  const adres = new URLSearchParams(location.search).get("akis");
+  const p = new URLSearchParams(location.search);
+  const adres = p.get("akis");
+  const anahtar = p.get("anahtar") || "";
   if (!adres || !db) return;
   if (!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(adres)) return bildir("Akış sunucusu adresi geçersiz");
+  if (!/^[A-Za-z0-9_-]{20,64}$/.test(anahtar)) return bildir("Akış sunucusu eski sürüm: pencereyi kapatıp 'Bekleniyor akışı başlat'ı yeniden aç");
   let bitti = false;
   oturumDegisince(() => {
     if (bitti) return;
     if (!kullanici || !yonetici) return bildir("Akış sunucusunu açmak için yönetici hesabıyla Google'dan giriş yap");
     bitti = true;
-    db.ref("ayarlar/akis").set({ adres, zaman: firebase.database.ServerValue.TIMESTAMP }).then(() => {
+    db.ref("ayarlar/akis").set({ adres, anahtar, zaman: firebase.database.ServerValue.TIMESTAMP }).then(() => {
       bildir("Reklamsız akış açıldı ✓ Odalarda şarkılar artık reklamsız çalacak");
       history.replaceState(null, "", location.pathname);
     }).catch((e) => bildir("Akış adresi kaydedilemedi: " + e.message));

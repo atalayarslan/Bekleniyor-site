@@ -14,7 +14,7 @@ const ctx = {
   getWebSockets: () => [],
   blockConcurrencyWhile: (f) => f()
 };
-const masa = new OkeyMasasi(ctx, {});
+const masa = new OkeyMasasi(ctx, { MISAFIR_IZNI: "1" });   // yerel deneme: misafir kimliği kabul edilir
 await new Promise((r) => setTimeout(r, 10));
 masa.m.ayar.elSayisi = 0;
 masa.m.koltuklar = [0, 1, 2, 3].map((h) => ({ kim: "bot:" + h, ad: "Bot " + h, foto: "", ayrildi: null, bot: true }));

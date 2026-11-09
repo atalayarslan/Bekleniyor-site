@@ -5,7 +5,11 @@
 //  ?sanatci=<id1,id2,... en fazla 20>       → her video için YouTube'un "Bu videodaki müzik" sanatçısı
 //                                            (yoksa ""); şarkıyı firma yüklediyse bile asıl sanatçı
 // Yanıt: { tur, ad, sarkilar: [{ baslik, sanatci, sure?, videoId? }] }  /  { sanatcilar: { id: "Sanatçı" } }
-// Not: Cloudflare'in hızlı editöründe yazıldığı için girintisiz tutuldu.
+// Not: Cloudflare'in hızlı editöründe yazıldığı için girintisiz tutuldu. Artık wrangler ile yayınlanır
+// (spotify-araci/ içinden: node ..\okey-sunucu\node_modules\wrangler\bin\wrangler.js deploy).
+// Güvenlik: her istek siteye Google hesabıyla giriş yapmış birinin Firebase kimlik kartını taşımalı.
+import { googleKartiDogrula, istektekiKart } from "../okey-sunucu/src/kimlik.js";
+const YONETICI = "erayaksuhome@outlook.com";
 const IZINLI = ["https://atalayarslan.github.io", "http://localhost:8000", "http://localhost:8002"];
 const TARAYICI = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 // YouTube'un izleme sayfasındaki "Bu videodaki müzik" kartı: videoAttributeViewModel { title: şarkı, subtitle: sanatçı }
@@ -68,14 +72,16 @@ return { ad: bilgi.name, sarkilar: sarkilar.slice(0, SPOTIFY_SINIR) };
 export default {
 async fetch(istek, env) {
 const kaynak = istek.headers.get("Origin") || "";
-const cors = { "Access-Control-Allow-Origin": IZINLI.includes(kaynak) ? kaynak : IZINLI[0], "Access-Control-Allow-Methods": "GET, OPTIONS", "Vary": "Origin" };
+const cors = { "Access-Control-Allow-Origin": IZINLI.includes(kaynak) ? kaynak : IZINLI[0], "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Allow-Headers": "Authorization", "Vary": "Origin" };
 if (istek.method === "OPTIONS") return new Response(null, { headers: cors });
-const yanitla = (veri, durum = 200) => new Response(JSON.stringify(veri), { status: durum, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+const yanitla = (veri, durum = 200) => new Response(JSON.stringify(veri), { status: durum, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "private, max-age=3600" } });
 const url = new URL(istek.url);
 const p = url.searchParams;
 const sayfaYaz = (metin) => new Response("<!doctype html><meta charset=utf-8><body style='font:18px sans-serif;padding:40px'>" + metin, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
-// Site sahibinin bir kerelik Spotify bağlantısı
+// Site sahibinin bir kerelik Spotify bağlantısı: sadece yönetici, kimlik kartıyla (?kart=) başlatabilir
 if (url.pathname === "/giris") {
+const yonetici = await googleKartiDogrula(p.get("kart") || "");
+if (!yonetici || yonetici.eposta !== YONETICI) return sayfaYaz("Bu sayfayı sadece site yöneticisi açabilir.");
 const durum = crypto.randomUUID();
 await env.KV.put("durum:" + durum, "1", { expirationTtl: 600 });
 return Response.redirect("https://accounts.spotify.com/authorize?" + new URLSearchParams({ client_id: env.SPOTIFY_ID, response_type: "code", redirect_uri: GERI_ADRES, scope: "playlist-read-private playlist-read-collaborative", state: durum }), 302);
@@ -93,6 +99,8 @@ spotifyJeton = null;
 return sayfaYaz("✅ Spotify bağlandı. Bu sekmeyi kapatabilirsin.");
 } catch (h) { return sayfaYaz("Bağlanamadı: " + String(h.message).replace(/[<>&]/g, "")); }
 }
+// Bundan sonrası sadece siteye Google hesabıyla giriş yapmış kişilere: "Authorization: Bearer <Firebase kimlik kartı>"
+if (!(await istektekiKart(istek))) return new Response(JSON.stringify({ hata: "Google hesabinla giris yap." }), { status: 401, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 // ?parcalar=<id1,id2,... en fazla 40>: Spotify uygulamasında Ctrl+A/Ctrl+C ile kopyalanan şarkı linkleri.
 // Her şarkı tek tek okunur (Cloudflare'in istek başına 50 alt istek sınırı yüzünden en fazla 40).
 const parcalar = p.get("parcalar") || "";

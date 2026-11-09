@@ -858,6 +858,7 @@ function senkronla() {
 const TELEFON = matchMedia("(hover: none)").matches;
 const AKIS_ADRESI = /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/;
 let akisAdresi = null;
+let akisAnahtari = "";   // sunucunun erişim anahtarı; Firebase'de sadece Google girişli kişilerin okuyabildiği yerde
 let akisCalisiyor = false;
 const akistanCalmayanlar = new Set(); // bu oturumda sunucudan çalınamayan şarkılar
 
@@ -868,7 +869,7 @@ function akisOlayi(olay, ayrinti = {}, videoId = yuklenenId) {
   if (!akisAdresi || ++gonderilenOlay > 500) return;
   const govde = JSON.stringify({ olay, kim: isim, oda: odaId, v: videoId, ayrinti });
   try {
-    navigator.sendBeacon(akisAdresi + "/olay", new Blob([govde], { type: "text/plain" }));
+    navigator.sendBeacon(akisAdresi + "/olay?a=" + akisAnahtari, new Blob([govde], { type: "text/plain" }));
   } catch (e) { }
 }
 
@@ -911,6 +912,9 @@ function akisAdresiniDinle() {
     const yerelPort = Number(new URLSearchParams(location.search).get("yerelAkis")) || 8790;
     akisAdresi = v && AKIS_ADRESI.test(v.adres) ? v.adres
       : location.hostname === "localhost" ? "http://127.0.0.1:" + yerelPort : null;
+    // Sunucunun erişim anahtarı (yerel denemede ?yerelAnahtar= ile verilir)
+    akisAnahtari = encodeURIComponent(v && AKIS_ADRESI.test(v.adres) ? v.anahtar || ""
+      : new URLSearchParams(location.search).get("yerelAnahtar") || "");
     akisSunucusunuDene();
   });
 }
@@ -929,7 +933,7 @@ function akisiOncedenHazirla() {
     if (!gecerliId(sarki.videoId) || oncedenHazirlananlar.has(sarki.videoId)) continue;
     oncedenHazirlananlar.add(sarki.videoId);
     for (const tur of AKIS_TURLERI) {
-      fetch(akisAdresi + "/hazirla?kismi=1&v=" + sarki.videoId + "&tur=" + tur, { cache: "no-store" }).catch(() => { });
+      fetch(akisAdresi + "/hazirla?a=" + akisAnahtari + "&kismi=1&v=" + sarki.videoId + "&tur=" + tur, { cache: "no-store" }).catch(() => { });
     }
   }
 }
@@ -944,7 +948,7 @@ async function akisaHazirla(videoId) {
   const uyari = setTimeout(() => bildir("Şarkı hazırlanıyor…"), 900);
   const bas = Date.now();
   const sonuclar = await Promise.all(AKIS_TURLERI.map((tur) =>
-    fetch(akisAdresi + "/hazirla?bekle=1&v=" + videoId + "&tur=" + tur, { signal: iptal.signal, cache: "no-store" })
+    fetch(akisAdresi + "/hazirla?a=" + akisAnahtari + "&bekle=1&v=" + videoId + "&tur=" + tur, { signal: iptal.signal, cache: "no-store" })
       .then((y) => tur + ":" + y.status, (e) => tur + ":" + (e.name === "AbortError" ? "20sn-doldu" : "ulasilamadi"))));
   clearTimeout(zaman);
   clearTimeout(uyari);
@@ -999,13 +1003,13 @@ function karmaOynatici(yt) {
       if (goruntu.dataset.tur === "video720") {
         akisOlayi("720p görüntü açılmadı, 360p'ye geçildi", { hata }, kimlik);
         goruntu.dataset.tur = "video";
-        goruntu.src = akisAdresi + "/akis?v=" + kimlik + "&tur=video";
+        goruntu.src = akisAdresi + "/akis?a=" + akisAnahtari + "&v=" + kimlik + "&tur=video";
       } else {
         akisOlayi("görüntü açılmadı, kapak gösteriliyor", { hata }, kimlik);
         sadeceSes(true);
       }
     };
-    goruntu.src = akisAdresi + "/akis?v=" + kimlik + "&tur=video720";
+    goruntu.src = akisAdresi + "/akis?a=" + akisAnahtari + "&v=" + kimlik + "&tur=video720";
   };
   // Görüntü sese bağlı kalır: ses durunca durur, çalınca çalar; 0,3 sn'den fazla kayarsa sese atlar,
   // az kaydıysa hızını biraz değiştirerek yavaşça yetişir.
@@ -1060,7 +1064,7 @@ function karmaOynatici(yt) {
       const bas = simdiki ? konumHesapla(simdiki) : secenek.startSeconds || 0;
       if (bas > 0.5) medya.currentTime = bas;
     };
-    medya.src = akisAdresi + "/akis?v=" + kimlik + "&tur=ses";
+    medya.src = akisAdresi + "/akis?a=" + akisAnahtari + "&v=" + kimlik + "&tur=ses";
     goruntuyuYukle(kimlik);
     if (oynat) medya.play().catch(() => { });
     // Sunucu 20 saniyede şarkıyı veremezse YouTube'a dönülür
@@ -1100,7 +1104,7 @@ function karmaOynatici(yt) {
     akisOlayi("ses takıldı, akış yeniden açılıyor", { deneme: yenidenDeneme, ...sesDurumu() }, calanKimlik);
     takilmaVar = true;
     // Adres farklı olsun ki tarayıcı takılı kalan eski bağlantıyı kullanmasın
-    medya.src = akisAdresi + "/akis?v=" + calanKimlik + "&tur=ses&yeniden=" + yenidenDeneme;
+    medya.src = akisAdresi + "/akis?a=" + akisAnahtari + "&v=" + calanKimlik + "&tur=ses&yeniden=" + yenidenDeneme;
     medya.play().catch(() => { });
   }, 1000);
 
@@ -1557,7 +1561,7 @@ async function youtubeLinkiniCoz(id) {
 async function spotifyAdiniBul(link) {
   if (AYARLAR.spotifyAraci) {
     try {
-      const veri = await (await fetch(AYARLAR.spotifyAraci + "?link=" + encodeURIComponent(link))).json();
+      const veri = await (await araciIstegi("link=" + encodeURIComponent(link))).json();
       const s = veri.sarkilar && veri.sarkilar[0];
       if (s) return (s.sanatci ? s.sanatci + " - " : "") + s.baslik;
     } catch (e) { }
@@ -1671,7 +1675,7 @@ async function youtubeMixCek(listeId) {
   if (!AYARLAR.spotifyAraci) throw new Error("YouTube Mix listeleri için aracı tanımlı değil (config.js).");
   let veri;
   try {
-    veri = await (await fetch(AYARLAR.spotifyAraci + "?mix=" + encodeURIComponent(listeId))).json();
+    veri = await (await araciIstegi("mix=" + encodeURIComponent(listeId))).json();
   } catch (e) {
     throw new Error("YouTube Mix okunamadı, biraz sonra tekrar dene.");
   }
@@ -1688,7 +1692,7 @@ async function spotifyListesiCek(link) {
   if (!AYARLAR.spotifyAraci) throw new Error("Spotify aracısı tanımlı değil (config.js).");
   let veri;
   try {
-    veri = await (await fetch(AYARLAR.spotifyAraci + "?link=" + encodeURIComponent(link))).json();
+    veri = await (await araciIstegi("link=" + encodeURIComponent(link))).json();
   } catch (e) {
     throw new Error("Spotify'a ulaşılamadı, biraz sonra tekrar dene.");
   }
@@ -1722,7 +1726,7 @@ async function spotifyParcalariCek(idler, ilerleme) {
     while (sira < gruplar.length) {
       const g = sira++;
       try {
-        const veri = await (await fetch(AYARLAR.spotifyAraci + "?parcalar=" + gruplar[g].join(","))).json();
+        const veri = await (await araciIstegi("parcalar=" + gruplar[g].join(","))).json();
         sonuclar[g] = veri.sarkilar || [];
       } catch (e) {
         sonuclar[g] = [];

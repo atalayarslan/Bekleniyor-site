@@ -1,9 +1,9 @@
 {
   "rules": {
     "odalar": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$oda": {
-        ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (data.child('bilgi/sahip').val() == auth.uid || (!data.child('bilgi').exists() && $oda != 'ana'))))",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (data.child('bilgi/sahip').val() == auth.uid || (!data.child('bilgi').exists() && $oda != 'ana'))))",
         "bilgi": {
           ".validate": "newData.hasChildren(['ad', 'sahip', 'olusturma', 'herkeseAcik']) && ((data.exists() && newData.child('sahip').val() == data.child('sahip').val()) || (!data.exists() && newData.child('sahip').val() == auth.uid)) && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || ($oda != 'ana' && (newData.parent().parent().parent().child('kullanicilar').child(newData.child('sahip').val()).child('slot1').val() == $oda || newData.parent().parent().parent().child('kullanicilar').child(newData.child('sahip').val()).child('slot2').val() == $oda)))",
           "ad": {
@@ -73,7 +73,7 @@
           }
         },
         "muzik": {
-          ".write": true,
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
           "simdiki": {
             ".validate": "newData.hasChildren(['baslik', 'baslangic', 'duraklatildi']) && (newData.hasChild('videoId') || newData.hasChild('arama'))",
             "videoId": {
@@ -164,7 +164,7 @@
           }
         },
         "katilanlar": {
-          ".write": true,
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
           "$id": {
             ".validate": "(newData.isString() && newData.val().length <= 40) || newData.hasChild('ad')",
             "ad": {
@@ -177,10 +177,10 @@
               ".validate": "newData.val() == now"
             },
             "cikar": {
-              ".validate": "newData.isBoolean() && auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))"
+              ".validate": "newData.isBoolean() && auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))"
             },
             "tasi": {
-              ".validate": "newData.isString() && newData.val().length <= 60 && root.child('odalar').child(newData.val()).exists() && auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))"
+              ".validate": "newData.isString() && newData.val().length <= 60 && root.child('odalar').child(newData.val()).exists() && auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))"
             },
             "$diger": {
               ".validate": false
@@ -193,20 +193,20 @@
       }
     },
     "odaFotolari": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$oda": {
-        ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)))",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)))",
         "$f": {
           ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isString() && ((newData.val().beginsWith('data:image/') && newData.val().length <= 400000) || (newData.val().beginsWith('data:video/') && newData.val().length <= 1500000))"
         }
       }
     },
     "odaGecmisi": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$oda": {
-        ".write": "auth != null && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)",
         "$id": {
-          ".write": "!data.exists()",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && !data.exists()",
           ".validate": "newData.hasChildren(['videoId', 'baslik', 'zaman'])",
           "videoId": {
             ".validate": "newData.isString() && newData.val().length == 11"
@@ -230,40 +230,40 @@
       }
     },
     "kullanicilar": {
-      ".read": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
-      ".write": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
+        ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
         "ad": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           ".validate": "newData.isString() && newData.val().length <= 60"
         },
         "foto": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           ".validate": "newData.isString() && newData.val().length <= 500"
         },
         "eposta": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           ".validate": "newData.isString() && newData.val().length <= 100"
         },
         "sonGiris": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           ".validate": "newData.isNumber()"
         },
         "okeyTema": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           ".validate": "newData.hasChildren(['id', 'kod']) && newData.child('id').isString() && newData.child('id').val().length <= 40 && newData.child('kod').isString() && newData.child('kod').val().length <= 1500"
         },
         "slot1": {
-          ".write": "auth != null && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
           ".validate": "newData.isString() && newData.val().length <= 40"
         },
         "slot2": {
-          ".write": "auth != null && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
           ".validate": "newData.isString() && newData.val().length <= 40"
         },
         "listeler": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           "$liste": {
             ".validate": "newData.hasChildren(['ad'])",
             "ad": {
@@ -306,9 +306,9 @@
       }
     },
     "aramaOnbellek": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$k": {
-        ".write": "auth != null && (!data.exists() || data.child('zaman').val() < now - 604800000)",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (!data.exists() || data.child('zaman').val() < now - 604800000)",
         ".validate": "$k.length <= 100 && newData.hasChildren(['zaman', 'sonuclar'])",
         "zaman": {
           ".validate": "newData.isNumber()"
@@ -336,31 +336,31 @@
       }
     },
     "yasakli": {
-      ".read": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
-      ".write": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+      ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
+        ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
         ".validate": "newData.isBoolean()"
       }
     },
     "yoneticiler": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       ".write": false,
       "$uid": {
         ".validate": "newData.isBoolean()"
       }
     },
     "eslesmeler": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$k": {
-        ".write": "auth != null && !data.exists()",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && !data.exists()",
         ".validate": "$k.length <= 100 && newData.isString() && newData.val().length == 11"
       }
     },
     "aktifOturum": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid",
+        ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
         ".validate": "newData.hasChildren(['sekme', 'oda', 'zaman'])",
         "sekme": {
           ".validate": "newData.isString() && newData.val().length <= 20"
@@ -377,12 +377,15 @@
       }
     },
     "ayarlar": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "akis": {
-        ".write": "auth != null && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com'))",
         ".validate": "newData.hasChildren(['adres', 'zaman'])",
         "adres": {
           ".validate": "newData.isString() && newData.val().matches(/^https:\\/\\/[a-z0-9-]+\\.trycloudflare\\.com$/)"
+        },
+        "anahtar": {
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{20,64}$/)"
         },
         "zaman": {
           ".validate": "newData.val() == now"
@@ -393,9 +396,9 @@
       }
     },
     "istatistik": {
-      ".read": true,
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$uid": {
-        ".write": "auth != null && (auth.uid == $uid || (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')))",
+        ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && (auth.uid == $uid || (root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')))",
         ".validate": "newData.hasChildren(['sitede', 'dinleme', 'guncelleme'])",
         "guncelleme": {
           ".validate": "newData.val() == now"

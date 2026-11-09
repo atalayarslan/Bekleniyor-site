@@ -54,10 +54,12 @@
   const benimAdim = () => (typeof isim !== "undefined" && isim) || "Misafir";
   let soylenenAd = null;
   async function merhaba() {
-    let kart = null;
-    try { if (typeof kullanici !== "undefined" && kullanici && kullanici.getIdToken) kart = await kullanici.getIdToken(); } catch (e) { }
+    const kart = await kimlikKarti();
     soylenenAd = benimAdim();
-    gonder({ t: "merhaba", kart, ad: soylenenAd, misafir: { id: misafirKimligi(), ad: soylenenAd } });
+    // Sunucu sadece Google girişli kimlik kartını kabul eder. Misafir kimliği yalnız kendi bilgisayarımızdaki
+    // deneme düzeneği için gönderilir (yerel sunucu dışında reddedilir).
+    const yerel = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    gonder({ t: "merhaba", kart, ad: soylenenAd, misafir: yerel ? { id: misafirKimligi(), ad: soylenenAd } : undefined });
   }
   // Odaya katılırken ad sonradan yazılır: değişince masaya yeni adla yeniden merhaba denir
   setInterval(() => { if (ws && ws.readyState === 1 && soylenenAd !== benimAdim()) merhaba(); }, 1500);
@@ -392,7 +394,8 @@
 
     async function yukle() {
       try {
-        const yanit = await fetch(sunucuAdresi() + "/cetele/" + encodeURIComponent(odaId));
+        const kart = await kimlikKarti();
+        const yanit = await fetch(sunucuAdresi() + "/cetele/" + encodeURIComponent(odaId), kart ? { headers: { "Authorization": "Bearer " + kart } } : {});
         if (!yanit.ok) throw new Error(yanit.status);
         oyunlar = (await yanit.json()).oyunlar || [];
         ciz();

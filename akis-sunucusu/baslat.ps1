@@ -29,6 +29,13 @@ try {
     }
     if (Test-Path $gunluk) { Remove-Item $gunluk -Force -ErrorAction SilentlyContinue }
 
+    # Her açılışta yeni bir erişim anahtarı: sunucu sadece bu anahtarı taşıyan istekleri kabul eder. Site anahtarı
+    # Firebase'de sadece Google hesabıyla girenlerin okuyabildiği yerde saklar.
+    $bayt = New-Object byte[] 24
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bayt)
+    $anahtar = [Convert]::ToBase64String($bayt).Replace("+", "-").Replace("/", "_").TrimEnd("=")
+    $env:BEKLENIYOR_ANAHTAR = $anahtar
+
     $sunucu = Start-Process -FilePath (Join-Path $klasor "venv\Scripts\python.exe") `
         -ArgumentList @("-I", "-W", "ignore", "`"$PSScriptRoot\sunucu.py`"") -PassThru -WindowStyle Hidden
     # Hızlı tünel: hesap ve alan adı gerekmez, her açılışta yeni bir *.trycloudflare.com adresi verir.
@@ -49,7 +56,7 @@ try {
 
     # Tünel hazır olana kadar birkaç saniye bekle, sonra siteyi adresle aç
     Start-Sleep -Seconds 4
-    Start-Process ("https://atalayarslan.github.io/Bekleniyor-site/?akis=" + $adres)
+    Start-Process ("https://atalayarslan.github.io/Bekleniyor-site/?akis=" + $adres + "&anahtar=" + $anahtar)
 
     Write-Host ""
     Write-Host "Açık: $adres" -ForegroundColor Green

@@ -43,9 +43,22 @@ export async function kartiDogrula(kart) {
     if (!dogru) return null;
     return {
       uid: icerik.sub, ad: icerik.name || "", foto: icerik.picture || "",
-      eposta: (icerik.email || "").toLowerCase(), epostaDogrulandi: !!icerik.email_verified
+      eposta: (icerik.email || "").toLowerCase(), epostaDogrulandi: !!icerik.email_verified,
+      saglayici: (icerik.firebase && icerik.firebase.sign_in_provider) || ""
     };
   } catch (e) {
     return null;
   }
+}
+
+// Site sadece Google hesabıyla (doğrulanmış e-posta) girenlere açık: kart geçerli ve Google girişi değilse null
+export async function googleKartiDogrula(kart) {
+  const k = await kartiDogrula(kart);
+  return k && k.saglayici === "google.com" && k.epostaDogrulandi ? k : null;
+}
+
+// İstekteki "Authorization: Bearer <kart>" başlığını doğrular
+export async function istektekiKart(istek) {
+  const m = /^Bearer\s+(\S+)$/.exec(istek.headers.get("Authorization") || "");
+  return m ? googleKartiDogrula(m[1]) : null;
 }

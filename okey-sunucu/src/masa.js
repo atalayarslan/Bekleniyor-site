@@ -9,7 +9,7 @@
 // Sunucu → istemci: { t: "guncel", olaylar: [...], durum: {...} } (kişiye özel) · { t: "hata", metin }
 
 import K from "../../js/okey/kurallar.js";
-import { kartiDogrula } from "./kimlik.js";
+import { googleKartiDogrula } from "./kimlik.js";
 
 const YONETICI = "erayaksuhome@outlook.com";
 const DB = "https://bekleniyor-e16eb-default-rtdb.europe-west1.firebasedatabase.app";
@@ -119,15 +119,18 @@ export class OkeyMasasi {
 
   async merhaba(ws, mesaj) {
     let ben;
-    const kart = mesaj.kart ? await kartiDogrula(mesaj.kart) : null;
+    // Sadece Google hesabıyla giriş yapmış kişiler masaya bağlanabilir. Misafir kimliği yalnız yerel deneme
+    // sunucusunda (wrangler dev --var MISAFIR_IZNI:1) kabul edilir; canlı sunucuda bu değişken yoktur.
+    const kart = mesaj.kart ? await googleKartiDogrula(mesaj.kart) : null;
     if (kart) {
       ben = { kim: "u:" + kart.uid, uid: kart.uid, ad: temizAd(mesaj.ad || kart.ad.split(" ")[0], "Oyuncu"),
         foto: /^https:\/\/lh\d\.googleusercontent\.com\//.test(kart.foto) ? kart.foto : "",
         yonetici: kart.epostaDogrulandi && kart.eposta === YONETICI };
-    } else if (mesaj.misafir && /^[a-z0-9]{12,32}$/.test(mesaj.misafir.id)) {
+    } else if (this.env.MISAFIR_IZNI === "1" && mesaj.misafir && /^[a-z0-9]{12,32}$/.test(mesaj.misafir.id)) {
       ben = { kim: "m:" + mesaj.misafir.id, uid: null, ad: temizAd(mesaj.misafir.ad, "Misafir"), foto: "", yonetici: false };
     } else {
-      return ws.send(JSON.stringify({ t: "hata", metin: "Kimlik okunamadı" }));
+      ws.send(JSON.stringify({ t: "hata", metin: "Masaya bağlanmak için Google hesabınla giriş yap" }));
+      return ws.close(4001, "giris gerekli");
     }
     ben.yanci = null;
     ws.serializeAttachment(ben);
@@ -138,16 +141,17 @@ export class OkeyMasasi {
       if (this.m.oyun && !this.m.oyun.bitis && this.m.oyun.oyuncular[k]) this.m.oyun.oyuncular[k].ad = ben.ad;
     }
     if (this.kopuklariIsle()) this.alarmKur();
-    this.sahibiOgren();   // beklenmez: oda sahibi bilgisi arkada gelir, bağlantı hemen cevap alır
+    this.sahibiOgren(kart ? mesaj.kart : null);   // beklenmez: oda sahibi bilgisi arkada gelir, bağlantı hemen cevap alır
     this.olaylar = [];
     await this.kaydet();
     this.yayinla();
   }
 
-  async sahibiOgren() {
-    if (!this.m.oda || Date.now() - this.sahip.zaman < 10 * 60 * 1000) return;
+  // Oda kayıtları sadece girişli kişilere açık: bağlanan oyuncunun kimlik kartıyla okunur
+  async sahibiOgren(kart) {
+    if (!kart || !this.m.oda || Date.now() - this.sahip.zaman < 10 * 60 * 1000) return;
     try {
-      const uid = await (await fetch(DB + "/odalar/" + encodeURIComponent(this.m.oda) + "/bilgi/sahip.json")).json();
+      const uid = await (await fetch(DB + "/odalar/" + encodeURIComponent(this.m.oda) + "/bilgi/sahip.json?auth=" + encodeURIComponent(kart))).json();
       this.sahip = { uid: typeof uid === "string" ? uid : null, zaman: Date.now() };
     } catch (e) { }
   }

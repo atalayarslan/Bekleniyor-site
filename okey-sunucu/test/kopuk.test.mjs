@@ -21,7 +21,7 @@ function soket() {
   soketler.push(ws);
   return ws;
 }
-const masa = new OkeyMasasi(ctx, {});
+const masa = new OkeyMasasi(ctx, { MISAFIR_IZNI: "1" });   // yerel deneme: misafir kimliği kabul edilir
 await new Promise((r) => setTimeout(r, 10));
 
 // Önceki sunucudan kalan masa: A oturuyor ama bağlı değil ve ayrıldı zamanı yok; Slash'ın yanında bir bot var
@@ -85,4 +85,23 @@ await masa.alarm();
 assert.ok(masa.m.koltuklar.every((x) => x === null), "insan kalmayınca botlar da kalkmalı");
 assert.ok(masa.m.oyun.bitis, "yarım oyun kapanmadı");
 console.log("✓ el bitince kopanın koltuğu boşaldı, masada insan kalmadığı için botlar da kalktı");
+
+// Canlı sunucu (MISAFIR_IZNI yok): kimlik kartsız ya da sahte kartla gelen bağlanamaz, hiçbir şey görmez
+{
+  const canli = new OkeyMasasi(ctx, {});
+  await new Promise((r) => setTimeout(r, 10));
+  const sahteKart = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ4In0.aW1aYQ";
+  for (const mesaj of [{ t: "merhaba", misafir: { id: "kotukotukotu", ad: "Kötü" } }, { t: "merhaba", kart: sahteKart }]) {
+    const w = soket();
+    let kapandi = false;
+    w.close = () => { kapandi = true; };
+    await canli.webSocketMessage(w, JSON.stringify(mesaj));
+    assert.ok(kapandi, "girişsiz bağlantı kapatılmadı");
+    assert.ok(!w.deserializeAttachment(), "girişsiz bağlantıya kimlik verildi");
+    assert.ok(w.giden.every((m) => m.t === "hata"), "girişsiz bağlantıya masa durumu gitti");
+    await canli.webSocketMessage(w, JSON.stringify({ t: "otur", koltuk: 0 }));
+    assert.ok(!canli.m.koltuklar[0] || canli.m.koltuklar[0].kim !== "m:kotukotukotu", "girişsiz biri oturdu");
+  }
+  console.log("✓ canlı ayarda misafir ve sahte kimlik kartı reddedildi, masa durumu gönderilmedi");
+}
 console.log("\n✓ kopuk koltuk denemesi geçti");
