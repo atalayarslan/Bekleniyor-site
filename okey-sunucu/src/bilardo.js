@@ -188,7 +188,7 @@ export class BilardoMasasi {
   nisan(ben, ws, mesaj) {
     const O = this.m.oyun;
     const k = this.koltugum(ben.kim);
-    if (!O || O.bitti || k !== O.sira || Date.now() - this.sonNisan < 40) return;
+    if (!O || O.bitti || k !== O.sira || Date.now() - this.sonNisan < 20) return;
     this.sonNisan = Date.now();
     const yx = sayi(mesaj.yx, -1, 1), yy = sayi(mesaj.yy, -1, 1);
     if (yx === null || yy === null) return;
@@ -275,11 +275,11 @@ export class BilardoMasasi {
   basla() {
     const m = this.m;
     const t = this.takimlar();
+    // İki takımda da en az bir kişi: 1'e 1, 1'e 2 ya da 2'ye 2 (tek kişilik takımda o kişi her sırada atar)
     const sayi = t[0].length + t[1].length;
-    if (!(t[0].length === 1 && t[1].length === 1) && sayi !== 4) {
+    if (!t[0].length || !t[1].length) {
       return sayi < 2 ? "Oyun için en az 2 kişi gerekli (bot da olur)"
-        : sayi === 3 ? "3 kişiyle olmaz: 4. koltuğa birini ya da bot koy (eşli), ya da biri kalksın (teke tek)"
-          : "İki kişi karşı takımlarda oturmalı (yan yana değil, karşılıklı)";
+        : "İki takımda da en az bir kişi olmalı: biri sol, biri sağ tarafa otursun";
     }
     // Kıran takım her oyunda değişir
     const kiran = m.kiran % 2;

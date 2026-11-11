@@ -17,7 +17,7 @@ const bekle = () => new Promise((r) => setTimeout(r, 5));
 const bot = (h) => ({ kim: "bot:" + h, ad: "Bot " + h, foto: "", ayrildi: null, bot: true });
 
 // 1) Teke tek ve eşli: botlar oyunu bitirir; eşlide takımın iki oyuncusu sırayla atar
-for (const koltuklar of [[0, 1], [0, 1, 2, 3]]) {
+for (const koltuklar of [[0, 1], [0, 1, 3], [0, 1, 2, 3]]) {
   for (let oyun = 0; oyun < 10; oyun++) {
     const masa = masaKur();
     await bekle();
@@ -38,9 +38,10 @@ for (const koltuklar of [[0, 1], [0, 1, 2, 3]]) {
       assert(masa.olaylar.some((o) => o.tur === "vurus"), "bot atmadı");
     }
     assert(O.kazanan === 0 || O.kazanan === 1);
-    if (koltuklar.length === 4) {
+    if (koltuklar.length >= 3) {
       // Takımın sıra aldığı her seferde atan değişir (aynı oyuncu üst üste ancak sokup devam ederse atar)
       for (const t of [0, 1]) {
+        if (koltuklar.filter((h) => h % 2 === t).length < 2) continue;   // tek kişilik takım hep aynı kişi
         atanlar[t].forEach((k, i) => i && assert.notStrictEqual(k, atanlar[t][i - 1], "eşlide takımın oyuncuları sırayla atmalı"));
       }
     }
@@ -58,7 +59,7 @@ for (const koltuklar of [[0, 1], [0, 1, 2, 3]]) {
   assert.strictEqual(masa.m.kurucu, ben.kim);
   assert.match(masa.isle_(ben, null, { t: "basla" }), /en az 2/);
   masa.m.koltuklar[2] = bot(2);
-  assert.match(masa.isle_(ben, null, { t: "basla" }), /karşı takımlarda/);
+  assert.match(masa.isle_(ben, null, { t: "basla" }), /İki takımda da/);
   masa.m.koltuklar[2] = null;
   masa.isle_(ben, null, { t: "bot", koltuk: 1 });
   assert(masa.m.koltuklar[1].bot);

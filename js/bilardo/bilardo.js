@@ -30,7 +30,8 @@
     for (const [a, v] of Object.entries(ozellik || {})) {
       if (v == null || v === false) continue;
       if (a === "sinif") e.className = v;
-      else if (a === "stil") Object.assign(e.style, v);
+      // "--r" gibi CSS değişkenleri Object.assign ile atanmaz (sessizce yok sayılır): setProperty gerekir
+      else if (a === "stil") for (const [k, d] of Object.entries(v)) { if (k.startsWith("--")) e.style.setProperty(k, d); else e.style[k] = d; }
       else if (a.startsWith("on")) e.addEventListener(a.slice(2), v);
       else e.setAttribute(a, v === true ? "" : v);
     }
@@ -47,6 +48,8 @@
   // Benim nişanım
   let yon = { x: 1, y: 0 }, cekme = 0, cekiyor = null, falso = { ust: 0, yan: 0 }, beyazYer = null, tasiyor = false;
   let fare = null;                 // masadaki fare konumu (masa birimiyle)
+  let sonEkran = null;             // fare son ekran konumu (Shift ile ince ayar)
+  let kilit = false;              // nişan sabit: fare gezince yön değişmez (ince ayardan sonra ya da sağ tıkla)
   let uzak = null;                 // sıradakinin (başkasının) canlı nişanı
   let sonNisanGonderim = 0;
   let sesAcik = true;
@@ -104,7 +107,7 @@
 
   function mesajAl(m) {
     if (m.t === "hata") { bildir(m.metin, "uyari"); return; }
-    if (m.t === "nisan") { if (durum && durum.oyun && m.k === durum.oyun.sira && m.k !== benimKoltugum()) uzak = Object.assign(m, { zaman: Date.now() }); return; }
+    if (m.t === "nisan") { if (durum && durum.oyun && m.k === durum.oyun.sira && m.k !== benimKoltugum()) uzakAl(m); return; }
     if (m.t !== "guncel") return;
     const alindi = Date.now();
     kuyruk = kuyruk.then(() => olaylariOynat(m.olaylar || [], alindi)).then(() => {
@@ -113,13 +116,35 @@
       ofset = durum.sunucuZamani - Date.now();
       // Sıra değişti ya da yeni oyun: nişan ve beyazın yeri sıfırlanır
       if (!eski || !eski.oyun || !durum.oyun || eski.oyun.sira !== durum.oyun.sira || eski.oyun.id !== durum.oyun.id || eski.oyun.atisNo !== durum.oyun.atisNo) {
-        beyazYer = null; cekme = 0; cekiyor = null; uzak = null; tasiyor = false;
+        beyazYer = null; cekme = 0; cekiyor = null; uzak = null; uzakG = null; tasiyor = false; kilit = false;
         falso = { ust: 0, yan: 0 };
       }
       dugmeyiGuncelle();
       uygula();
       for (const o of m.olaylar || []) olayYazisi(o);
     }).catch(() => { });
+  }
+
+  // ---------- sıradakinin canlı nişanı ----------
+  // Nişan saniyede ~30 kez gelir; ekranda her karede (60 fps) son gelene doğru yumuşakça kayarak çizilir
+  let uzakG = null, uzakSonKare = 0;
+  function uzakAl(m) {
+    uzak = Object.assign(m, { zaman: Date.now() });
+    if (!uzakG) uzakG = { yon: { x: m.yx, y: m.yy }, cekme: m.cekme, beyaz: m.beyaz ? { x: m.beyaz.x, y: m.beyaz.y } : null };
+    if (performance.now() - uzakSonKare > 200) { uzakSonKare = performance.now(); requestAnimationFrame(uzakKare); }
+  }
+  function uzakKare() {
+    if (!uzak || !uzakG || !acik || oynatilan || Date.now() - uzak.zaman > 3000) { uzakSonKare = 0; return; }
+    uzakSonKare = performance.now();
+    const k = 0.4;
+    let x = uzakG.yon.x + (uzak.yx - uzakG.yon.x) * k, y = uzakG.yon.y + (uzak.yy - uzakG.yon.y) * k;
+    const l = Math.hypot(x, y) || 1;
+    uzakG.yon = { x: x / l, y: y / l };
+    uzakG.cekme += (uzak.cekme - uzakG.cekme) * k;
+    if (uzak.beyaz) uzakG.beyaz = uzakG.beyaz ? { x: uzakG.beyaz.x + (uzak.beyaz.x - uzakG.beyaz.x) * k, y: uzakG.beyaz.y + (uzak.beyaz.y - uzakG.beyaz.y) * k } : { x: uzak.beyaz.x, y: uzak.beyaz.y };
+    else uzakG.beyaz = null;
+    tuvalCiz();
+    requestAnimationFrame(uzakKare);
   }
 
   // ---------- atışı oynatma ----------
@@ -130,7 +155,7 @@
   function olaylariOynat(olaylar, alindi) {
     const v = olaylar.find((o) => o.tur === "vurus");
     if (!v || !acik || !tuval || document.hidden || Date.now() - alindi > 2500) return Promise.resolve();
-    uzak = null;
+    uzak = null; uzakG = null;
     ses("istaka", v.atis.guc * 1500 + 200);
     return new Promise((bitti) => {
       const s = F.Benzetim(v.once, v.atis);
@@ -146,7 +171,7 @@
         const hedef = s.t + gecen;
         let adim = 0;
         while (!s.bitti && s.t < hedef && adim++ < 4000) for (const o of s.adim()) ses(o.tur, o.hiz);
-        ciz();
+        tuvalCiz();
         if (s.bitti) son();
       };
       const kare = (simdi) => { ilerle(simdi); if (oynatilan) requestAnimationFrame(kare); };
@@ -195,7 +220,7 @@
     if (!durum || !durum.oyun) return null;
     const t = durum.oyun.toplar.slice();
     if (benSiram() && beyazYer) t[0] = beyazYer;
-    else if (!benSiram() && uzak && uzak.beyaz && durum.oyun.elde) t[0] = uzak.beyaz;
+    else if (!benSiram() && uzakG && uzakG.beyaz && durum.oyun.elde) t[0] = uzakG.beyaz;
     return t;
   }
 
@@ -255,7 +280,8 @@
     olcek = dik ? dikey : yatay;
     mx = kutu.width / 2;
     my = kutu.height / 2;
-    ciz();
+    masaOnbellegi();
+    tuvalCiz();
   }
 
   function yuvarlakDikdortgen(c, x, y, w, hh, r) {
@@ -398,15 +424,44 @@
     c.restore();
   }
 
+  // Masa koordinatlarını tuvale çeviren dönüşüm
+  function donusum(c) {
+    const s = olcek * dpr;
+    if (dik) c.setTransform(0, -s, s, 0, (mx - H / 2 * olcek) * dpr, (my + W / 2 * olcek) * dpr);
+    else c.setTransform(s, 0, 0, s, (mx - W / 2 * olcek) * dpr, (my - H / 2 * olcek) * dpr);
+  }
+
+  // Masanın kendisi (tahta, keçe, delikler) değişmez: boyut değişince bir kez ayrı bir tuvale çizilir,
+  // her karede sadece kopyalanır. Böylece toplar ve ıstaka her karede çizilse de akıcı kalır.
+  let masaOnbellek = null;
+  function masaOnbellegi() {
+    if (!masaOnbellek) masaOnbellek = document.createElement("canvas");
+    masaOnbellek.width = tuval.width;
+    masaOnbellek.height = tuval.height;
+    const c = masaOnbellek.getContext("2d");
+    c.clearRect(0, 0, masaOnbellek.width, masaOnbellek.height);
+    donusum(c);
+    masayiCiz(c);
+  }
+
+  // Çizim isteği: aynı karede gelen istekler birleşir (fare olayları kare hızından sık gelir)
+  let cizimBekliyor = false;
   function ciz() {
+    if (cizimBekliyor) return;
+    cizimBekliyor = true;
+    requestAnimationFrame(() => { if (cizimBekliyor) { cizimBekliyor = false; tuvalCiz(); } });
+    // Görünmeyen pencerede tarayıcı kare vermez: yine de çizilsin
+    setTimeout(() => { if (cizimBekliyor) { cizimBekliyor = false; tuvalCiz(); } }, 150);
+  }
+
+  function tuvalCiz() {
     if (!ctx || !acik) return;
     const c = ctx;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, tuval.width, tuval.height);
-    const s = olcek * dpr;
-    if (dik) c.setTransform(0, -s, s, 0, (mx - H / 2 * olcek) * dpr, (my + W / 2 * olcek) * dpr);
-    else c.setTransform(s, 0, 0, s, (mx - W / 2 * olcek) * dpr, (my - H / 2 * olcek) * dpr);
-    masayiCiz(c);
+    if (!masaOnbellek || masaOnbellek.width !== tuval.width || masaOnbellek.height !== tuval.height) masaOnbellegi();
+    c.drawImage(masaOnbellek, 0, 0);
+    donusum(c);
     const toplar = konumlar() || F.diz(() => 0.5);
     const benim = benSiram();
     const O = durum && durum.oyun;
@@ -433,13 +488,13 @@
           gg.addColorStop(0, "#4ade80"); gg.addColorStop(0.6, "#facc15"); gg.addColorStop(1, "#ef4444");
           c.fillStyle = gg; c.fillRect(W / 2 - 150, H + 34, 300 * cekme, 12);
         }
-      } else if (!benim && uzak && toplar[0] && Date.now() - uzak.zaman < 3000) {
-        c.save(); c.globalAlpha = 0.75;
-        nisanCiz(c, toplar, toplar[0], { x: uzak.yx, y: uzak.yy }, null);
-        istakaCiz(c, toplar[0], { x: uzak.yx, y: uzak.yy }, uzak.cekme * CEKME_EN_COK);
+      } else if (!benim && uzakG && toplar[0] && Date.now() - uzak.zaman < 3000) {
+        // Sıradakinin nişanı: gelen örnekler arasında yumuşakça kaydırılmış hâli
+        const b = O.elde && uzakG.beyaz ? uzakG.beyaz : toplar[0];
+        c.save(); c.globalAlpha = 0.8;
+        nisanCiz(c, toplar, b, uzakG.yon, null);
+        istakaCiz(c, b, uzakG.yon, uzakG.cekme * CEKME_EN_COK);
         c.restore();
-      } else if (toplar[0] && O && !benim && Date.now() + ofset >= O.atisBitis) {
-        // Sıradaki henüz nişan almadıysa ıstaka beyazın yanında durur
       }
     }
     sureCiz();
@@ -461,13 +516,27 @@
   }
   function nisanGonder(zorla) {
     if (!benSiram()) return;
-    if (!zorla && Date.now() - sonNisanGonderim < 70) return;
+    if (!zorla && Date.now() - sonNisanGonderim < 30) return;
     sonNisanGonderim = Date.now();
     gonder({ t: "nisan", yx: yon.x, yy: yon.y, cekme, ust: falso.ust, yan: falso.yan, beyaz: beyazYer });
   }
   function beyaz() {
     const O = durum && durum.oyun;
     return beyazYer || (O && O.toplar[0]);
+  }
+  // Nişanı a radyan döndür (ince ayar). Nişan sabitlenir: fare gezince kaybolmasın.
+  function dondur(a) {
+    const c = Math.cos(a), s = Math.sin(a);
+    const x = yon.x * c - yon.y * s, y = yon.x * s + yon.y * c, l = Math.hypot(x, y);
+    yon = { x: x / l, y: y / l };
+    kilitle(true);
+    nisanGonder();
+    ciz();
+  }
+  function kilitle(k) {
+    if (kilit === k) return;
+    kilit = k;
+    if (ogeler.kilit) ogeler.kilit.hidden = !k;
   }
   function yonuAyarla(p) {
     const b = beyaz();
@@ -492,7 +561,7 @@
     if (!b) return;
     const dokunma = e.pointerType === "touch";
     // Telefonda: beyazın yakınından başlayan sürükleme ıstakayı çeker, başka yerden başlayan nişan alır
-    if (dokunma && Math.hypot(p.x - b.x, p.y - b.y) > 70) { cekiyor = { nisan: true }; yonuAyarla(p); ciz(); return; }
+    if (dokunma && Math.hypot(p.x - b.x, p.y - b.y) > 70) { kilitle(false); cekiyor = { nisan: true }; yonuAyarla(p); ciz(); return; }
     cekiyor = { x: p.x, y: p.y };
     cekme = 0;
     ciz();
@@ -504,8 +573,19 @@
   }
   function oynadi(e) {
     const p = isaretci(e);
+    const onceki = fare;
     fare = p;
     if (!benSiram()) return;
+    // Shift basılıyken fare nişanı yavaşça döndürür (fareyi çok oynatıp az döndürme: hassas ayar)
+    // (ekranda sağa/aşağı = saat yönü; 1 piksel ≈ 0,03°)
+    if (e.shiftKey && !tasiyor && !(cekiyor && !cekiyor.nisan) && onceki) {
+      const dx = e.clientX - (sonEkran ? sonEkran.x : e.clientX), dy = e.clientY - (sonEkran ? sonEkran.y : e.clientY);
+      sonEkran = { x: e.clientX, y: e.clientY };
+      const d = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+      if (d) dondur(d * 0.0005);
+      return;
+    }
+    sonEkran = { x: e.clientX, y: e.clientY };
     if (tasiyor) { beyazYer = sinirla(p); nisanGonder(); ciz(); return; }
     if (cekiyor && cekiyor.nisan) { yonuAyarla(p); nisanGonder(); ciz(); return; }
     if (cekiyor) {
@@ -515,7 +595,7 @@
       ciz();
       return;
     }
-    if (e.pointerType !== "touch") { yonuAyarla(p); nisanGonder(); ciz(); }
+    if (e.pointerType !== "touch" && !kilit) { yonuAyarla(p); nisanGonder(); ciz(); }
   }
   function birakildi() {
     if (!benSiram()) { cekiyor = null; tasiyor = false; return; }
@@ -550,14 +630,40 @@
 
   function tusaBasildi(e) {
     if (!acik || !benSiram() || /input|select|textarea/i.test((e.target && e.target.tagName) || "")) return;
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      const a = (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 0.02 : 0.0035);
-      const c = Math.cos(a), s = Math.sin(a);
-      yon = { x: yon.x * c - yon.y * s, y: yon.x * s + yon.y * c };
-      nisanGonder();
-      ciz();
+    // ← →: 0,1° · Shift ile 0,02° (çok ince) · Esc: nişanı serbest bırak
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
+      const yonu = e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 1;
+      dondur(yonu * (e.shiftKey ? 0.00035 : 0.00175));
       e.preventDefault();
-    }
+    } else if (e.key === "Escape" && kilit) { kilitle(false); if (fare) { yonuAyarla(fare); nisanGonder(); ciz(); } }
+  }
+
+  // Fare tekerleği: bir çentik 0,1° (Shift ile 0,02°)
+  function tekerlek(e) {
+    if (!benSiram() || cekiyor || tasiyor) return;
+    e.preventDefault();
+    const adim = Math.sign(e.deltaY || e.deltaX) * Math.min(3, Math.max(1, Math.abs(e.deltaY || e.deltaX) / 100));
+    dondur(adim * (e.shiftKey ? 0.00035 : 0.00175));
+  }
+
+  // İnce ayar şeridi (telefonda da çalışır): sürükledikçe nişan yavaşça döner, 1 piksel ≈ 0,03°
+  function inceAyarSeridi() {
+    const cizgiler = h("div", { sinif: "b-ince-cizgiler" });
+    const serit = h("div", { sinif: "b-ince", title: "İnce ayar: sağa sola sürükle (nişan çok yavaş döner)" }, cizgiler);
+    let son = null, kayma = 0;
+    serit.addEventListener("pointerdown", (e) => { if (!benSiram()) return; serit.setPointerCapture(e.pointerId); son = e.clientX; });
+    serit.addEventListener("pointermove", (e) => {
+      if (son === null) return;
+      const dx = e.clientX - son;
+      son = e.clientX;
+      kayma += dx;
+      cizgiler.style.backgroundPositionX = kayma + "px";
+      if (dx) dondur(dx * 0.0005);
+    });
+    const bitir = () => { son = null; };
+    serit.addEventListener("pointerup", bitir);
+    serit.addEventListener("pointercancel", bitir);
+    return serit;
   }
 
   // ---------- falso seçici ----------
@@ -590,7 +696,16 @@
     tuval.addEventListener("pointermove", oynadi);
     tuval.addEventListener("pointerup", birakildi);
     tuval.addEventListener("pointercancel", () => { cekiyor = null; tasiyor = false; cekme = 0; ciz(); });
-    tuval.addEventListener("contextmenu", (e) => e.preventDefault());
+    // Sağ tık: nişanı sabitle / serbest bırak (sabitken fareyi istediğin yere götürüp rahatça çekebilirsin)
+    tuval.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (!benSiram()) return;
+      kilitle(!kilit);
+      if (!kilit && fare) yonuAyarla(fare);
+      nisanGonder(true);
+      ciz();
+    });
+    tuval.addEventListener("wheel", tekerlek, { passive: false });
     ogeler.masaKutu = h("div", { sinif: "b-masa-kutu" }, tuval);
     ogeler.solTakim = h("div", { sinif: "b-takim sol" });
     ogeler.sagTakim = h("div", { sinif: "b-takim sag" });
@@ -601,8 +716,11 @@
     ogeler.bildirim = h("div", { sinif: "b-bildirim" });
     ogeler.kose = h("div", { sinif: "kose-tuslar b-kose" });
     const ust = h("div", { sinif: "b-ust" }, ogeler.solTakim, h("div", { sinif: "b-orta" }, ogeler.durum, h("div", { sinif: "b-sure-kutu" }, ogeler.sure)), ogeler.sagTakim);
-    const alt = h("div", { sinif: "b-alt" }, h("div", { sinif: "b-falso-kutu" }, ogeler.falso, h("small", {}, "Falso")), ogeler.baslat,
-      h("small", { sinif: "b-ipucu" }, "Nişan: fare · Vuruş: tıkla, geri çek, bırak · İnce ayar: ← →"));
+    ogeler.ince = inceAyarSeridi();
+    ogeler.kilit = h("span", { sinif: "b-kilit", hidden: true, title: "Nişan sabit: fare gezince değişmez. Sağ tık ya da Esc ile serbest bırak." }, "🔒 Nişan sabit");
+    const alt = h("div", { sinif: "b-alt" }, h("div", { sinif: "b-falso-kutu" }, ogeler.falso, h("small", {}, "Falso")),
+      h("div", { sinif: "b-falso-kutu" }, ogeler.ince, h("small", {}, "İnce ayar")), ogeler.kilit, ogeler.baslat,
+      h("small", { sinif: "b-ipucu" }, "Nişan: fare · Vuruş: tıkla, geri çek, bırak · İnce ayar: tekerlek, Shift+fare, ← → · Sağ tık: nişanı sabitle"));
     kok.replaceChildren(h("div", { sinif: "bilardo" }, ust, ogeler.masaKutu, alt, ogeler.bildirim, ogeler.kose));
     new ResizeObserver(boyutla).observe(ogeler.masaKutu);
     document.addEventListener("keydown", tusaBasildi);
@@ -613,7 +731,7 @@
       sureCiz();
       const siram = benSiram();
       if (siram !== sonSiram) { sonSiram = siram; uygula(); }
-      else if (uzak && Date.now() - uzak.zaman < 3200) ciz();
+      else if (uzak && Date.now() - uzak.zaman > 3000 && Date.now() - uzak.zaman < 3400) ciz();   // eskiyen nişan silinsin
     }, 250);
   }
 
@@ -669,7 +787,7 @@
     let yazi;
     if (!O || O.bitti) {
       if (O && O.bitti) yazi = "🏆 " + takimAdi(O.kazanan) + " kazandı · " + (O.neden || "");
-      else yazi = oturan < 2 ? "Bilardo masası · 2 kişi (teke tek) ya da 4 kişi (eşli) oynanır, boş koltuğa bot koyabilirsin" : "Masa: " + oturan + "/4 · 'Oyunu başlat'a bas";
+      else yazi = oturan < 2 ? "Bilardo masası · sol ve sağ takıma en az birer kişi otursun (1'e 1, 1'e 2 ya da 2'ye 2), boş koltuğa bot koyabilirsin" : "Masa: " + oturan + "/4 · 'Oyunu başlat'a bas";
     } else if (benSiram()) {
       const g = O.gruplar[benimKoltugum() % 2];
       yazi = O.kirilis ? "Kırış sende: beyazı çizginin gerisinde istediğin yere taşıyabilirsin, sonra ıstakayı geri çekip bırak"
@@ -680,6 +798,8 @@
     ogeler.baslat.hidden = !(oturuyorum() && !oyunVar() && oturan >= 2);
     ogeler.baslat.textContent = O && O.bitti ? "Yeni oyun" : "Oyunu başlat";
     ogeler.falso.classList.toggle("kapali", !benSiram());
+    ogeler.ince.classList.toggle("kapali", !benSiram());
+    ogeler.kilit.hidden = !(kilit && benSiram());
     ogeler.falso.yenile();
     tuval.classList.toggle("siram", benSiram());
     tuval.classList.toggle("elde", benSiram() && O.elde);
@@ -735,7 +855,7 @@
 
   function kurallariGoster() {
     pencere("Kurallar (8 top)", h("div", { sinif: "b-kurallar" }, ...[
-      "Teke tek (2 kişi) ya da eşli (4 kişi, karşılıklı takımlar) oynanır. Eşlide takımın iki oyuncusu sırayla atar.",
+      "Sol takım ile sağ takım oynar: 1'e 1, 1'e 2 ya da 2'ye 2. İki kişilik takımda oyuncular sırayla atar; tek kişilik takımda o kişi her sırada atar.",
       "Kırışta beyaz soldaki çizginin gerisinde istediğin yere konur. Kırışta giren toplar grup belirlemez; bir top girerse sıra sende kalır.",
       "Kırıştan sonra masa açıktır: ilk soktuğun top grubunu belirler (düz 1–7 ya da çizgili 9–15).",
       "Kendi grubundan top sokarsan sıra sende kalır. Sokamazsan sıra rakibe geçer.",
