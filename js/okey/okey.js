@@ -527,8 +527,10 @@
   }
 
   function masayiAc(ac) {
+    if (!ac && !acik) return;
     acik = ac;
     const oda = document.getElementById("oda");
+    if (acik && window.bilardoMasasi) window.bilardoMasasi.kapat();   // aynı anda tek masa açık
     oda.classList.toggle("okey-acik", acik);
     tus.classList.toggle("acik", acik);
     tus.title = acik ? "Fotoğraflara dön" : "Okey masasını aç";

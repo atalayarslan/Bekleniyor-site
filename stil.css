@@ -1082,20 +1082,23 @@ a {
   pointer-events: none;
 }
 
-/* Okey masası açıkken el ıstakaya ve düğmelere gider: çubuk sadece sağ alt köşeden açılır, tutamak da oradadır */
-.oda-gorunumu.okey-acik .calar-bolgesi {
+/* Okey ya da bilardo masası açıkken el ıstakaya ve düğmelere gider: çubuk sadece sağ alt köşeden açılır, tutamak da oradadır */
+.oda-gorunumu.okey-acik .calar-bolgesi,
+.oda-gorunumu.bilardo-acik .calar-bolgesi {
   left: auto;
   right: var(--sag);
   width: 14rem;
 }
 
-.oda-gorunumu.okey-acik .calar-tutamak {
+.oda-gorunumu.okey-acik .calar-tutamak,
+.oda-gorunumu.bilardo-acik .calar-tutamak {
   left: auto;
   right: calc(var(--sag) + 1rem);
   transform: none;
 }
 
-.oda-gorunumu.okey-acik .calar-tutamak:hover {
+.oda-gorunumu.okey-acik .calar-tutamak:hover,
+.oda-gorunumu.bilardo-acik .calar-tutamak:hover {
   transform: scale(1.08);
 }
 
