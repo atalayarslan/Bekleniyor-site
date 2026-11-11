@@ -238,12 +238,28 @@ export class BilardoMasasi {
         if (suruyor && m.oyun.sira === h) this.sureyiKur();
         return;
       }
+      // Bot oyun sürerken de çıkarılabilir (masada oturan herkes)
       case "botCikar": {
         if (k < 0 && !this.yetkili(ben)) return "Botu çıkarmak için önce masaya otur";
         const h = Number(mesaj.koltuk);
         if (!this.botMu(h)) return "Bu koltukta bot yok";
-        if (suruyor) return "Oyun sürerken bot çıkarılamaz";
-        m.koltuklar[h] = null;
+        return this.koltuguBosalt(h, "Bot masadan çıkarıldı");
+      }
+      // Oyuncuyu masadan kaldırma: masayı kuran ya da oda sahibi
+      case "kaldir": {
+        const h = Number(mesaj.koltuk);
+        if (!(h >= 0 && h < 4) || !m.koltuklar[h]) return "Bu koltuk boş";
+        if (h === k) return "Kendini kaldırmak için Kalk'a bas";
+        if (!(m.kurucu === ben.kim || this.yetkili(ben))) return "Oyuncuyu sadece masayı kuran ya da oda sahibi kaldırabilir";
+        const ad = m.koltuklar[h].ad;
+        return this.koltuguBosalt(h, ad + " masadan kaldırıldı");
+      }
+      // Süren oyunu sonuçsuz bitir: masayı kuran ya da oda sahibi
+      case "bitir": {
+        if (!suruyor) return "Süren oyun yok";
+        if (!(m.kurucu === ben.kim || this.yetkili(ben))) return "Oyunu sadece masayı kuran ya da oda sahibi bitirebilir";
+        m.oyun = null;
+        this.olaylar.push({ tur: "bitirildi", ad: ben.ad });
         return;
       }
       case "ayar": {
@@ -262,6 +278,27 @@ export class BilardoMasasi {
         if (Date.now() < m.oyun.atisBitis) return "Toplar henüz durmadı";
         return this.vur(k, mesaj);
       }
+    }
+  }
+
+  // Koltuğu boşalt (bot çıkarma, oyuncu kaldırma). Oyun sürüyorsa: sıra ondaysa takım arkadaşına geçer;
+  // takımında kimse kalmadıysa oyun sonuçsuz biter.
+  koltuguBosalt(h, metin) {
+    const m = this.m;
+    m.koltuklar[h] = null;
+    this.olaylar.push({ tur: "cikarildi", metin });
+    if (!this.oyunSuruyor()) return;
+    const O = m.oyun;
+    const takim = this.takimlar()[h % 2];
+    if (!takim.length) {
+      m.oyun = null;
+      this.olaylar.push({ tur: "bitirildi", neden: "Bir takımda kimse kalmadı" });
+      return;
+    }
+    if (O.sira === h) {
+      O.sira = takim[0];
+      O.son[h % 2] = O.sira;
+      this.sureyiKur(Math.max(0, O.atisBitis - Date.now()));
     }
   }
 

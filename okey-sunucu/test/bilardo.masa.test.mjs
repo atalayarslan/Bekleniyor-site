@@ -91,4 +91,34 @@ for (const koltuklar of [[0, 1], [0, 1, 3], [0, 1, 2, 3]]) {
   assert.deepStrictEqual(masa.m.koltuklar, [null, null, null, null]);
   assert.strictEqual(masa.m.oyun, null);
 }
+// 3) Oyun sürerken bot çıkarma, oyuncu kaldırma, oyunu bitirme
+{
+  const masa = masaKur();
+  await bekle();
+  const ben = { kim: "m:abcdefghijkl", ad: "Ali" };
+  const veli = { kim: "m:velivelivel1", ad: "Veli" };
+  masa.olaylar = [];
+  masa.isle_(ben, { serializeAttachment() { } }, { t: "otur", koltuk: 0 });
+  masa.isle_(veli, { serializeAttachment() { } }, { t: "otur", koltuk: 1 });
+  masa.isle_(ben, null, { t: "bot", koltuk: 3 });
+  masa.m.kiran = 1;
+  assert.strictEqual(masa.isle_(ben, null, { t: "basla" }), undefined);
+  const O = masa.m.oyun;
+  O.sira = 3; O.son[1] = 3;   // sıra botta
+  // Bot çıkınca sıra takım arkadaşına (Veli) geçer, oyun sürer
+  assert.strictEqual(masa.isle_(veli, null, { t: "botCikar", koltuk: 3 }), undefined);
+  assert.strictEqual(masa.m.koltuklar[3], null);
+  assert.strictEqual(masa.m.oyun.sira, 1);
+  // Kuran olmayan kaldıramaz; kuran kaldırınca o takımda kimse kalmaz, oyun biter
+  assert.match(masa.isle_(veli, null, { t: "kaldir", koltuk: 0 }), /masayı kuran/);
+  assert.strictEqual(masa.isle_(ben, null, { t: "kaldir", koltuk: 1 }), undefined);
+  assert.strictEqual(masa.m.koltuklar[1], null);
+  assert.strictEqual(masa.m.oyun, null);
+  // Oyunu bitir
+  masa.isle_(ben, null, { t: "bot", koltuk: 1 });
+  masa.isle_(ben, null, { t: "basla" });
+  assert(masa.m.oyun);
+  assert.strictEqual(masa.isle_(ben, null, { t: "bitir" }), undefined);
+  assert.strictEqual(masa.m.oyun, null);
+}
 console.log("bilardo masası: tamam");
