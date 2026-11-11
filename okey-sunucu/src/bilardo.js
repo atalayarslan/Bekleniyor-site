@@ -20,7 +20,7 @@ const BOT_BEKLEME = 1500;            // atış bittikten sonra botun düşünme 
 const BOT_ADLARI = ["Bot Ayşe", "Bot Mehmet", "Bot Zeynep", "Bot Can"];
 const SURELER = [20, 30, 45, 60, 90];
 
-const yeniMasa = () => ({ oda: null, ayar: { sure: 45 }, kurucu: null, koltuklar: [null, null, null, null], oyun: null, skor: {}, kiran: 0 });
+const yeniMasa = () => ({ oda: null, ayar: { sure: 45, kural: "bar" }, kurucu: null, koltuklar: [null, null, null, null], oyun: null, skor: {}, kiran: 0 });
 const temizAd = (s, v) => String(s || v).replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 24) || v;
 const sayi = (x, en, cok) => (typeof x === "number" && Number.isFinite(x) ? Math.min(cok, Math.max(en, x)) : null);
 const rastgele = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
@@ -266,6 +266,10 @@ export class BilardoMasasi {
         if (!(m.kurucu === ben.kim || this.yetkili(ben))) return "Ayarları masayı kuran değiştirir";
         const s = Number(mesaj.sure);
         if (SURELER.includes(s)) m.ayar.sure = s;
+        if (mesaj.kural === "bar" || mesaj.kural === "dunya") {
+          if (suruyor) return "Kurallar oyun sürerken değişmez; oyun bitince değiştir";
+          m.ayar.kural = mesaj.kural;
+        }
         return;
       }
       case "basla":
@@ -374,7 +378,7 @@ export class BilardoMasasi {
     const O = this.m.oyun;
     const takim = k % 2;
     const s = F.sonuna(once, atis);
-    const kr = F.kural({ gruplar: O.gruplar, kirilis: O.kirilis, toplar: once }, s, takim);
+    const kr = F.kural({ gruplar: O.gruplar, kirilis: O.kirilis, toplar: once, kural: this.m.ayar.kural }, s, takim);
     O.atisNo++;
     this.olaylar.push({ tur: "vurus", k, no: O.atisNo, once, atis });
     O.toplar = s.toplar;
@@ -416,7 +420,7 @@ export class BilardoMasasi {
   botOyna(k) {
     const O = this.m.oyun;
     if (Date.now() < O.atisBitis) { O.botZamani = O.atisBitis + 200; return; }
-    const atis = F.botAtisi({ toplar: O.toplar, gruplar: O.gruplar, kirilis: O.kirilis, elde: O.elde || !O.toplar[0], takim: k % 2 }, rastgele);
+    const atis = F.botAtisi({ toplar: O.toplar, gruplar: O.gruplar, kirilis: O.kirilis, elde: O.elde || !O.toplar[0], takim: k % 2, kural: this.m.ayar.kural }, rastgele);
     const once = O.toplar.slice();
     if (atis.beyaz) once[0] = atis.beyaz;
     if (!once[0]) { this.siraGecer(k % 2, true, 0); return; }

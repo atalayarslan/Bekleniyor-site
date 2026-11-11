@@ -863,14 +863,27 @@
   function ayarPaneli() {
     const sec = h("select", { onchange: (e) => gonder({ t: "ayar", sure: Number(e.target.value) }) },
       [20, 30, 45, 60, 90].map((n) => h("option", { value: n, selected: durum.ayar.sure === n }, n + " saniye")));
-    pencere("Masa ayarları", h("label", { sinif: "b-ayar" }, h("span", {}, "Atış süresi"), sec, h("small", {}, "Süre dolarsa faul sayılır, elde top rakibe geçer")));
+    const dunya = durum.ayar.kural === "dunya";
+    const kuralSec = h("select", { disabled: oyunVar(), onchange: (e) => gonder({ t: "ayar", kural: e.target.value }) },
+      h("option", { value: "bar", selected: !dunya }, "Bar kuralı: kırışta giren sayılır, rakibin topu faul"),
+      h("option", { value: "dunya", selected: dunya }, "Dünya kuralı (WPA): kırış grubu belirlemez, rakibin topu serbest"));
+    pencere("Masa ayarları", h("div", { sinif: "b-ayarlar" },
+      h("label", { sinif: "b-ayar" }, h("span", {}, "Atış süresi"), sec, h("small", {}, "Süre dolarsa faul sayılır, elde top rakibe geçer")),
+      h("label", { sinif: "b-ayar" }, h("span", {}, "Kurallar"), kuralSec,
+        h("small", {}, oyunVar() ? "Oyun sürerken değişmez" : "Bar: kırışta hangi gruptan çok top girdiyse o senin (eşitse masa açık); grubun belliyken rakibin topunu sokmak faul. Dünya: kırış grubu belirlemez; kendi topunla birlikte rakibinkini sokmak serbest."))));
   }
 
   function kurallariGoster() {
     pencere("Kurallar (8 top)", h("div", { sinif: "b-kurallar" }, ...[
       "Sol takım ile sağ takım oynar: 1'e 1, 1'e 2 ya da 2'ye 2. İki kişilik takımda oyuncular sırayla atar; tek kişilik takımda o kişi her sırada atar.",
-      "Kırışta beyaz soldaki çizginin gerisinde istediğin yere konur. Kırışta giren toplar grup belirlemez; bir top girerse sıra sende kalır.",
-      "Kırıştan sonra masa açıktır: ilk soktuğun top grubunu belirler (düz 1–7 ya da çizgili 9–15).",
+      "Kırışta beyaz soldaki çizginin gerisinde istediğin yere konur. Kırışta top girerse sıra sende kalır.",
+      ...(durum && durum.ayar.kural === "dunya" ? [
+        "Bu masada dünya kuralı (WPA): kırışta giren toplar grup belirlemez. Kırıştan sonra masa açıktır; soktuğun top grubunu belirler (düz 1–7 ya da çizgili 9–15).",
+        "Kendi topunla birlikte rakibin topunu sokmak serbesttir; kendi topunu soktuysan sıra sende kalır."
+      ] : [
+        "Bu masada bar kuralı: kırışta hangi gruptan daha çok top girdiyse o grup senin olur. Eşit girdiyse masa açık kalır; sonra soktuğun top grubunu belirler.",
+        "Grubun belliyken rakibin topunu sokmak faul: sıra rakibe geçer, beyazı istediği yere koyar."
+      ]),
       "Kendi grubundan top sokarsan sıra sende kalır. Sokamazsan sıra rakibe geçer.",
       "Faul: beyaz deliğe girerse, beyaz hiçbir topa değmezse, önce rakibin topuna (ya da erken siyaha) değerse, değdikten sonra hiçbir top banda gitmez ve top girmezse. Faulde sıra rakibe geçer ve rakip beyazı istediği yere koyar (elde top).",
       "Grubunu bitirince siyahı (8) sok: kazanırsın. Siyahı erken sokarsan ya da sokarken faul yaparsan kaybedersin. Kırışta giren siyah yerine geri konur.",

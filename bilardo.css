@@ -121,6 +121,7 @@
 .b-pencere h3 { margin: 0 0 12px; font-size: 20px; }
 .b-pencere p { color: #ccc; line-height: 1.5; margin: 6px 0; }
 .b-pencere-tuslar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.b-ayarlar { display: grid; gap: 16px; }
 .b-ayar { display: grid; gap: 6px; font-weight: 700; color: #93a59a; font-size: 13px; }
 .b-ayar select { height: 38px; border-radius: 10px; border: 1px solid #2a3b31; background: #0d1612; color: #e6ece7; padding: 0 10px; font: inherit; font-size: 14px; }
 .b-ayar small { color: #8a8a8a; font-weight: 600; }

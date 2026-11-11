@@ -121,4 +121,24 @@ for (const koltuklar of [[0, 1], [0, 1, 3], [0, 1, 2, 3]]) {
   assert.strictEqual(masa.isle_(ben, null, { t: "bitir" }), undefined);
   assert.strictEqual(masa.m.oyun, null);
 }
+// 4) Kural ayarı: bar (varsayılan) ve dünya
+{
+  const F = (await import("../../js/bilardo/fizik.js")).default;
+  const toplar = F.diz(() => 0.5);
+  const sonuc = (ilk, giren, bant = true) => ({ ilk, giren: giren.map((top) => ({ top, cep: 0 })), bantSonra: bant });
+  const kir = (giren, kural) => F.kural({ gruplar: [null, null], kirilis: true, toplar, kural }, sonuc(1, giren), 0);
+  // Bar: kırışta 2 düz 1 çizgili → düz kıranın; eşitse açık; sıra sende
+  assert.deepStrictEqual(kir([3, 5, 12]).gruplar, ["duz", "cizgili"]);
+  assert.deepStrictEqual(kir([3, 12]).gruplar, [null, null]);
+  assert.strictEqual(kir([3, 12]).devam, true);
+  assert.deepStrictEqual(kir([11]).gruplar, ["cizgili", "duz"]);
+  // Dünya: kırış grup belirlemez
+  assert.deepStrictEqual(kir([3, 5, 12], "dunya").gruplar, [null, null]);
+  // Gruplar belli: kendi + rakibin topu
+  const atis = (kural) => F.kural({ gruplar: ["duz", "cizgili"], kirilis: false, toplar, kural }, sonuc(2, [2, 10]), 0);
+  assert.strictEqual(atis().faul, "Rakibin topunu soktu");
+  assert.strictEqual(atis().devam, false);
+  assert.strictEqual(atis("dunya").faul, null);
+  assert.strictEqual(atis("dunya").devam, true);
+}
 console.log("bilardo masası: tamam");

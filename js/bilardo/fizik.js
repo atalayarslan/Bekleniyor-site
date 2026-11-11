@@ -248,9 +248,14 @@
   // ---------- kurallar ----------
   const kalanSay = (toplar, g) => toplar.reduce((n, t, i) => n + (t && i !== 0 && i !== 8 && tur(i) === g ? 1 : 0), 0);
 
-  // Atışın kurallara göre sonucu. o: { gruplar: [takım0, takım1] ("duz"|"cizgili"|null), kirilis, toplar (atıştan önce) }
+  // Atışın kurallara göre sonucu. o: { gruplar: [takım0, takım1] ("duz"|"cizgili"|null), kirilis, toplar (atıştan önce),
+  //   kural: "bar" (varsayılan) | "dunya" }
+  //   Dünya kuralı (WPA/BCA): kırışta giren toplar grubu belirlemez; rakibin topunu (kendi topunla birlikte) sokmak serbest.
+  //   Bar kuralı ("ne sokarsan o"): kırışta hangi gruptan çok top girdiyse o grup kıranın (eşitse masa açık kalır);
+  //   gruplar belliyken rakibin topunu sokmak faul.
   // Döner: { faul (neden ya da null), devam (atan takım sıraya devam eder), kazanan (takım ya da null), neden, gruplar, siyahGeri }
   function kural(o, sonuc, takim) {
+    const bar = o.kural !== "dunya";
     const rakip = 1 - takim;
     const benim = o.gruplar[takim];
     const siyahSirasi = !!benim && kalanSay(o.toplar, benim) === 0;
@@ -268,6 +273,7 @@
     }
     if (!faul && beyazGirdi) faul = "Beyaz deliğe girdi";
     if (!faul && !o.kirilis && !girenler.length && !sonuc.bantSonra) faul = "Değdikten sonra hiçbir top banda gitmedi";
+    if (!faul && bar && benim && nesneler.some((i) => tur(i) !== benim)) faul = "Rakibin topunu soktu";
 
     let kazanan = null, neden = null;
     const siyahGeri = siyahGirdi && o.kirilis;
@@ -277,9 +283,14 @@
     }
 
     const gruplar = o.gruplar.slice();
-    if (!faul && kazanan === null && !benim && !o.kirilis && nesneler.length) {
-      gruplar[takim] = tur(nesneler[0]);
-      gruplar[rakip] = karsiGrup(gruplar[takim]);
+    if (!faul && kazanan === null && !benim && nesneler.length && (bar || !o.kirilis)) {
+      // Hangi gruptan çok girdiyse o; eşitse kırışta masa açık kalır, sonraki atışlarda ilk giren belirler
+      const duz = nesneler.filter((i) => i < 8).length, cizgili = nesneler.length - duz;
+      const secilen = duz > cizgili ? "duz" : cizgili > duz ? "cizgili" : o.kirilis ? null : tur(nesneler[0]);
+      if (secilen) {
+        gruplar[takim] = secilen;
+        gruplar[rakip] = karsiGrup(secilen);
+      }
     }
     const yeni = gruplar[takim];
     const devam = !faul && kazanan === null && (yeni ? nesneler.some((i) => tur(i) === yeni) : nesneler.length > 0);
@@ -388,7 +399,7 @@
 
     const dene = (atis) => {
       const s = sonuna(toplar, atis);
-      const k = kural({ gruplar: durum.gruplar, kirilis: false, toplar }, s, takim);
+      const k = kural({ gruplar: durum.gruplar, kirilis: false, toplar, kural: durum.kural }, s, takim);
       let puan = 0;
       if (k.kazanan === takim) puan += 1000;
       else if (k.kazanan !== null) puan -= 1000;
