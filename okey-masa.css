@@ -70,11 +70,15 @@
   position: absolute;
   left: 50%;
   top: 70px;
-  width: 1260px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
+  width: 1320px;              /* perler birbirine binmesin diye geniş (taşlar küçültülmez) */
   height: 740px;
-  margin-left: -630px;
+  margin-left: -660px;
   perspective: 1500px;
   perspective-origin: 50% 0%;
+  /* Masa koltukların arasındaki boşluğu doldursun: ön kenarından büyütülür (ön kenar, durum yazısı ve ıstakam
+     yerinde kalır; arka kenar üstteki koltuğa, yan kenarlar yandaki koltuklara yaklaşır) */
+  transform: scale(1.12);
+  transform-origin: 50% 100%;
 }
 /* Masa: keçe (dokulu, ortası ışık alır) + damarlı ahşap kenar + ön yüz (kalınlık) + altında gölge */
 .masa {
@@ -286,6 +290,12 @@
   content: "İŞLEK"; position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%);
   font-size: 9px; font-weight: 900; letter-spacing: .04em; color: #fff; background: #e5484d; padding: 1px 4px; border-radius: 4px;
 }
+/* Altta kalan (görünmeyen) işlek taşın kırmızı çerçevesi ve etiketi üstteki taşın kenarından taşmasın;
+   sadece yığın açılınca (fareyle üstüne gelince, atılanlar ayarı açıksa) görünür */
+.atilan .tas.kilitli.alttaki { box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--tas-kenar), 0 3px 0 var(--tas-kenar-2), 0 4px 6px rgba(0,0,0,.35); }
+.atilan .tas.kilitli.alttaki::after { display: none; }
+body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki { box-shadow: 0 0 0 2.5px #e5484d, 0 0 12px rgba(229,72,77,.6), 0 3px 0 var(--tas-kenar); }
+body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after { display: block; }
 .per.islek-gosterildi { box-shadow: 0 0 0 3px #e5484d, 0 0 18px 6px rgba(229,72,77,.6); background: rgba(229,72,77,.18); }
 .atilan.alinabilir { cursor: pointer; }
 .atilan-etiket { position: absolute; bottom: -18px; font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.5); white-space: nowrap; }
@@ -373,8 +383,8 @@
    Benimki altta tam genişlik, yandakiler deste ile ıstakaları arasında, karşıdaki üstte. */
 .per-alani.p0 { left: 128px; right: 128px; top: 438px; height: 126px; }
 .per-alani.p2 { left: 240px; right: 240px; top: 84px; height: 122px; }
-.per-alani.p1 { right: 120px; top: 212px; width: 370px; height: 220px; }
-.per-alani.p3 { left: 120px; top: 212px; width: 370px; height: 220px; }
+.per-alani.p1 { right: 120px; top: 212px; width: 390px; height: 220px; }
+.per-alani.p3 { left: 120px; top: 212px; width: 390px; height: 220px; }
 .per-alani { transform-origin: top center; }
 .per-alani.p1 { transform-origin: top right; }
 .per-alani.p3 { transform-origin: top left; }

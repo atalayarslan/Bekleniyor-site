@@ -282,6 +282,7 @@
         }
         oge.style.visibility = "";
         oge.style.setProperty("--k", yigin.length - 1 - i);
+        oge.classList.toggle("alttaki", i < yigin.length - 1);   // üstteki taşın altında kalıp görünmeyen
         // İşlek diye gösterilen taş kilitli (kimse alamaz); en üstteki taş gösterilebilir olabilir
         oge.classList.toggle("kilitli", !!(g.kilitliler && g.kilitliler.has(tas.id)));
         const gosterilir = !!(g.gosterilebilir && g.gosterilebilir.yigin === k && g.gosterilebilir.tasId === tas.id && i === yigin.length - 1);
