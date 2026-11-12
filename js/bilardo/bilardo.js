@@ -761,12 +761,12 @@
         h("div", { sinif: "b-tuslar" },
           kol.devralinabilir && !kol.bot && !oturuyorum() ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "otur", koltuk: k }) }, "Yerine otur") : null,
           kol.devralinabilir && !kol.bot && (oturuyorum() || durum.ben.yetkili) ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "bot", koltuk: k }) }, "🤖 Yerine bot") : null,
-          kol.bot && (oturuyorum() || durum.ben.yetkili) ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "botCikar", koltuk: k }) }, "Botu çıkar") : null,
+          kol.bot && (oturuyorum() || durum.ben.yetkili) ? h("button", { sinif: "yanci-tus tehlikeli", onclick: () => gonder({ t: "botCikar", koltuk: k }) }, "Botu çıkar") : null,
           // Masayı kuran ya da oda sahibi oyuncuyu masadan kaldırabilir
           !kol.bot && k !== benimKoltugum() && (durum.ben.kurucu || durum.ben.yetkili) ? h("button", {
-            sinif: "yanci-tus", onclick: () => pencere(kol.ad + " masadan kaldırılsın mı?",
+            sinif: "yanci-tus tehlikeli", onclick: () => pencere(kol.ad + " masadan kaldırılsın mı?",
               h("p", {}, oyunVar() ? "Oyun sürüyor: takımında başka kimse yoksa oyun biter." : "Koltuğu boşalır, izleyici olarak kalır."),
-              [{ yazi: "Vazgeç" }, { yazi: "Kaldır", ana: true, is: () => gonder({ t: "kaldir", koltuk: k }) }])
+              [{ yazi: "Vazgeç" }, { yazi: "Kaldır", sinif: "kirmizi", is: () => gonder({ t: "kaldir", koltuk: k }) }])
           }, "Kaldır") : null)));
   }
 
@@ -815,11 +815,11 @@
     const tuslar = [h("button", { sinif: "okey-tus", title: "Sesleri aç/kapat", onclick: () => { sesAcik = !sesAcik; try { localStorage.setItem("bilardoSes", sesAcik ? "1" : "0"); } catch (e) { } uygula(); } }, sesAcik ? "🔊 Ses" : "🔇 Ses")];
     if (durum.ben.kurucu || durum.ben.yetkili) tuslar.push(h("button", { sinif: "okey-tus", onclick: ayarPaneli }, "⚙️ Ayarlar"));
     if (oyunVar() && (durum.ben.kurucu || durum.ben.yetkili)) tuslar.push(h("button", {
-      sinif: "okey-tus", title: "Süren oyunu sonuçsuz bitir", onclick: () => pencere("Oyun bitirilsin mi?",
+      sinif: "okey-tus tehlikeli", title: "Süren oyunu sonuçsuz bitir", onclick: () => pencere("Oyun bitirilsin mi?",
         h("p", {}, "Süren oyun sonuçsuz biter (kimse kazanmış sayılmaz). Sonra yeni oyun başlatabilirsiniz."),
-        [{ yazi: "Vazgeç" }, { yazi: "Bitir", ana: true, is: () => gonder({ t: "bitir" }) }])
+        [{ yazi: "Vazgeç" }, { yazi: "Bitir", sinif: "kirmizi", is: () => gonder({ t: "bitir" }) }])
     }, "⏹ Oyunu bitir"));
-    if (oturuyorum()) tuslar.push(h("button", { sinif: "okey-tus", onclick: kalkSor }, "🚪 Kalk"));
+    if (oturuyorum()) tuslar.push(h("button", { sinif: "okey-tus tehlikeli", onclick: kalkSor }, "🚪 Kalk"));
     tuslar.push(h("button", { sinif: "okey-tus", onclick: kurallariGoster }, "📖 Kurallar"));
     ogeler.kose.replaceChildren(...tuslar);
   }
@@ -857,7 +857,7 @@
 
   function kalkSor() {
     pencere("Masadan kalkmak istiyor musun?", h("p", {}, oyunVar() ? "Oyun sürüyor: kalkarsan yerine başkası ya da bot oturabilir." : ""),
-      [{ yazi: "Evet", sinif: "soluk", is: () => gonder({ t: "kalk" }) }, { yazi: "Hayır", ana: true }]);
+      [{ yazi: "Evet", sinif: "soluk", is: () => gonder({ t: "kalk" }) }, { yazi: "Hayır", sinif: "kirmizi" }]);
   }
 
   function ayarPaneli() {

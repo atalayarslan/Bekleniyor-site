@@ -102,6 +102,9 @@
 .b-kilit[hidden] { display: none; }
 
 .b-kose { top: auto; bottom: 10px; right: 14px; max-width: 46%; }
+/* Kalk, Oyunu bitir, Kaldır, Botu çıkar: masadan birini çıkaran / oyunu bozan düğmeler kırmızı */
+.bilardo .okey-tus.tehlikeli, .bilardo .yanci-tus.tehlikeli { background: #e5484d; color: #fff; }
+.bilardo .okey-tus.tehlikeli:hover, .bilardo .yanci-tus.tehlikeli:hover { background: #f2555a; }
 
 .b-bildirim {
   position: absolute; left: 50%; top: 96px; transform: translate(-50%, -6px); z-index: 60; opacity: 0;
