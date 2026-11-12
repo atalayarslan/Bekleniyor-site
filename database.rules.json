@@ -100,6 +100,9 @@
             "arama": {
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
             },
+            "sure": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000"
+            },
             "$diger": {
               ".validate": false
             }
@@ -121,6 +124,9 @@
               },
               "arama": {
                 ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
+              },
+              "sure": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000"
               },
               "$diger": {
                 ".validate": false
@@ -290,6 +296,9 @@
                 "arama": {
                   ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
                 },
+                "sure": {
+                  ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000"
+                },
                 "$diger": {
                   ".validate": false
                 }
@@ -324,6 +333,9 @@
             },
             "kanal": {
               ".validate": "newData.isString() && newData.val().length <= 100"
+            },
+            "sure": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 36000"
             },
             "$diger": {
               ".validate": false

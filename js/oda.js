@@ -611,6 +611,16 @@ async function sarkiyiCoz(sarki) {
   try { videoId = (await db.ref("eslesmeler/" + anahtar).get()).val(); } catch (e) { }
   if (!gecerliId(videoId)) {
     const { sonuclar } = await youtubeAra(metin);
+    // Eski kayıtlı aramalarda süre yok; Spotify süresi biliniyorsa süreler ayrıca alınır (1 birim kota)
+    const suresiz = sonuclar.filter((s) => !(s.sure > 0));
+    if (sarki.sure > 0 && suresiz.length) {
+      try {
+        const veri = await youtubeIstegi("videos", { part: "contentDetails", id: suresiz.map((s) => s.videoId).join(",") });
+        const sureler = {};
+        for (const v of veri.items || []) sureler[v.id] = isoSure(v.contentDetails && v.contentDetails.duration);
+        suresiz.forEach((s) => { if (sureler[s.videoId] > 0) s.sure = sureler[s.videoId]; });
+      } catch (e) { }
+    }
     const bulunan = enIyiEslesme(sarki, sonuclar);
     if (!bulunan) throw new Error("“" + sarki.baslik + "” YouTube'da bulunamadı");
     videoId = bulunan.videoId;
@@ -627,10 +637,64 @@ async function sarkiyiCoz(sarki) {
 // ("Sanatçı - Topic" kanalı) ve sanatçının kendi kanalı öne çıkar; Shorts, komik video, tepki videosu ve
 // şarkının başka sürümleri (remix, canlı, akustik, hızlandırılmış...) geriye düşer — Spotify'daki ad ya da
 // sanatçı adı o kelimeyi zaten içermiyorsa. Hiçbiri şarkıya benzemiyorsa null döner (alakasız bir şey çalınmaz).
-const ESLESME_CEZALARI = [
-  [/#?shorts?\b|#\w+.*#\w+|\bfunny\b|\bmeme\b|\btiktok\b|\btrend(ing)?\b|\bprank\b|\breaction\b|\btepki\b|💀|😂/i, 4],
-  [/\b(remix|rework|live|canl[ıi]|version|versiyon|acoustic|akustik|demo|instrumental|cover|karaoke|sped\s*up|slowed|nightcore|reverb|8d|loop|edit|concert|konser)\b|\b\d+\s*(hours?|saat)\b/i, 3]
-];
+// Spotify'daki süre biliniyorsa en güçlü ipucu odur: canlı kayıtlar ve klipler çoğu zaman stüdyo kaydından uzundur.
+//
+// Kelime sınırı: JavaScript'in \b'si "ı", "ş" gibi harfleri harf saymaz ("canlı " hiç eşleşmezdi);
+// bu yüzden Unicode harf/rakam sınırı kullanılır. Türkçe kelimeler ek alabildiği için kökten eşleşir (konseri, performansı).
+function kelimeDeseni(tamKelimeler, kokler = []) {
+  const once = "(?<![\\p{L}\\p{N}])";
+  const parcalar = [once + "(?:" + tamKelimeler.join("|") + ")(?![\\p{L}\\p{N}])"];
+  if (kokler.length) parcalar.push(once + "(?:" + kokler.join("|") + ")");
+  return new RegExp(parcalar.join("|"), "iu");
+}
+const CANLI_DESENI = new RegExp(kelimeDeseni([
+  "live", "concert", "performance", "sessions?", "unplugged", "tour", "festival", "fest", "rehearsal", "bootleg",
+  "en vivo", "ao vivo", "tiny desk", "fan ?cam", "mtv", "kafa radyo", "joy ?t[uü]rk", "beyaz show", "[iİı]bo show", "o ses t[uü]rkiye"
+], ["canl[ıi]", "konser", "performans", "sahne", "a[çc][ıi]khava", "harbiye", "jolly joker"]).source + "|\\s@\\s*\\S", "iu");
+const SURUM_DESENI = kelimeDeseni([
+  "remix", "rework", "version", "versiyon", "acoustic", "demo", "instrumental", "cover", "karaoke", "sped ?up", "speed ?up",
+  "slowed", "nightcore", "reverb", "8d", "loop", "edit", "mash ?up", "\\d+\\s*(?:hours?|saat)"
+], ["akustik", "enstr[uü]mantal", "altyap", "cover"]);
+const KOMIK_DESENI = /#?shorts?\b|#\w+.*#\w+|\bfunny\b|\bmeme\b|\btiktok\b|\btrend(ing)?\b|\bprank\b|\breaction\b|tepki|💀|😂/iu;
+const ESLESME_CEZALARI = [[KOMIK_DESENI, 4], [CANLI_DESENI, 4], [SURUM_DESENI, 3]];
+const SES_KAYDI_DESENI = kelimeDeseni(["official audio", "audio", "lyrics?", "lyric video"], ["s[öo]zleri", "s[öo]z"]);
+
+// Başlık, aranan şeyde (Spotify adı ya da yazılan arama) olmayan bir "başka sürüm" kelimesi içeriyorsa ceza puanı
+function surumCezasi(baslik, referans) {
+  let ceza = 0;
+  for (const [desen, puan] of ESLESME_CEZALARI) {
+    if (desen.test(baslik) && !desen.test(referans)) ceza += puan;
+  }
+  // Aranan şey canlı kayıtsa ("... live", Spotify'da "- Live") canlı olmayan sürüm geriye düşer
+  if (CANLI_DESENI.test(referans) && !CANLI_DESENI.test(baslik)) ceza += 1.5;
+  return ceza;
+}
+
+// Elle aramada: aranan metinde "live", "remix" gibi bir kelime yoksa o sürümler listenin altına iner
+// (kendi aralarındaki sıra korunur). "... live" diye aranırsa canlı kayıtlar yerinde kalır.
+function surumeGoreSirala(sonuclar, aranan) {
+  return sonuclar.map((s, i) => [s, surumCezasi(s.baslik, aranan), i])
+    .sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(([s]) => s);
+}
+
+// YouTube süresi "PT1H2M3S" → saniye
+function isoSure(metin) {
+  const e = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(String(metin || ""));
+  return e ? (+e[1] || 0) * 3600 + (+e[2] || 0) * 60 + (+e[3] || 0) : 0;
+}
+
+// Spotify süresiyle YouTube süresi arasındaki farka göre puan
+function surePuani(spotify, youtube) {
+  if (!(spotify > 0) || !(youtube > 0)) return 0;
+  const fark = Math.abs(youtube - spotify);
+  if (fark <= 3) return 3;
+  if (fark <= 8) return 2;
+  if (fark <= 15) return 1;
+  if (fark <= 30) return 0;
+  if (fark <= 60) return -2;
+  return -3.5;
+}
+
 function enIyiEslesme(sarki, sonuclar) {
   // Türkçe küçük harf "Impala"yı "ımpala" yapar, kanal adındaki "impala" ile eşleşmez; ı/i farkı yok sayılır
   const sade = (metin) => sadeMetin(metin).replace(/ı/g, "i");
@@ -649,10 +713,12 @@ function enIyiEslesme(sarki, sonuclar) {
     const sanatciVar = sanatcilar.some((a) => baslik.includes(a) || (kanal && (kanal.includes(a) || a.includes(kanal))));
     const sanatcininKanali = kanal && sanatcilar.some((a) => kanal.includes(a));
     const resmiKayit = / - topic$/i.test(s.kanal || "") && sanatcilar.some((a) => kanal === a);
-    let puan = adOrani * 4 + (sanatciVar ? 3 : 0) + (sanatcininKanali ? 1 : 0) + (resmiKayit ? 1 : 0) - sira * 0.05;
-    for (const [desen, ceza] of ESLESME_CEZALARI) {
-      if (desen.test(s.baslik) && !desen.test(sarki.baslik + " " + (sarki.kanal || ""))) puan -= ceza;
-    }
+    const referans = sarki.baslik + " " + (sarki.kanal || "");
+    let puan = adOrani * 4 + (sanatciVar ? 3 : 0) + (sanatcininKanali ? 1 : 0) + (resmiKayit ? 2 : 0) - sira * 0.05;
+    puan -= surumCezasi(s.baslik, referans);
+    // Ses kaydı / sözlü video stüdyo kaydının aynısıdır (klipte ise çoğu zaman ek sahneler, başka sürümler olur)
+    if (SES_KAYDI_DESENI.test(s.baslik)) puan += 1;
+    puan += surePuani(sarki.sure, s.sure);
     // Şarkının adı başlıkta yoksa ya da sanatçı hiçbir yerde geçmiyor ve ad da tam değilse aday değildir
     const uygun = adOrani >= 0.6 && (sanatciVar || adOrani === 1);
     if (uygun && puan > enIyiPuan) {
@@ -1606,15 +1672,21 @@ async function youtubeAra(sorgu) {
     baslik: htmlCoz(v.snippet.title),
     kanal: htmlCoz(v.snippet.channelTitle)
   }));
-  // İzlenme sayıları (15 video için 1 birim kota). Alakalılık sırası da hafifçe korunur.
+  // İzlenme sayıları ve süreler (15 video için 1 birim kota). Alakalılık sırası da hafifçe korunur.
   try {
-    const istatistik = await youtubeIstegi("videos", { part: "statistics", id: sonuclar.map((s) => s.videoId).join(",") });
+    const istatistik = await youtubeIstegi("videos", { part: "statistics,contentDetails", id: sonuclar.map((s) => s.videoId).join(",") });
     const izlenme = {};
-    for (const v of istatistik.items || []) izlenme[v.id] = Number(v.statistics.viewCount || 0);
+    const sureler = {};
+    for (const v of istatistik.items || []) {
+      izlenme[v.id] = Number((v.statistics && v.statistics.viewCount) || 0);
+      sureler[v.id] = isoSure(v.contentDetails && v.contentDetails.duration);
+    }
+    sonuclar.forEach((s) => { if (sureler[s.videoId] > 0 && sureler[s.videoId] <= 36000) s.sure = sureler[s.videoId]; });
     const puan = (s, i) => Math.log10((izlenme[s.videoId] || 0) + 10) - i * 0.12;
     sonuclar = sonuclar.map((s, i) => [s, puan(s, i)]).sort((a, b) => b[1] - a[1]).map(([s]) => s);
   } catch (e) { }
-  sonuclar = sonuclar.slice(0, 10);
+  // Resmî ses kayıtları ("Topic") az izlendiği için sona düşebiliyor; eşleştirme hepsine bakabilsin diye 15'i de saklanır
+  sonuclar = sonuclar.slice(0, 15);
   if (kullanici) {
     db.ref("aramaOnbellek/" + anahtar).set({ zaman: firebase.database.ServerValue.TIMESTAMP, sonuclar }).catch(() => { });
   }
@@ -1701,7 +1773,8 @@ async function spotifyListesiCek(link) {
   const sarkilar = (veri.sarkilar || []).filter((s) => s.baslik).map((s) => sarkiKaydi({
     baslik: s.baslik,
     kanal: s.sanatci,
-    arama: (s.sanatci ? s.sanatci.split(",")[0].trim() + " - " : "") + s.baslik
+    arama: (s.sanatci ? s.sanatci.split(",")[0].trim() + " - " : "") + s.baslik,
+    sure: s.sure
   }));
   if (!sarkilar.length) throw new Error("Spotify listesinde şarkı bulunamadı");
   return { ad: String(veri.ad || "Spotify listesi").slice(0, 60), sarkilar };
@@ -1740,7 +1813,8 @@ async function spotifyParcalariCek(idler, ilerleme) {
   const sarkilar = sonuclar.flat().filter((s) => s && s.baslik).map((s) => sarkiKaydi({
     baslik: s.baslik,
     kanal: s.sanatci,
-    arama: (s.sanatci ? s.sanatci.split(",")[0].trim() + " - " : "") + s.baslik
+    arama: (s.sanatci ? s.sanatci.split(",")[0].trim() + " - " : "") + s.baslik,
+    sure: s.sure
   }));
   if (!sarkilar.length) throw new Error("Yapıştırılan Spotify şarkıları okunamadı, biraz sonra tekrar dene.");
   return { ad: "Spotify listesi", sarkilar };
@@ -1796,13 +1870,13 @@ async function aramaYap(metin) {
       $("aramaKutusu").value = ad;
       const { sonuclar } = await youtubeAra(ad);
       not.textContent = "Spotify'daki “" + ad + "” için YouTube sonuçları. Doğru olanı ekle:";
-      sonuclariGoster(sonuclar);
+      sonuclariGoster(surumeGoreSirala(sonuclar, ad));
       return;
     }
 
     const { sonuclar, onbellekten } = await youtubeAra(metin);
     not.textContent = !sonuclar.length ? "Sonuç bulunamadı." : onbellekten ? "Kayıtlı sonuçlar (arama hakkı harcanmadı)" : "";
-    sonuclariGoster(sonuclar);
+    sonuclariGoster(surumeGoreSirala(sonuclar, metin));
   } catch (hata) {
     not.textContent = hata.message;
   }

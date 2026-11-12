@@ -44,7 +44,9 @@ function kapakAdresi(id) {
 // "~" öneki: eski eşleşmeler ilk sonucu körü körüne alıyordu (yanlışları vardı) ve kurallar gereği
 // üzerine yazılamıyor; yenileri ayrı anahtarda tutulur. Arama sonuçları önbellekte olduğundan kota harcanmaz.
 function eslesmeAnahtari(metin) {
-  return "~" + (guvenliAnahtar(String(metin).toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_").slice(0, 99);
+  // Ön ek, eşleştirme kuralları değişince eski (yazıldıktan sonra değiştirilemeyen) eşleşmeleri devre dışı bırakır.
+  // "~2": canlı/konser kayıtlarını ve süre farkını ayırt eden eşleştirme (v57)
+  return "~2" + (guvenliAnahtar(String(metin).toLocaleLowerCase("tr").replace(/\s+/g, " ").trim()) || "_").slice(0, 98);
 }
 
 function kapakResmi(sarki, ozellikler) {
@@ -172,7 +174,12 @@ function sarkiKaydi(s) {
     kanal: String(s.kanal || "").slice(0, 100)
   };
   if (gecerliId(s.videoId)) kayit.videoId = s.videoId;
-  else kayit.arama = String(s.arama || ((s.kanal ? s.kanal + " - " : "") + kayit.baslik)).slice(0, 200);
+  else {
+    kayit.arama = String(s.arama || ((s.kanal ? s.kanal + " - " : "") + kayit.baslik)).slice(0, 200);
+    // Spotify'daki süre (saniye): YouTube'da aynı kaydı (canlı ya da uzatılmış sürüm değil) bulmaya yarar
+    const sure = Math.round(Number(s.sure));
+    if (sure > 0 && sure <= 36000) kayit.sure = sure;
+  }
   return kayit;
 }
 
