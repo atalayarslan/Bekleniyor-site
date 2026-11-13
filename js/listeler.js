@@ -93,15 +93,19 @@ function karistir(dizi) {
 async function yeniListe(ad, sarkilar) {
   if (!kullanici) { bildir("Liste için önce Google ile giriş yap"); return null; }
   const ref = listelerRef.push();
-  const sarkiNesnesi = {};
   const gorulen = new Set();
-  for (const s of sarkilar) {
-    const kimlik = sarkiKimligi(s);
-    if (!s.baslik || gorulen.has(kimlik)) continue;
-    gorulen.add(kimlik);
-    sarkiNesnesi[ref.child("sarkilar").push().key] = Object.assign(sarkiKaydi(s), { eklenme: Date.now() });
-  }
-  await ref.set({ ad: ad.slice(0, 60), olusturma: firebase.database.ServerValue.TIMESTAMP, sarkilar: sarkiNesnesi });
+  const nesneYap = () => {
+    gorulen.clear();
+    const sarkiNesnesi = {};
+    for (const s of sarkilar) {
+      const kimlik = sarkiKimligi(s);
+      if (!s.baslik || gorulen.has(kimlik)) continue;
+      gorulen.add(kimlik);
+      sarkiNesnesi[ref.child("sarkilar").push().key] = Object.assign(sarkiKaydi(s), { eklenme: Date.now() });
+    }
+    return sarkiNesnesi;
+  };
+  await sureliYaz(() => ref.set({ ad: ad.slice(0, 60), olusturma: firebase.database.ServerValue.TIMESTAMP, sarkilar: nesneYap() }));
   bildir("“" + ad + "” listesi oluşturuldu (" + gorulen.size + " şarkı)");
   return ref.key;
 }
@@ -112,7 +116,7 @@ async function listeyeSarkiEkle(listeId, sarki) {
     bildir("Bu şarkı zaten “" + liste.ad + "” listesinde");
     return;
   }
-  await listelerRef.child(listeId + "/sarkilar").push(Object.assign(sarkiKaydi(sarki), { eklenme: Date.now() }));
+  await sureliYaz(() => listelerRef.child(listeId + "/sarkilar").push(Object.assign(sarkiKaydi(sarki), { eklenme: Date.now() })));
   bildir("“" + liste.ad + "” listesine eklendi");
 }
 

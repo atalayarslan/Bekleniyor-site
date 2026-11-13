@@ -168,6 +168,19 @@ function guvenliAnahtar(metin) {
 
 // Şarkı kaydı. Spotify'dan gelen şarkıların henüz YouTube karşılığı yoktur; onlarda videoId yerine
 // "arama" (Sanatçı - Şarkı) bulunur ve şarkı ilk çalınacağı zaman YouTube'da aranır.
+// Veritabanı kuralları "sure" alanını tanımıyorsa (kurallar güncellenmemişse) şarkı yazmak reddedilir.
+// O zaman süre bir daha yazılmaz ve aynı yazma süresiz tekrarlanır; şarkı eklemek hiçbir durumda bozulmaz.
+let sureYazilir = true;
+async function sureliYaz(yaz) {
+  try {
+    return await yaz();
+  } catch (e) {
+    if (!sureYazilir || !/permission/i.test(String((e && (e.code || e.message)) || e))) throw e;
+    sureYazilir = false;
+    return yaz();
+  }
+}
+
 function sarkiKaydi(s) {
   const kayit = {
     baslik: String(s.baslik || "Bilinmeyen şarkı").slice(0, 200),
@@ -178,7 +191,7 @@ function sarkiKaydi(s) {
     kayit.arama = String(s.arama || ((s.kanal ? s.kanal + " - " : "") + kayit.baslik)).slice(0, 200);
     // Spotify'daki süre (saniye): YouTube'da aynı kaydı (canlı ya da uzatılmış sürüm değil) bulmaya yarar
     const sure = Math.round(Number(s.sure));
-    if (sure > 0 && sure <= 36000) kayit.sure = sure;
+    if (sureYazilir && sure > 0 && sure <= 36000) kayit.sure = sure;
   }
   return kayit;
 }

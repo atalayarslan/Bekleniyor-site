@@ -476,14 +476,15 @@ function gecmiseYaz(sarki) {
 // Spotify'dan gelen (henüz YouTube karşılığı olmayan) şarkılar da eklenebilir; çalma sırası gelince aranır.
 async function sarkilariEkle(liste, ekleyen) {
   if (!muzikRef) return;
-  const kayitlar = liste.filter((s) => gecerliId(s.videoId) || s.arama || s.baslik)
+  const kayitlariYap = () => liste.filter((s) => gecerliId(s.videoId) || s.arama || s.baslik)
     .map((s) => Object.assign(sarkiKaydi(s), { ekleyen: String(ekleyen || isim).slice(0, 40) }));
+  let kayitlar = kayitlariYap();
   if (!kayitlar.length) return;
   // Oda sessizse ilk şarkı hemen başlayacak: önce sunucuda hazır olsun
   if (!simdiki) await akisaHazirla(kayitlar[0].videoId);
   const anahtarlar = kayitlar.map(() => muzikRef.child("sira").push().key);
   let baslayan = null;
-  return muzikRef.transaction((m) => {
+  return sureliYaz(() => (kayitlar = kayitlariYap(), muzikRef.transaction((m) => {
     m = m || {};
     baslayan = null;
     let i = 0;
@@ -495,7 +496,7 @@ async function sarkilariEkle(liste, ekleyen) {
     m.sira = m.sira || {};
     for (; i < kayitlar.length; i++) m.sira[anahtarlar[i]] = kayitlar[i];
     return m;
-  }).then((sonuc) => {
+  }))).then((sonuc) => {
     if (!sonuc.committed) return;
     if (baslayan) gecmiseYaz(baslayan);
     if (!ekleyen) bildir(kayitlar.length === 1 ? "Eklendi: " + kayitlar[0].baslik : kayitlar.length + " şarkı sıraya eklendi");
@@ -1688,7 +1689,10 @@ async function youtubeAra(sorgu) {
   // Resmî ses kayıtları ("Topic") az izlendiği için sona düşebiliyor; eşleştirme hepsine bakabilsin diye 15'i de saklanır
   sonuclar = sonuclar.slice(0, 15);
   if (kullanici) {
-    db.ref("aramaOnbellek/" + anahtar).set({ zaman: firebase.database.ServerValue.TIMESTAMP, sonuclar }).catch(() => { });
+    sureliYaz(() => db.ref("aramaOnbellek/" + anahtar).set({
+      zaman: firebase.database.ServerValue.TIMESTAMP,
+      sonuclar: sureYazilir ? sonuclar : sonuclar.map((s) => sarkiKaydi(s))
+    })).catch(() => { });
   }
   return { sonuclar, onbellekten: false };
 }
@@ -1850,6 +1854,21 @@ async function aramaYap(metin) {
     if (ytId) {
       sarkilariEkle([await youtubeLinkiniCoz(ytId)]);
       not.textContent = "";
+      $("aramaKutusu").value = "";
+      return;
+    }
+
+    // Spotify uygulamasından kopyalanan birden çok şarkı linki (Ctrl+A, Ctrl+C): hepsi okunur, sıraya ya da listeye eklenir
+    const parcaIdleri = spotifyParcaIdleri(metin);
+    if (parcaIdleri.length > 1) {
+      const { sarkilar } = await spotifyParcalariCek(parcaIdleri, (n, top) => { not.textContent = "Spotify şarkıları okunuyor… " + n + " / " + top; });
+      const eksik = Math.min(parcaIdleri.length, SPOTIFY_YAPISTIRMA_SINIRI) - sarkilar.length;
+      not.textContent = "Spotify: " + sarkilar.length + " şarkı" + (eksik > 0 ? " (" + eksik + " tanesi okunamadı)" : "") +
+        (parcaIdleri.length > SPOTIFY_YAPISTIRMA_SINIRI ? ", ilk " + SPOTIFY_YAPISTIRMA_SINIRI + " link alındı" : "") +
+        ". Her şarkı çalınacağı zaman YouTube'da bulunur.";
+      sonuclariGoster(sarkilar, el("div", { className: "arac-satiri" },
+        el("button", { className: "tus-kucuk", onclick: () => sarkilariEkle(sarkilar) }, "▶ Hepsini sıraya ekle"),
+        el("button", { className: "tus-kucuk", onclick: () => kullanici ? yeniListe("Spotify listesi", sarkilar) : bildir("Liste için önce Google ile giriş yap") }, "☆ Listelerime kaydet")));
       $("aramaKutusu").value = "";
       return;
     }
