@@ -19,3 +19,8 @@ class_name = "BilardoMasasi"
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["BilardoMasasi"]
+
+# Oda arka plan videoları (asıl dosya, dönüştürülmeden). Yükleme: POST /medya, okuma: GET /medya/<sha256>.<mp4|webm>
+[[kv_namespaces]]
+binding = "MEDYA"
+id = "946c02717dc34271a69a4d40776bc4bc"

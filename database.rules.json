@@ -203,7 +203,7 @@
       "$oda": {
         ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && ((root.child('yoneticiler').child(auth.uid).val() == true || (auth.token.email_verified == true && auth.token.email.toLowerCase() == 'erayaksuhome@outlook.com')) || (!root.child('yasakli').child(auth.uid).exists() && (root.child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid || newData.parent().parent().child('odalar').child($oda).child('bilgi/sahip').val() == auth.uid)))",
         "$f": {
-          ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isString() && ((newData.val().beginsWith('data:image/') && newData.val().length <= 400000) || (newData.val().beginsWith('data:video/') && newData.val().length <= 1500000))"
+          ".validate": "($f == 'f0' || $f == 'f1' || $f == 'f2' || $f == 'f3' || $f == 'f4' || $f == 'f5' || $f == 'arka') && newData.isString() && ((newData.val().beginsWith('data:image/') && newData.val().length <= 400000) || (newData.val().beginsWith('data:video/') && newData.val().length <= 1500000) || ($f == 'arka' && newData.val().matches(/^https:\\/\\/bekleniyor-okey\\.erayaksuhome\\.workers\\.dev\\/medya\\/[a-f0-9]{64}\\.(mp4|webm)$/)))"
         }
       }
     },

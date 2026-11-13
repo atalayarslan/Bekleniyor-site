@@ -798,12 +798,6 @@ a {
   object-fit: contain;
 }
 
-.arka-plan.resimli::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-}
 
 /* Daire, üstte ve altta dolaşan fotoğraf şeritlerinin arasına sığacak kadar büyür */
 .daire-dis {

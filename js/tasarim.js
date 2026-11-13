@@ -289,7 +289,14 @@ function arkaVideosunuCiz(kaynak, hiz) {
 }
 
 function videoMu(kaynak) {
-  return typeof kaynak === "string" && kaynak.startsWith("data:video/");
+  return typeof kaynak === "string" && (kaynak.startsWith("data:video/") || medyaAdresiMi(kaynak));
+}
+
+// Sunucuda (okey-sunucu/src/medya.js) asıl kalitesinde saklanan video: https://…/medya/<sha256>.<mp4|webm>
+function medyaAdresiMi(kaynak) {
+  const sunucu = String(AYARLAR.okeySunucu || "").replace(/\/+$/, "");
+  return !!sunucu && typeof kaynak === "string" && kaynak.startsWith(sunucu + "/medya/") &&
+    /\/medya\/[a-f0-9]{64}\.(mp4|webm)$/.test(kaynak);
 }
 
 // Video (GIF'ten dönüştürülmüş olabilir) sessiz, döngüde ve seçilen hızda oynar.
@@ -491,8 +498,48 @@ async function gifiDonustur(dosya, enFazlaKenar, bitHizi) {
   }
 }
 
+// Videoyu sunucuya yükler, oynatma adresini döndürür
+const SUNUCU_MEDYA_SINIRI = 20 * 1024 * 1024;
+async function sunucuyaYukle(blob) {
+  const sunucu = String(AYARLAR.okeySunucu || "").replace(/\/+$/, "");
+  if (!sunucu) throw new Error("Sunucu adresi yok");
+  const kart = await kimlikKarti();
+  if (!kart) throw new Error("Önce Google hesabınla giriş yap.");
+  const yanit = await fetch(sunucu + "/medya", {
+    method: "POST", headers: { "Authorization": "Bearer " + kart, "Content-Type": blob.type || "application/octet-stream" }, body: blob
+  });
+  const veri = await yanit.json().catch(() => ({}));
+  if (!yanit.ok || !medyaAdresiMi(veri.adres)) throw new Error(veri.hata || "Video yüklenemedi");
+  return veri.adres;
+}
+
+const dataAdresindenBlob = async (adres) => (await fetch(adres)).blob();
+
+// Arka plan videosu asıl kalitesinde: MP4/WebM olduğu gibi yüklenir (dönüştürme yok, çözünürlük ve netlik korunur).
+// Başka türler (MOV, GIF…) ya da 20 MB'tan büyük dosyalar önce yüksek kalitede WebM'e çevrilip yüklenir.
+async function arkaVideosunuHazirla(dosya) {
+  if ((dosya.type === "video/mp4" || dosya.type === "video/webm") && dosya.size <= SUNUCU_MEDYA_SINIRI) {
+    return sunucuyaYukle(dosya);
+  }
+  const gif = dosya.type === "image/gif";
+  for (const [kenar, bit] of [[1920, 8000000], [1280, 5000000], [1080, 3000000]]) {
+    const sonuc = gif ? await gifiDonustur(dosya, kenar, bit) : await videoyuDonustur(dosya, kenar, bit);
+    const blob = await dataAdresindenBlob(sonuc);
+    if (blob.size <= SUNUCU_MEDYA_SINIRI) return sunucuyaYukle(blob);
+  }
+  throw new Error("Video çok büyük");
+}
+
 // buyuk: arka plan için daha yüksek çözünürlük denenir
 async function medyayiHazirla(dosya, buyuk) {
+  if (buyuk) {
+    try {
+      return await arkaVideosunuHazirla(dosya);
+    } catch (e) {
+      // Sunucuya ulaşılamazsa eski yol: video küçültülüp veritabanına yazılır
+      bildir("Video asıl kalitesinde yüklenemedi (" + e.message + "), küçültülerek ekleniyor…");
+    }
+  }
   const gif = dosya.type === "image/gif";
   const denemeler = buyuk
     ? [[720, 1000000], [540, 650000], [400, 350000]]
@@ -848,7 +895,7 @@ function fotoYuvasi(anahtar, enFazlaKenar, enFazlaUzunluk, hareketliOlabilir) {
         hazirlaniyor = true;
         yuva.classList.add("hazirlaniyor");
         yuva.textContent = hareketli ? "⏳" : "…";
-        bildir(hareketli ? "Video hazırlanıyor (en fazla 15 sn sürer)…" : "Fotoğraf hazırlanıyor…");
+        bildir(!hareketli ? "Fotoğraf hazırlanıyor…" : anahtar === "arka" ? "Video yükleniyor…" : "Video hazırlanıyor (en fazla 15 sn sürer)…");
         taslakFotolar[anahtar] = hareketli ? await medyayiHazirla(dosya, anahtar === "arka") : await resmiKucult(kaynak, enFazlaKenar, enFazlaUzunluk);
         bildir((hareketli ? "Video" : "Fotoğraf") + " eklendi, kaydetmeyi unutma");
       } catch (e) {
