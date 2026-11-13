@@ -207,10 +207,12 @@ function yeniListePenceresi() {
       else if (ytListe) bilgi = await youtubeListesiCek(ytListe);
       else if (/open\.spotify\.com\/(intl-[\w-]+\/)?(playlist|album|track)\//.test(link)) bilgi = await spotifyListesiCek(link);
       else throw new Error("Bu bir YouTube ya da Spotify liste linki değil.");
-      pencereKapat();
+      durum.textContent = "Liste kaydediliyor…";
+      // Pencere ancak liste kaydedilince kapanır; kaydedilemezse hata pencerede görünür
       await yeniListe(ad || bilgi.ad, bilgi.sarkilar);
+      pencereKapat();
     } catch (e) {
-      durum.textContent = e.message;
+      durum.textContent = "Liste oluşturulamadı: " + e.message;
     } finally {
       calisiyor = false;
     }
