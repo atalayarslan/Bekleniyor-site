@@ -52,8 +52,7 @@
   let kilit = false;              // nişan sabit: fare gezince yön değişmez (ince ayardan sonra ya da sağ tıkla)
   let uzak = null;                 // sıradakinin (başkasının) canlı nişanı
   let sonNisanGonderim = 0;
-  let sesAcik = true;
-  try { sesAcik = localStorage.getItem("bilardoSes") !== "0"; } catch (e) { }
+  let K = null;                    // ortak oyun kabuğu (js/oyun/kabuk.js): koltuk, menü, sıra, bildirim, pencereler
 
   const benimKoltugum = () => (durum ? durum.ben.koltuk : -1);
   const oturuyorum = () => benimKoltugum() >= 0;
@@ -114,6 +113,7 @@
       const eski = durum;
       durum = m.durum;
       ofset = durum.sunucuZamani - Date.now();
+      if (durum.oyun && !(durum.oyun.id in baslangiclar)) baslangiclar[durum.oyun.id] = durum.oyun.atisNo === 0 ? Date.now() : null;
       // Sıra değişti ya da yeni oyun: nişan ve beyazın yeri sıfırlanır
       if (!eski || !eski.oyun || !durum.oyun || eski.oyun.sira !== durum.oyun.sira || eski.oyun.id !== durum.oyun.id || eski.oyun.atisNo !== durum.oyun.atisNo) {
         beyazYer = null; cekme = 0; cekiyor = null; uzak = null; uzakG = null; tasiyor = false; kilit = false;
@@ -188,7 +188,7 @@
     else if (o.tur === "sure") bildir(ad(o.k) + ": süre doldu · elde top rakipte", "uyari");
     else if (o.tur === "basladi") bildir("Yeni oyun başladı · kıran: " + ad(durum.oyun.sira));
     else if (o.tur === "sonuc") {
-      if (o.yeniGrup) bildir(ad(o.k) + " " + GRUP_ADI[o.yeniGrup] + " topları aldı");
+      if (o.yeniGrup) bildir(ad(o.k) + " " + GRUP_ADI[o.yeniGrup] + " topları aldı", "basari");
       if (o.siyahGeri) bildir("Siyah kırışta girdi, yerine geri kondu");
       if (o.faul && !(durum.oyun && durum.oyun.bitti)) bildir("Faul: " + o.faul + " · elde top " + ad(durum.oyun.sira) + "'de", "uyari");
     }
@@ -198,7 +198,7 @@
   // ---------- ses (WebAudio ile kısa vuruş sesleri) ----------
   let ses_ = null;
   function ses(tur, hiz) {
-    if (!sesAcik || document.hidden) return;
+    if (!OyunKabugu.sesAcik() || document.hidden) return;
     try {
       if (!ses_) ses_ = new (window.AudioContext || window.webkitAudioContext)();
       if (ses_.state === "suspended") ses_.resume();
@@ -296,9 +296,18 @@
     // tahta çerçeve
     const g = c.createLinearGradient(0, -KENAR, 0, H + KENAR);
     g.addColorStop(0, "#7a4a26"); g.addColorStop(0.5, "#5a3318"); g.addColorStop(1, "#3f230f");
+    // Masanın odaya oturduğu gölge (gölge bulanıklığı dönüşümle ölçeklenmez: elle ölçeklenir)
+    const m = c.getTransform();
+    const s = Math.hypot(m.a, m.b) || 1;
+    c.save();
+    c.shadowColor = "rgba(0,0,0,.65)"; c.shadowBlur = 70 * s; c.shadowOffsetY = 28 * s;
     yuvarlakDikdortgen(c, -KENAR, -KENAR, TW, TH, 26);
     c.fillStyle = g; c.fill();
+    c.restore();
     c.strokeStyle = "rgba(0,0,0,.6)"; c.lineWidth = 3; c.stroke();
+    // tahtanın üst kenarında ışık
+    yuvarlakDikdortgen(c, -KENAR + 3, -KENAR + 3, TW - 6, TH - 6, 23);
+    c.strokeStyle = "rgba(255,220,170,.16)"; c.lineWidth = 2; c.stroke();
     // damar
     c.save(); c.globalAlpha = 0.08; c.strokeStyle = "#000"; c.lineWidth = 1;
     for (let i = 0; i < 18; i++) { c.beginPath(); c.moveTo(-KENAR, -KENAR + i * TH / 18 + 4); c.bezierCurveTo(W * 0.3, -KENAR + i * TH / 18 - 6, W * 0.7, -KENAR + i * TH / 18 + 10, W + KENAR, -KENAR + i * TH / 18); c.stroke(); }
@@ -307,13 +316,17 @@
     c.fillStyle = "#0d5a36";
     yuvarlakDikdortgen(c, -26, -26, W + 52, H + 52, 10); c.fill();
     // keçe
-    const k = c.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, W * 0.62);
-    k.addColorStop(0, "#1f8a57"); k.addColorStop(1, "#126b40");
+    // Üstten lamba ışığı: ortası parlak, kenarlara doğru kararır
+    const k = c.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.6);
+    k.addColorStop(0, "#27a066"); k.addColorStop(0.55, "#1a7f4d"); k.addColorStop(1, "#0f5c37");
     c.fillStyle = k;
     c.fillRect(0, 0, W, H);
-    // bantların eğimi
-    c.fillStyle = "rgba(0,0,0,.18)";
-    c.fillRect(0, 0, W, 4); c.fillRect(0, 0, 4, H);
+    // bantların keçeye düşen gölgesi (dört kenar)
+    for (const [x, y, w, hh, x1, y1, x2, y2] of [[0, 0, W, 18, 0, 0, 0, 18], [0, H - 18, W, 18, 0, H, 0, H - 18], [0, 0, 18, H, 0, 0, 18, 0], [W - 18, 0, 18, H, W, 0, W - 18, 0]]) {
+      const gg = c.createLinearGradient(x1, y1, x2, y2);
+      gg.addColorStop(0, "rgba(0,0,0,.32)"); gg.addColorStop(1, "rgba(0,0,0,0)");
+      c.fillStyle = gg; c.fillRect(x, y, w, hh);
+    }
     // kafa çizgisi ve ayak noktası
     c.strokeStyle = "rgba(255,255,255,.12)"; c.lineWidth = 1.5;
     c.beginPath(); c.moveTo(F.KAFA_X, 0); c.lineTo(F.KAFA_X, H); c.stroke();
@@ -502,13 +515,14 @@
     sureCiz();
   }
 
+  // Kalan atış süresi: sıra şeridindeki çizgi ve sıradakinin avatarındaki halka (kabuk)
   function sureCiz() {
-    if (!ogeler.sure) return;
+    if (!K) return;
     const O = durum && durum.oyun;
-    if (!O || O.bitti || oynatilan || durum.koltuklar[O.sira].bot) { ogeler.sure.style.width = "0"; return; }
+    if (!O || O.bitti) { K.sureCizgisi(null); return; }
+    if (oynatilan || durum.koltuklar[O.sira].bot) { K.sureCizgisi(1); return; }
     const kalan = Math.max(0, O.sureBitis - (Date.now() + ofset));
-    ogeler.sure.style.width = (100 * kalan / (durum.ayar.sure * 1000)) + "%";
-    ogeler.sure.classList.toggle("az", kalan < 8000);
+    K.sureCizgisi(kalan / (durum.ayar.sure * 1000));
   }
 
   // ---------- giriş (fare / dokunma / tuşlar) ----------
@@ -708,22 +722,26 @@
       ciz();
     });
     tuval.addEventListener("wheel", tekerlek, { passive: false });
+    // Yerleşim: üstte sıra şeridi, ortada iki takımın koltukları masanın iki yanında, altta falso ve ince ayar.
+    // Menü (sağ üst), olay bildirimi (masanın ortası) ve pencereler ortak kabuktan gelir.
     ogeler.masaKutu = h("div", { sinif: "b-masa-kutu" }, tuval);
-    ogeler.solTakim = h("div", { sinif: "b-takim sol" });
-    ogeler.sagTakim = h("div", { sinif: "b-takim sag" });
-    ogeler.durum = h("div", { sinif: "b-durum" });
-    ogeler.sure = h("i", { sinif: "b-sure" });
+    ogeler.solTakim = h("div", { sinif: "b-yan sol" });
+    ogeler.sagTakim = h("div", { sinif: "b-yan sag" });
+    ogeler.ust = h("div", { sinif: "b-ust" });
     ogeler.falso = falsoSecici();
-    ogeler.baslat = h("button", { sinif: "okey-tus ana", onclick: () => gonder({ t: "basla" }) }, "Oyunu başlat");
-    ogeler.bildirim = h("div", { sinif: "b-bildirim" });
-    ogeler.kose = h("div", { sinif: "kose-tuslar b-kose" });
-    const ust = h("div", { sinif: "b-ust" }, ogeler.solTakim, h("div", { sinif: "b-orta" }, ogeler.durum, h("div", { sinif: "b-sure-kutu" }, ogeler.sure)), ogeler.sagTakim);
+    ogeler.baslat = h("button", { sinif: "oyun-tus ana", onclick: () => gonder({ t: "basla" }) }, "Oyunu başlat");
     ogeler.ince = inceAyarSeridi();
-    ogeler.kilit = h("span", { sinif: "b-kilit", hidden: true, title: "Nişan sabit: fare gezince değişmez. Sağ tık ya da Esc ile serbest bırak." }, "🔒 Nişan sabit");
+    ogeler.kilit = h("span", { sinif: "b-kilit", hidden: true, title: "Nişan sabit: fare gezince değişmez. Sağ tık ya da Esc ile serbest bırak." }, "Nişan sabit");
     const alt = h("div", { sinif: "b-alt" }, h("div", { sinif: "b-falso-kutu" }, ogeler.falso, h("small", {}, "Falso")),
       h("div", { sinif: "b-falso-kutu" }, ogeler.ince, h("small", {}, "İnce ayar")), ogeler.kilit, ogeler.baslat,
       h("small", { sinif: "b-ipucu" }, "Nişan: fare · Vuruş: tıkla, geri çek, bırak · İnce ayar: tekerlek, Shift+fare, ← → · Sağ tık: nişanı sabitle"));
-    kok.replaceChildren(h("div", { sinif: "bilardo" }, ust, ogeler.masaKutu, alt, ogeler.bildirim, ogeler.kose));
+    const sahne = h("div", { sinif: "bilardo" }, ogeler.ust, h("div", { sinif: "b-sahne" }, ogeler.solTakim, ogeler.masaKutu, ogeler.sagTakim), alt);
+    kok.replaceChildren(sahne);
+    ogeler.ustSira = h("div", { sinif: "b-ust-sira" });
+    ogeler.ustMenu = h("div", { sinif: "b-ust-menu" });
+    ogeler.ust.append(h("div", { sinif: "b-ust-bos" }), ogeler.ustSira, ogeler.ustMenu);
+    K = OyunKabugu(sahne, { oyun: "bilardo", menuYeri: ogeler.ustMenu });
+    K.sira({ yazi: "", yer: ogeler.ustSira });
     new ResizeObserver(boyutla).observe(ogeler.masaKutu);
     document.addEventListener("keydown", tusaBasildi);
     // Çeyrek saniyede bir: süre çubuğu; toplar durunca sıra bende olduysa yazılar; sıradakinin canlı nişanı
@@ -737,37 +755,38 @@
     }, 250);
   }
 
+  // Koltuk (ortak kabuk): boş koltuğa tıklayınca Otur / Bot ekle; dolu koltuğa tıklayınca yetkiye göre seçenekler
   function koltukKarti(k) {
     const kol = durum.koltuklar[k];
     const O = durum.oyun;
+    const yetkili = durum.ben.kurucu || durum.ben.yetkili;
     if (kol.bos) {
-      const oturabilir = !oturuyorum() || !oyunVar();
-      return h("div", { sinif: "b-koltuk bos" },
-        h("div", { sinif: "b-avatar" }, "+"),
-        h("div", { sinif: "b-bilgi" }, h("b", {}, "Boş koltuk"),
-          h("div", { sinif: "b-tuslar" },
-            oturabilir && (!oyunVar() || !oturuyorum()) ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "otur", koltuk: k }) }, oturuyorum() ? "Buraya geç" : "Otur") : null,
-            oturuyorum() || durum.ben.yetkili ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "bot", koltuk: k }) }, "🤖 Bot") : null)));
+      const oturabilir = !oyunVar() || !oturuyorum();
+      return K.koltuk({
+        bos: true, koltuk: k, bosYazi: "Boş koltuk", alt: oturabilir ? (oturuyorum() ? "Buraya geç" : "Oturmak için tıkla") : null,
+        eylemler: [
+          oturabilir ? { yazi: oturuyorum() ? "Buraya geç" : "Otur", ikon: "arti", is: () => gonder({ t: "otur", koltuk: k }) } : null,
+          oturuyorum() || durum.ben.yetkili ? { yazi: "Bot ekle", ikon: "bot", is: () => gonder({ t: "bot", koltuk: k }) } : null
+        ]
+      });
     }
-    const sira = O && !O.bitti && O.sira === k;
-    const harf = (kol.ad || "?").trim()[0] || "?";
-    const avatar = kol.foto ? h("div", { sinif: "b-avatar", stil: { backgroundImage: "url('" + kol.foto.replace(/'/g, "") + "')" } })
-      : h("div", { sinif: "b-avatar", stil: { background: k % 2 ? "#2f6fb0" : "#a8326e" } }, kol.bot ? "🤖" : harf.toUpperCase());
-    return h("div", { sinif: "b-koltuk" + (sira ? " sira" : "") + (kol.bagli === false ? " kopuk" : "") + (k === benimKoltugum() ? " ben" : "") },
-      avatar,
-      h("div", { sinif: "b-bilgi" },
-        h("b", {}, kol.ad + (k === benimKoltugum() ? " (sen)" : "")),
-        h("small", {}, kol.bot ? "Bot" : kol.galibiyet + " galibiyet", kol.bagli === false ? " · bağlantı yok" : ""),
-        h("div", { sinif: "b-tuslar" },
-          kol.devralinabilir && !kol.bot && !oturuyorum() ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "otur", koltuk: k }) }, "Yerine otur") : null,
-          kol.devralinabilir && !kol.bot && (oturuyorum() || durum.ben.yetkili) ? h("button", { sinif: "yanci-tus", onclick: () => gonder({ t: "bot", koltuk: k }) }, "🤖 Yerine bot") : null,
-          kol.bot && (oturuyorum() || durum.ben.yetkili) ? h("button", { sinif: "yanci-tus tehlikeli", onclick: () => gonder({ t: "botCikar", koltuk: k }) }, "Botu çıkar") : null,
-          // Masayı kuran ya da oda sahibi oyuncuyu masadan kaldırabilir
-          !kol.bot && k !== benimKoltugum() && (durum.ben.kurucu || durum.ben.yetkili) ? h("button", {
-            sinif: "yanci-tus tehlikeli", onclick: () => pencere(kol.ad + " masadan kaldırılsın mı?",
-              h("p", {}, oyunVar() ? "Oyun sürüyor: takımında başka kimse yoksa oyun biter." : "Koltuğu boşalır, izleyici olarak kalır."),
-              [{ yazi: "Vazgeç" }, { yazi: "Kaldır", sinif: "kirmizi", is: () => gonder({ t: "kaldir", koltuk: k }) }])
-          }, "Kaldır") : null)));
+    const ben = k === benimKoltugum();
+    return K.koltuk({
+      koltuk: k, ad: kol.ad, foto: kol.foto, bot: kol.bot, renk: k % 2 ? "#2f6fb0" : "#a8326e", ben,
+      sira: !!(O && !O.bitti && O.sira === k), kopuk: kol.bagli === false,
+      alt: (kol.bot ? "Bot" : kol.galibiyet + " galibiyet") + (kol.bagli === false ? " · bağlantı yok" : ""),
+      eylemler: [
+        kol.devralinabilir && !kol.bot && !oturuyorum() ? { yazi: "Yerine otur", ikon: "arti", is: () => gonder({ t: "otur", koltuk: k }) } : null,
+        kol.devralinabilir && !kol.bot && (oturuyorum() || durum.ben.yetkili) ? { yazi: "Yerine bot koy", ikon: "bot", is: () => gonder({ t: "bot", koltuk: k }) } : null,
+        kol.bot && (oturuyorum() || durum.ben.yetkili) ? { yazi: "Botu çıkar", ikon: "kapat", tehlikeli: true, is: () => gonder({ t: "botCikar", koltuk: k }) } : null,
+        // Masayı kuran ya da oda sahibi oyuncuyu masadan kaldırabilir
+        !kol.bot && !ben && yetkili ? { yazi: "Masadan kaldır", ikon: "kalk", tehlikeli: true, is: () => K.onayla({
+          baslik: kol.ad + " masadan kaldırılsın mı?", evet: "Kaldır",
+          metin: oyunVar() ? "Oyun sürüyor: takımında başka kimse yoksa oyun biter." : "Koltuğu boşalır, izleyici olarak kalır.",
+          is: () => gonder({ t: "kaldir", koltuk: k })
+        }) } : null
+      ]
+    });
   }
 
   function grupSirasi(t) {
@@ -789,7 +808,8 @@
       const kutu = t ? ogeler.sagTakim : ogeler.solTakim;
       const aktif = O && !O.bitti && O.sira % 2 === t;
       kutu.classList.toggle("aktif", !!aktif);
-      kutu.replaceChildren(...[koltukKarti(t), koltukKarti(t + 2), grupSirasi(t)].filter(Boolean));
+      kutu.replaceChildren(h("div", { sinif: "b-takim-adi" }, t ? "Sağ takım" : "Sol takım"),
+        ...[koltukKarti(t), koltukKarti(t + 2), grupSirasi(t)].filter(Boolean));
     }
     const oturan = durum.koltuklar.filter((x) => !x.bos).length;
     let yazi;
@@ -798,11 +818,12 @@
       else yazi = oturan < 2 ? "Bilardo masası · sol ve sağ takıma en az birer kişi otursun (1'e 1, 1'e 2 ya da 2'ye 2), boş koltuğa bot koyabilirsin" : "Masa: " + oturan + "/4 · 'Oyunu başlat'a bas";
     } else if (benSiram()) {
       const g = O.gruplar[benimKoltugum() % 2];
-      yazi = O.kirilis ? "Kırış sende: beyazı çizginin gerisinde istediğin yere taşıyabilirsin, sonra ıstakayı geri çekip bırak"
-        : (O.elde ? (O.toplar[0] || beyazYer ? "Elde top sende: beyazı tutup istediğin yere taşıyabilirsin, sonra vur" : "Elde top sende: beyazı koymak istediğin yere bas") : "Sıra sende: nişan al, ıstakayı geri çekip bırak")
+      yazi = O.kirilis ? "Kırış sende · beyazı çizginin gerisinde istediğin yere taşı, sonra ıstakayı geri çekip bırak"
+        : (O.elde ? (O.toplar[0] || beyazYer ? "Sıra sende · elde top: beyazı istediğin yere taşı, sonra vur" : "Sıra sende · elde top: beyazı koymak istediğin yere bas") : "Sıra sende · nişan al, ıstakayı geri çekip bırak")
         + (g ? " · Senin topların: " + (F.kalanSay(O.toplar, g) ? GRUP_ADI[g] : "siyah (8)") : "");
     } else yazi = (O.kirilis ? "Kırış: " : "") + ad(O.sira) + " oynuyor…" + (O.elde && !O.kirilis ? " (elde top)" : "");
-    ogeler.durum.textContent = yazi;
+    K.sira({ benim: benSiram(), yazi });
+    sureCiz();
     ogeler.baslat.hidden = !(oturuyorum() && !oyunVar() && oturan >= 2);
     ogeler.baslat.textContent = O && O.bitti ? "Yeni oyun" : "Oyunu başlat";
     ogeler.falso.classList.toggle("kapali", !benSiram());
@@ -811,53 +832,53 @@
     ogeler.falso.yenile();
     tuval.classList.toggle("siram", benSiram());
     tuval.classList.toggle("elde", benSiram() && O.elde);
-    // köşe düğmeleri
-    const tuslar = [h("button", { sinif: "okey-tus", title: "Sesleri aç/kapat", onclick: () => { sesAcik = !sesAcik; try { localStorage.setItem("bilardoSes", sesAcik ? "1" : "0"); } catch (e) { } uygula(); } }, sesAcik ? "🔊 Ses" : "🔇 Ses")];
-    if (durum.ben.kurucu || durum.ben.yetkili) tuslar.push(h("button", { sinif: "okey-tus", onclick: ayarPaneli }, "⚙️ Ayarlar"));
-    if (oyunVar() && (durum.ben.kurucu || durum.ben.yetkili)) tuslar.push(h("button", {
-      sinif: "okey-tus tehlikeli", title: "Süren oyunu sonuçsuz bitir", onclick: () => pencere("Oyun bitirilsin mi?",
-        h("p", {}, "Süren oyun sonuçsuz biter (kimse kazanmış sayılmaz). Sonra yeni oyun başlatabilirsiniz."),
-        [{ yazi: "Vazgeç" }, { yazi: "Bitir", sinif: "kirmizi", is: () => gonder({ t: "bitir" }) }])
-    }, "⏹ Oyunu bitir"));
-    if (oturuyorum()) tuslar.push(h("button", { sinif: "okey-tus tehlikeli", onclick: kalkSor }, "🚪 Kalk"));
-    tuslar.push(h("button", { sinif: "okey-tus", onclick: kurallariGoster }, "📖 Kurallar"));
-    ogeler.kose.replaceChildren(...tuslar);
+    // Oyun menüsü (ortak kabuk; sıra her oyunda aynı)
+    const yetkili = durum.ben.kurucu || durum.ben.yetkili;
+    K.menu([
+      K.sesTusu(uygula),
+      yetkili ? { ad: "ayar", yazi: "Ayarlar", ikon: "ayar", is: ayarPaneli } : null,
+      { ad: "kural", yazi: "Kurallar", ikon: "kural", is: kurallariGoster },
+      oyunVar() && yetkili ? { ad: "bitir", yazi: "Oyunu bitir", ikon: "bitir", ipucu: "Süren oyunu sonuçsuz bitir", is: () => K.onayla({
+        baslik: "Oyun bitirilsin mi?", evet: "Bitir",
+        metin: "Süren oyun sonuçsuz biter (kimse kazanmış sayılmaz). Sonra yeni oyun başlatabilirsiniz.",
+        is: () => gonder({ t: "bitir" })
+      }) } : null,
+      oturuyorum() ? { ad: "kalk", yazi: "Kalk", ikon: "kalk", is: kalkSor } : null
+    ]);
   }
 
   // Ekranı yenile: kartlar, yazılar ve masa (kartlar sadece durum değişince yeniden kurulur; tıklama kaybolmasın)
   const uygula = () => { if (acik && durum) { arayuzuGuncelle(); ciz(); } };
 
-  // ---------- pencereler ----------
-  let bildirimZamani = null;
-  function bildir(metin, tur) {
-    if (!ogeler.bildirim) return;
-    ogeler.bildirim.textContent = metin;
-    ogeler.bildirim.className = "b-bildirim gorunur" + (tur ? " " + tur : "");
-    clearTimeout(bildirimZamani);
-    bildirimZamani = setTimeout(() => { ogeler.bildirim.className = "b-bildirim"; }, 3200);
-  }
+  // ---------- pencereler (ortak kabuk) ----------
+  const bildir = (metin, tur) => { if (K) K.bildir(metin, tur); };
+  const pencere = (baslik, govde, tuslar) => K.pencere(baslik, govde, tuslar);
 
-  function pencere(baslik, govde, tuslar) {
-    const arka = h("div", { sinif: "b-pencere-arka" });
-    const kapat = () => arka.remove();
-    arka.addEventListener("click", (e) => { if (e.target === arka) kapat(); });
-    arka.append(h("div", { sinif: "b-pencere" }, h("h3", {}, baslik), govde,
-      h("div", { sinif: "b-pencere-tuslar" }, (tuslar || [{ yazi: "Kapat", ana: true }]).map((t) =>
-        h("button", { sinif: "okey-tus" + (t.ana ? " ana" : "") + (t.sinif ? " " + t.sinif : ""), onclick: () => { kapat(); if (t.is) t.is(); } }, t.yazi)))));
-    kok.querySelector(".bilardo").append(arka);
-  }
-
+  // Oyunun başladığı an (süre özeti için); sonradan masaya gelen oyunun başı bilinmez
+  const baslangiclar = {};
   function sonucuGoster() {
     const O = durum.oyun;
     const benimTakim = oturuyorum() ? benimKoltugum() % 2 : null;
-    const baslik = benimTakim === null ? "🏆 " + takimAdi(O.kazanan) + " kazandı" : benimTakim === O.kazanan ? "🏆 Kazandın!" : "Kaybettin";
-    pencere(baslik, h("p", {}, O.neden + " · " + takimAdi(O.kazanan)),
-      oturuyorum() ? [{ yazi: "Kapat" }, { yazi: "Yeni oyun", ana: true, is: () => gonder({ t: "basla" }) }] : null);
+    const kazandim = benimTakim !== null && benimTakim === O.kazanan;
+    const baslik = benimTakim === null ? takimAdi(O.kazanan) + " kazandı" : kazandim ? "Kazandın" : "Kaybettin";
+    const oyuncular = [0, 1, 2, 3].filter((k) => !durum.koltuklar[k].bos).map((k) => {
+      const kol = durum.koltuklar[k];
+      return { ad: kol.ad, foto: kol.foto, bot: kol.bot, renk: k % 2 ? "#2f6fb0" : "#a8326e", kazandi: k % 2 === O.kazanan };
+    });
+    const ozet = [["Atış", String(O.atisNo || 0)], ["Kural", durum.ayar.kural === "dunya" ? "Dünya" : "Bar"]];
+    const bas = baslangiclar[O.id];
+    if (bas) {
+      const sn = Math.round((Date.now() - bas) / 1000);
+      ozet.unshift(["Süre", Math.floor(sn / 60) + " dk " + (sn % 60) + " sn"]);
+    }
+    K.oyunSonu({
+      baslik, kazandim, oyuncular, ozet, alt: O.neden || "",
+      tuslar: oturuyorum() ? [{ yazi: "Kapat" }, { yazi: "Rövanş", ana: true, is: () => gonder({ t: "basla" }) }] : [{ yazi: "Kapat", ana: true }]
+    });
   }
 
   function kalkSor() {
-    pencere("Masadan kalkmak istiyor musun?", h("p", {}, oyunVar() ? "Oyun sürüyor: kalkarsan yerine başkası ya da bot oturabilir." : ""),
-      [{ yazi: "Evet", sinif: "soluk", is: () => gonder({ t: "kalk" }) }, { yazi: "Hayır", sinif: "kirmizi" }]);
+    K.kalkSor(oyunVar() ? "Oyun sürüyor: kalkarsan yerine başkası ya da bot oturabilir." : "", () => gonder({ t: "kalk" }));
   }
 
   function ayarPaneli() {
@@ -867,9 +888,12 @@
     const kuralSec = h("select", { disabled: oyunVar(), onchange: (e) => gonder({ t: "ayar", kural: e.target.value }) },
       h("option", { value: "bar", selected: !dunya }, "Bar kuralı: kırışta giren sayılır, rakibin topu faul"),
       h("option", { value: "dunya", selected: dunya }, "Dünya kuralı (WPA): kırış grubu belirlemez, rakibin topu serbest"));
-    pencere("Masa ayarları", h("div", { sinif: "b-ayarlar" },
-      h("label", { sinif: "b-ayar" }, h("span", {}, "Atış süresi"), sec, h("small", {}, "Süre dolarsa faul sayılır, elde top rakibe geçer")),
-      h("label", { sinif: "b-ayar" }, h("span", {}, "Kurallar"), kuralSec,
+    // Üstte her oyunda ortak olanlar, altta bu oyuna özel olanlar
+    pencere("Masa ayarları", h("div", { sinif: "oyun-ayarlar" },
+      h("div", { sinif: "oyun-ayar-baslik" }, "Genel"),
+      h("label", { sinif: "oyun-ayar" }, h("span", {}, "Atış süresi"), sec, h("small", {}, "Süre dolarsa faul sayılır, elde top rakibe geçer")),
+      h("div", { sinif: "oyun-ayar-baslik" }, "Bilardo"),
+      h("label", { sinif: "oyun-ayar" }, h("span", {}, "Kurallar"), kuralSec,
         h("small", {}, oyunVar() ? "Oyun sürerken değişmez" : "Bar: kırışta hangi gruptan çok top girdiyse o senin (eşitse masa açık); grubun belliyken rakibin topunu sokmak faul. Dünya: kırış grubu belirlemez; kendi topunla birlikte rakibinkini sokmak serbest."))));
   }
 

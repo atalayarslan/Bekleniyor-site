@@ -75,6 +75,16 @@ function tasarimiUygula(t, fotolar) {
   kok.style.setProperty("--arka2", t.arka2);
   kok.style.setProperty("--daire1", t.daire1);
   kok.style.setProperty("--daire2", t.daire2);
+  // Oyunların çerçevesi (sıra şeridi, halka, seçili düğme) odanın vurgu rengini kullanır
+  if (/^#[0-9a-f]{6}$/i.test(t.vurgu || "")) {
+    kok.style.setProperty("--oda-vurgu", t.vurgu);
+    // Vurgu renginin üstündeki yazı: açık renkte siyah, koyu renkte beyaz
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(t.vurgu.slice(i, i + 2), 16) / 255);
+    kok.style.setProperty("--oda-vurgu-yazi", 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 ? "#0b0b0b" : "#ffffff");
+  } else {
+    kok.style.removeProperty("--oda-vurgu");
+    kok.style.removeProperty("--oda-vurgu-yazi");
+  }
   kok.style.setProperty("--yazi-tipi", (YAZI_TIPLERI[t.yaziTipi] || YAZI_TIPLERI.sistem).css);
   kok.classList.toggle("daire-yok", !t.daireGoster);
   $("daireYazi").textContent = t.baslik || "";

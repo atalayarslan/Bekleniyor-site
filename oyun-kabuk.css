@@ -1,0 +1,207 @@
+/* Oyun kabuğu: bütün oyunların ortak parçaları (js/oyun/kabuk.js). Renkler odanın vurgu rengini kullanır
+   (--oda-vurgu; tasarımdaki "vurgu"), düğmeler ve paneller müzik paneliyle aynı dilde. */
+
+:root { --oda-vurgu: #1db954; --oda-vurgu-yazi: #0b0b0b; }
+
+/* Oyun açıkken odanın arka planı geri çekilir: oyun öne çıkar, arka plan yine de görünür */
+.oda-gorunumu.okey-acik #arkaPlan,
+.oda-gorunumu.bilardo-acik #arkaPlan {
+  filter: blur(10px) brightness(.5) saturate(1.1);
+  transform: scale(1.04);
+  transition: filter .4s ease, transform .4s ease;
+}
+#arkaPlan { transition: filter .4s ease, transform .4s ease; }
+
+.oyun-ikon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- koltuk ---------- */
+.oyun-koltuk {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px;
+  padding: 6px 12px 6px 6px; border-radius: 999px; color: #fff;
+  background: rgba(14, 14, 16, .62); border: 1px solid rgba(255, 255, 255, .08);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+.oyun-koltuk.eylemli { cursor: pointer; }
+.oyun-koltuk.eylemli:hover, .oyun-koltuk.eylemli:focus-visible { border-color: rgba(255, 255, 255, .28); outline: none; }
+.oyun-koltuk.bos { background: transparent; border-style: dashed; border-color: rgba(255, 255, 255, .22); backdrop-filter: none; }
+.oyun-koltuk.bos .oyun-koltuk-yazi b { color: rgba(255, 255, 255, .6); font-weight: 700; }
+.oyun-koltuk.sira { border-color: var(--oda-vurgu); box-shadow: 0 0 0 1px var(--oda-vurgu), 0 0 26px color-mix(in srgb, var(--oda-vurgu) 45%, transparent); }
+.oyun-koltuk.kopuk { opacity: .55; }
+.oyun-koltuk-yazi { min-width: 0; display: grid; line-height: 1.2; }
+.oyun-koltuk-yazi b { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oyun-koltuk-yazi small { font-size: 11.5px; color: rgba(255, 255, 255, .62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.oyun-avatar { position: relative; width: 46px; height: 46px; display: grid; place-items: center; flex: none; }
+.oyun-avatar-ic {
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 900; font-size: 16px; color: #fff; background: #3a3a3a center / cover no-repeat;
+}
+.oyun-avatar-ic .oyun-ikon { width: 20px; height: 20px; }
+.oyun-halka { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+.oyun-halka circle { fill: none; stroke: transparent; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset .25s linear, stroke .3s; }
+.oyun-koltuk.sira .oyun-halka circle { stroke: var(--oda-vurgu); }
+.oyun-koltuk.sira .oyun-halka circle.az { stroke: #e5484d; }
+.oyun-avatar.bos { border-radius: 50%; border: 1.5px dashed rgba(255, 255, 255, .4); color: rgba(255, 255, 255, .75); width: 38px; height: 38px; margin: 4px; }
+.oyun-avatar.bos .oyun-ikon { width: 18px; height: 18px; }
+.oyun-koltuk.bos:hover .oyun-avatar.bos { border-color: var(--oda-vurgu); color: var(--oda-vurgu); }
+
+.oyun-koltuk-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; min-width: 170px;
+  display: grid; padding: 6px; border-radius: 14px; background: #1c1c1f; border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5); animation: oyunBelir .14s ease;
+}
+.oyun-koltuk-menu button {
+  display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 0; border-radius: 9px;
+  background: transparent; color: #fff; font: inherit; font-size: 13.5px; font-weight: 700; text-align: left; cursor: pointer;
+}
+.oyun-koltuk-menu button:hover { background: rgba(255, 255, 255, .08); }
+.oyun-koltuk-menu button.tehlikeli { color: #ff6b6f; }
+.oyun-koltuk-menu button.tehlikeli:hover { background: rgba(229, 72, 77, .15); }
+
+/* ---------- menü (sağ üst, her oyunda aynı yer ve sıra) ---------- */
+.oyun-menu { position: absolute; top: 10px; right: 14px; z-index: 35; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+.oyun-menu.yerinde { position: static; max-width: none; }
+.oyun-menu-tus {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .1); background: rgba(14, 14, 16, .62); color: #fff;
+  font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .15s, border-color .15s;
+}
+.oyun-menu-tus:hover { background: rgba(40, 40, 44, .8); border-color: rgba(255, 255, 255, .25); }
+.oyun-menu-tus.secili { border-color: var(--oda-vurgu); }
+.oyun-menu-tus.tehlikeli { background: #e5484d; border-color: #e5484d; }
+.oyun-menu-tus.tehlikeli:hover { background: #f2555a; }
+
+/* ---------- sıra şeridi ---------- */
+.oyun-sira {
+  position: relative; display: grid; gap: 6px; justify-items: center; justify-self: center; max-width: min(720px, 100%);
+  padding: 8px 18px; border-radius: 16px; color: #fff; text-align: center;
+  background: rgba(14, 14, 16, .62); border: 1px solid rgba(255, 255, 255, .08);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .25s, border-color .25s, transform .25s;
+}
+.oyun-sira-yazi { font-size: 14px; font-weight: 800; line-height: 1.35; }
+.oyun-sira-sure { display: block; width: min(260px, 70vw); height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.oyun-sira-sure[hidden] { display: none; }
+.oyun-sira-sure > i { display: block; height: 100%; width: 0; background: var(--oda-vurgu); border-radius: 999px; transition: width .25s linear; }
+.oyun-sira-sure.az > i { background: #e5484d; }
+.oyun-sira.benim {
+  background: var(--oda-vurgu); border-color: var(--oda-vurgu); color: var(--oda-vurgu-yazi);
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--oda-vurgu) 45%, transparent); animation: oyunSiraGeldi .5s ease;
+}
+.oyun-sira.benim .oyun-sira-sure { background: rgba(0, 0, 0, .18); }
+.oyun-sira.benim .oyun-sira-sure > i { background: var(--oda-vurgu-yazi); }
+.oyun-sira.benim .oyun-sira-sure.az > i { background: #b3141a; }
+@keyframes oyunSiraGeldi { 0% { transform: scale(.94); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+
+/* ---------- olay bildirimi (oyun alanının ortasında) ---------- */
+.oyun-olay {
+  position: absolute; left: 50%; top: 50%; z-index: 45; pointer-events: none;
+  display: flex; align-items: center; gap: 10px; max-width: min(560px, 88%);
+  padding: 12px 20px; border-radius: 16px; font-size: 16px; font-weight: 800; line-height: 1.3;
+  background: rgba(14, 14, 16, .88); color: #fff; border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5); opacity: 0; transform: translate(-50%, -50%) scale(.9);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.oyun-olay .oyun-ikon { width: 24px; height: 24px; }
+.oyun-olay.gorunur { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.oyun-olay.uyari { background: #e5484d; border-color: #e5484d; }
+.oyun-olay.basari { background: var(--oda-vurgu); border-color: var(--oda-vurgu); color: var(--oda-vurgu-yazi); }
+
+/* ---------- düğmeler ---------- */
+.oyun-tus {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px;
+  border: 0; border-radius: 999px; background: rgba(255, 255, 255, .1); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.oyun-tus:hover { background: rgba(255, 255, 255, .18); }
+.oyun-tus.ana { background: var(--oda-vurgu); color: var(--oda-vurgu-yazi); }
+.oyun-tus.ana:hover { filter: brightness(1.1); }
+.oyun-tus.tehlikeli { background: #e5484d; color: #fff; }
+.oyun-tus.tehlikeli:hover { background: #f2555a; }
+.oyun-tus.soluk { background: transparent; color: rgba(255, 255, 255, .45); font-weight: 700; }
+.oyun-tus.soluk:hover { color: rgba(255, 255, 255, .7); }
+.oyun-tus.buyuk { height: 46px; padding: 0 34px; font-size: 16px; box-shadow: 0 6px 18px rgba(229, 72, 77, .4); }
+.oyun-tus:disabled { opacity: .45; cursor: default; filter: none; }
+
+/* ---------- pencere ---------- */
+.oyun-pencere-arka {
+  position: absolute; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px;
+  background: rgba(0, 0, 0, .55); animation: oyunBelir .15s ease;
+}
+.oyun-pencere {
+  position: relative; width: min(520px, 100%); max-height: 88%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  border-radius: 20px; background: #161618; border: 1px solid rgba(255, 255, 255, .1); color: #fff;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .6); overflow: hidden; animation: oyunPencere .18s ease;
+}
+.oyun-pencere.genis { width: min(860px, 100%); }
+.oyun-pencere.tam { width: min(1180px, 100%); height: 88%; }
+.oyun-pencere-ust { display: flex; align-items: center; gap: 12px; padding: 18px 20px 6px; }
+.oyun-pencere-ust h3 { margin: 0; flex: 1; font-size: 19px; font-weight: 900; }
+.oyun-pencere-kapat {
+  width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .7); cursor: pointer;
+}
+.oyun-pencere-kapat:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+.oyun-pencere-govde { padding: 8px 20px 4px; overflow: auto; color: rgba(255, 255, 255, .78); line-height: 1.5; }
+.oyun-pencere-govde p { margin: 6px 0; }
+.oyun-pencere-tuslar { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; padding: 14px 20px 18px; }
+.oyun-pencere.kalk .oyun-pencere-tuslar { justify-content: center; gap: 18px; }
+@keyframes oyunBelir { from { opacity: 0; } to { opacity: 1; } }
+@keyframes oyunPencere { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* Ayarlar penceresi alanları (her oyunda aynı) */
+.oyun-ayarlar { display: grid; gap: 16px; }
+.oyun-ayar { display: grid; gap: 6px; font-weight: 800; color: rgba(255, 255, 255, .7); font-size: 13px; }
+.oyun-ayar select { height: 40px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .12); background: #0f0f11; color: #fff; padding: 0 12px; font: inherit; font-size: 14px; }
+.oyun-ayar small { color: rgba(255, 255, 255, .45); font-weight: 600; }
+.oyun-ayar-baslik { margin: 6px 0 -4px; font-size: 11.5px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: rgba(255, 255, 255, .4); }
+
+/* ---------- oyun sonu ---------- */
+.oyun-sonu { display: grid; justify-items: center; gap: 12px; padding: 4px 0 6px; text-align: center; }
+.oyun-sonu-kupa { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .7); }
+.oyun-sonu-kupa .oyun-ikon { width: 34px; height: 34px; }
+.oyun-sonu-kupa.benim { background: #f2c230; color: #3a2a00; box-shadow: 0 0 40px rgba(242, 194, 48, .5); }
+.oyun-sonu-kazananlar { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+.oyun-sonu-kisi { display: grid; justify-items: center; gap: 4px; }
+.oyun-sonu-kisi .oyun-avatar { width: 64px; height: 64px; }
+.oyun-sonu-kisi .oyun-avatar-ic { width: 56px; height: 56px; font-size: 22px; box-shadow: 0 0 0 3px #f2c230; }
+.oyun-sonu-kisi b { font-size: 14px; color: #fff; }
+.oyun-sonu-alt { margin: 0; color: rgba(255, 255, 255, .7); }
+.oyun-sonu-ozet { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; width: 100%; margin: 4px 0 0; }
+.oyun-sonu-ozet dt { font-size: 11.5px; color: rgba(255, 255, 255, .5); font-weight: 700; }
+.oyun-sonu-ozet dd { margin: 2px 0 0; font-size: 18px; font-weight: 900; color: #fff; }
+.oyun-sonu-ozet > dt { padding: 10px 10px 0; border-radius: 12px 12px 0 0; background: rgba(255, 255, 255, .05); }
+.oyun-sonu-ozet > dd { padding: 0 10px 10px; border-radius: 0 0 12px 12px; background: rgba(255, 255, 255, .05); }
+.oyun-sonu-ozet { grid-auto-flow: column; grid-template-rows: auto auto; grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); gap: 0 8px; }
+
+.oyun-konfeti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+.oyun-konfeti i {
+  position: absolute; top: -12px; width: 8px; height: 13px; border-radius: 2px; opacity: 0;
+  animation-name: oyunKonfeti; animation-timing-function: cubic-bezier(.2, .6, .4, 1); animation-fill-mode: forwards;
+}
+@keyframes oyunKonfeti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--x), 520px) rotate(var(--d)); }
+}
+
+@media (max-width: 760px) {
+  .oyun-menu { position: static; max-width: none; justify-content: center; }
+  .oyun-menu-tus { height: 30px; padding: 0 10px; font-size: 12px; }
+  .oyun-menu-tus span { display: none; }
+  .oyun-menu-tus.tehlikeli span { display: inline; }
+  .oyun-koltuk { padding: 3px 8px 3px 3px; column-gap: 6px; }
+  .oyun-avatar { width: 36px; height: 36px; }
+  .oyun-avatar-ic { width: 30px; height: 30px; font-size: 13px; }
+  .oyun-avatar.bos { width: 30px; height: 30px; margin: 3px; }
+  .oyun-koltuk-yazi b { font-size: 12.5px; }
+  .oyun-koltuk-yazi small { font-size: 10.5px; }
+  .oyun-sira { padding: 6px 12px; }
+  .oyun-sira-yazi { font-size: 12.5px; }
+  .oyun-olay { font-size: 14px; padding: 10px 14px; }
+  .oyun-sonu-ozet dd { font-size: 15px; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oyun-sira.benim, .oyun-pencere, .oyun-pencere-arka, .oyun-koltuk-menu { animation: none; }
+  .oyun-konfeti { display: none; }
+}
