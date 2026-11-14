@@ -140,10 +140,53 @@ function siralamayiBaslat() {
   setInterval(() => { if (!$("lobi").hidden) siralamayiCiz(); }, 1000);
 }
 
+// Oyun galibiyetleri (okey + bilardo) oyun sunucusunda tutulur (okey-sunucu/src/galibiyet.js); dakikada bir okunur
+let galibiyetler = null, galibiyetZamani = 0, galibiyetIstegi = null;
+function oyunSunucusu() {
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return "http://127.0.0.1:8787";
+  return String(AYARLAR.okeySunucu || "").replace(/\/+$/, "");
+}
+function galibiyetleriGetir() {
+  if (galibiyetIstegi || Date.now() - galibiyetZamani < 60000) return;
+  galibiyetIstegi = (async () => {
+    try {
+      const kart = await kimlikKarti();
+      const yanit = await fetch(oyunSunucusu() + "/galibiyetler", kart ? { headers: { "Authorization": "Bearer " + kart } } : {});
+      if (yanit.ok) galibiyetler = (await yanit.json()).liste || [];
+    } catch (e) { }
+    galibiyetZamani = Date.now();
+    galibiyetIstegi = null;
+    siralamayiCiz();
+  })();
+}
+
+function oyunSiralamasiniCiz(kutu) {
+  galibiyetleriGetir();
+  if (!galibiyetler) { kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Yükleniyor…")); return; }
+  if (!galibiyetler.length) {
+    kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Henüz kimse okey ya da bilardo kazanmadı. Bir odada masaya otur, ilk sen kazan."));
+    return;
+  }
+  const madalya = ["🥇", "🥈", "🥉"];
+  const enYuksek = galibiyetler[0].okey + galibiyetler[0].bilardo || 1;
+  kutu.replaceChildren(...galibiyetler.slice(0, 10).map((v, i) => {
+    const toplam = v.okey + v.bilardo;
+    return el("div", { className: "siralama-satiri" },
+      el("div", { className: "sira-no" }, madalya[i] || String(i + 1)),
+      avatarOgesi({ ad: v.ad, foto: v.foto }),
+      el("div", { className: "siralama-bilgi" },
+        el("div", { className: "siralama-ad" }, (v.ad || "İsimsiz").split(" ")[0]),
+        el("div", { className: "siralama-detay" }, [v.okey ? "Okey " + v.okey : "", v.bilardo ? "Bilardo " + v.bilardo : ""].filter(Boolean).join(" · ")),
+        el("div", { className: "siralama-cubuk" }, el("div", { style: { width: Math.max(4, toplam / enYuksek * 100) + "%" } }))),
+      el("div", { className: "siralama-sure", title: v.oyun + " oyunda " + toplam + " galibiyet" }, toplam + " 🏆"));
+  }));
+}
+
 function siralamayiCiz() {
   const kutu = $("siralama");
   if (!kutu) return;
   $("siralamaSecim").querySelectorAll("button").forEach((b) => b.classList.toggle("secili", b.dataset.tur === siralamaTuru));
+  if (siralamaTuru === "oyun") { oyunSiralamasiniCiz(kutu); return; }
   const veri = {};
   // Başkaları: kayıtlı süre + (sayıyorlarsa) son kayıttan bu yana geçen saniyeler
   for (const [uid, v] of Object.entries(siralamaVerisi)) {

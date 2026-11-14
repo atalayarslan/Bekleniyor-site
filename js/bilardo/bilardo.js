@@ -120,6 +120,9 @@
         falso = { ust: 0, yan: 0 };
       }
       dugmeyiGuncelle();
+      OyunKabugu.durumYayinla("bilardo", {
+        oturan: durum.koltuklar.filter((x) => !x.bos).length, izleyici: durum.izleyici, oyunVar: oyunVar(), oturuyorum: oturuyorum()
+      });
       uygula();
       for (const o of m.olaylar || []) olayYazisi(o);
     }).catch(() => { });

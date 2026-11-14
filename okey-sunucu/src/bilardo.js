@@ -12,6 +12,7 @@
 
 import F from "../../js/bilardo/fizik.js";
 import { googleKartiDogrula } from "./kimlik.js";
+import { galibiyetYaz } from "./galibiyet.js";
 
 const YONETICI = "erayaksuhome@outlook.com";
 const DB = "https://bekleniyor-e16eb-default-rtdb.europe-west1.firebasedatabase.app";
@@ -415,6 +416,11 @@ export class BilardoMasasi {
     // En çok 100 kişi tutulur (en eski oynayanlar düşer)
     const anahtarlar = Object.keys(m.skor);
     if (anahtarlar.length > 100) for (const a of anahtarlar.slice(0, anahtarlar.length - 100)) delete m.skor[a];
+    // Bütün odaların galibiyet listesi (lobideki sıralama)
+    const yaz = galibiyetYaz(this.env, "bilardo", m.oyun.oyuncular.map((x, i) => x && {
+      kim: x.kim, ad: x.ad, foto: m.koltuklar[i] && m.koltuklar[i].kim === x.kim ? m.koltuklar[i].foto : "", kazandi: i % 2 === kazanan
+    }));
+    if (this.ctx.waitUntil) this.ctx.waitUntil(yaz);
   }
 
   botOyna(k) {

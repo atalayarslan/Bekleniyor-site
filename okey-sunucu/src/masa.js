@@ -10,6 +10,7 @@
 
 import K from "../../js/okey/kurallar.js";
 import { googleKartiDogrula } from "./kimlik.js";
+import { galibiyetYaz } from "./galibiyet.js";
 
 const YONETICI = "erayaksuhome@outlook.com";
 const DB = "https://bekleniyor-e16eb-default-rtdb.europe-west1.firebasedatabase.app";
@@ -815,13 +816,31 @@ export class OkeyMasasi {
       durumlar: [0, 1, 2, 3].map((k) => (k === bitiren ? "bitirdi" : !E.acti[k] ? "acmadi" : E.acti[k] === "cift" ? "cift" : "acti " + E.acilisDegeri[k])),
       zaman: Date.now()
     });
-    if (m.oyun.elSayisi && m.oyun.eller.length >= m.oyun.elSayisi) m.oyun.bitis = Date.now();
+    if (m.oyun.elSayisi && m.oyun.eller.length >= m.oyun.elSayisi) {
+      m.oyun.bitis = Date.now();
+      this.galibiyetleriYaz();
+    }
     m.baslayan = (m.baslayan + 1) % 4;
     // "Botu çıkar" denmiş botlar el bitince kalkar
     m.koltuklar = m.koltuklar.map((x) => (x && x.bot && x.cikacak ? null : x));
     this.alarmKur();   // tur süresi biter; el sırasında kopanların koltuk süresi kalır
     this.olaylar.push({ tur: "elBitti", baslik });
     this.ceteleyeYaz();
+  }
+
+  // Oyun bitti (el sayısı doldu): en düşük toplam kazanır; eşlide takımın toplamı. Herkes eşitse kazanan yok.
+  // Lobideki galibiyet sıralamasına masada oturanlar yazılır (botlar ve misafirler sayılmaz).
+  galibiyetleriYaz() {
+    const m = this.m;
+    const top = [0, 0, 0, 0];
+    for (const e of m.oyun.eller) e.puanlar.forEach((p, k) => { top[k] += p + ((e.cezalar && e.cezalar[k]) || 0); });
+    const puan = m.oyun.esli ? top.map((_, k) => top[k] + top[(k + 2) % 4]) : top;
+    const en = Math.min(...puan);
+    const kazananlar = puan.every((x) => x === en) ? [] : puan.map((x, k) => (x === en ? k : -1)).filter((k) => k >= 0);
+    const yaz = galibiyetYaz(this.env, "okey", m.koltuklar.map((x, k) => x && !x.bot && !String(x.kim).startsWith("bos:") && {
+      kim: x.kim, ad: x.ad, foto: x.foto, kazandi: kazananlar.includes(k)
+    }));
+    if (this.ctx.waitUntil) this.ctx.waitUntil(yaz);
   }
 
   async ceteleyeYaz() {

@@ -4,10 +4,12 @@
 //   GET  /cetele/<oda>     odanın okey çetelesi ("Authorization: Bearer <kimlik kartı>" gerekir)
 //   GET  /saglik           { ok: true }
 //   POST /medya            oda arka plan videosu yükleme; GET /medya/<özet>.<mp4|webm> oynatma (medya.js)
+//   GET  /galibiyetler     bütün odaların okey ve bilardo galibiyetleri (galibiyet.js; giriş gerekir)
 // Sadece sitenin adreslerinden gelen bağlantılar ve sadece Google hesabıyla giriş yapmış kişiler kabul edilir.
 
 import { istektekiKart } from "./kimlik.js";
 import { medyaYukle, medyaVer } from "./medya.js";
+import { galibiyetleriVer } from "./galibiyet.js";
 export { OkeyMasasi } from "./masa.js";
 export { BilardoMasasi } from "./bilardo.js";
 
@@ -31,6 +33,13 @@ export default {
     const [, yol, oda] = url.pathname.split("/");
     if (istek.method === "OPTIONS") return cors(istek, new Response(null, { status: 204 }));
     if (yol === "saglik") return cors(istek, Response.json({ ok: true }));
+    // Bütün odaların oyun galibiyetleri (lobideki sıralama); sadece Google girişli kişiler okuyabilir
+    if (yol === "galibiyetler") {
+      if (env.MISAFIR_IZNI !== "1" && !(await istektekiKart(istek))) {
+        return cors(istek, Response.json({ hata: "Google hesabınla giriş yap" }, { status: 401 }));
+      }
+      return cors(istek, Response.json(await galibiyetleriVer(env)));
+    }
     if (yol === "medya") {
       if (istek.method === "GET" || istek.method === "HEAD") return medyaVer(istek, env, ctx);
       if (istek.method !== "POST" || url.pathname !== "/medya") return new Response("Bulunamadı", { status: 404 });

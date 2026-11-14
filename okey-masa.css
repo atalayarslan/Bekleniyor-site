@@ -651,6 +651,6 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 .oda-gorunumu.okey-acik #emojiKatmani,
 .oda-gorunumu.okey-acik #daire { display: none; }
 .okey-ac-tus { margin-left: 10px; flex: none; }
-.okey-ac-tus.acik { background: #1db954; color: #000; border-color: #1db954; }
+.okey-ac-tus.acik { background: var(--oda-vurgu, #1db954); color: var(--oda-vurgu-yazi, #000); border-color: var(--oda-vurgu, #1db954); }
 .okey-sayac { font-size: .8em; opacity: .75; font-weight: 700; }
 .okey-sayac:empty { display: none; }

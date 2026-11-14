@@ -90,6 +90,10 @@
       durum = m.durum;
       ofset = durum.sunucuZamani - Date.now();
       dugmeyiGuncelle();
+      OyunKabugu.durumYayinla("okey", {
+        oturan: durum.koltuklar.filter((x) => !x.bos).length, izleyici: durum.izleyici,
+        oyunVar: !!((durum.el && !durum.el.bitti) || (durum.oyun && !durum.oyun.bitis)), oturuyorum: oturuyorum()
+      });
       uygula();
       for (const o of m.olaylar || []) if (o.tur === "elBitti") sonucuGoster(o.baslik);
     }).catch(() => { });

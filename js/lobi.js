@@ -2,6 +2,19 @@
 
 let tumOdalar = {};
 let benimSlotlarim = {};
+let odaOyunlari = {};
+
+// Odadaki masaların rozetleri: son 10 dakikada güncellenmiş ve en az bir kişinin oturduğu masalar
+const OYUN_ADLARI = { okey: ["🀄", "Okey"], bilardo: ["🎱", "Bilardo"] };
+function oyunRozetleri(id) {
+  const masalar = odaOyunlari[id] || {};
+  return Object.entries(OYUN_ADLARI).map(([oyun, [simge, ad]]) => {
+    const m = masalar[oyun];
+    if (!m || !(m.oturan > 0) || sunucuZamani() - (m.zaman || 0) > 10 * 60 * 1000) return null;
+    return el("span", { className: "kart-rozet oyun" + (m.oyunVar ? " oynaniyor" : ""), title: m.oyunVar ? ad + " oynanıyor" : ad + " masasında bekleyen var" },
+      simge + " " + ad + " " + m.oturan + "/4" + (m.oyunVar ? "" : " · bekliyor"));
+  }).filter(Boolean);
+}
 
 function lobiyiBaslat() {
   $("lobi").hidden = false;
@@ -10,6 +23,8 @@ function lobiyiBaslat() {
     return;
   }
   db.ref("odalar").on("value", (s) => { tumOdalar = s.val() || {}; lobiyiCiz(); });
+  // Odalardaki masaların kısa özeti (oyun rozeti için; oyun açık olan tarayıcılar yazar)
+  db.ref("odaOyunlari").on("value", (s) => { odaOyunlari = s.val() || {}; lobiyiCiz(); }, () => { });
   let slotRef = null;
   const oturumaGore = () => {
     if (slotRef) slotRef.off();
@@ -47,7 +62,8 @@ function odaKarti(id, oda) {
     el("div", { className: "kart-rozetler" },
       dinlenen ? el("span", { className: "kart-rozet burada" }, "Buradasın") : null,
       el("span", { className: "kart-rozet" + (icerdekiler.length ? " canli" : "") },
-        icerdekiler.length ? icerdekiler.length + " kişi içeride" : "Şu an boş")),
+        icerdekiler.length ? icerdekiler.length + " kişi içeride" : "Şu an boş"),
+      ...oyunRozetleri(id)),
     el("div", { className: "kart-emoji" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
     el("div", { className: "kart-baslik" },
       el("h3", {}, bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
@@ -219,6 +235,7 @@ async function odaSil(id, bilgi) {
     const guncellemeler = {
       ["odalar/" + id]: null,
       ["odaFotolari/" + id]: null,
+      ["odaOyunlari/" + id]: null,
       ["odaGecmisi/" + id]: null
     };
     const sahip = bilgi && bilgi.sahip;

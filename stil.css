@@ -492,6 +492,8 @@ a {
 .kart-rozet.canli { color: #fff; }
 .kart-rozet.canli::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--yesil); }
 .kart-rozet.burada { background: var(--yesil); color: #000; }
+.kart-rozet.oyun { color: #fff; }
+.kart-rozet.oyun.oynaniyor { background: color-mix(in srgb, var(--kv, #1db954) 85%, black); }
 .oda-karti .kart-emoji {
   position: absolute; top: 0.6rem; right: 0.8rem; font-size: 1.7rem; opacity: 0.9;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
@@ -728,6 +730,11 @@ a {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.siralama-detay {
+  font-size: 0.75rem;
+  color: var(--soluk);
 }
 
 .siralama-cubuk {

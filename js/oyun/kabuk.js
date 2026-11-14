@@ -353,6 +353,22 @@
     return { h, ikon, koltuk, sureHalkasi, menu, sesTusu, sira, sureCizgisi, bildir, pencere, onayla, kalkSor, oyunSonu,
       sesAcik, sesDegistir, sesCal, menuyuKapat, oyun };
   };
+  // Lobideki oda kartında oyun rozeti ("Bilardo 2/4"): masanın kısa özeti Firebase'e (odaOyunlari/<oda>/<oyun>)
+  // yazılır. Sadece değişince (ve masada oturanın sayfası açıkken 2 dakikada bir, eskimesin diye) yazılır.
+  const sonYayin = {};
+  window.OyunKabugu.durumYayinla = function (oyun, ozet) {
+    try {
+      if (typeof db === "undefined" || !db || typeof odaId === "undefined" || !odaId || !kullanici) return;
+      const deger = { oturan: Math.max(0, Math.min(4, ozet.oturan | 0)), izleyici: Math.max(0, Math.min(100, ozet.izleyici | 0)), oyunVar: !!ozet.oyunVar };
+      const anahtar = odaId + "/" + oyun;
+      const imza = JSON.stringify(deger);
+      const son = sonYayin[anahtar];
+      const tazele = ozet.oturuyorum && son && Date.now() - son.zaman > 120000;
+      if (son && son.imza === imza && !tazele) return;
+      sonYayin[anahtar] = { imza, zaman: Date.now() };
+      db.ref("odaOyunlari/" + anahtar).set(Object.assign(deger, { zaman: firebase.database.ServerValue.TIMESTAMP })).catch(() => { });
+    } catch (e) { }
+  };
   window.OyunKabugu.ikon = ikon;
   window.OyunKabugu.h = h;
   window.OyunKabugu.sesAcik = sesAcik;

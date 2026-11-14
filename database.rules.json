@@ -207,6 +207,20 @@
         }
       }
     },
+    "odaOyunlari": {
+      ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
+      "$oda": {
+        "$oyun": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && !root.child('yasakli').child(auth.uid).exists() && ($oda == 'ana' || root.child('odalar').child($oda).child('bilgi').exists() || !newData.exists())",
+          ".validate": "($oyun == 'okey' || $oyun == 'bilardo') && newData.hasChildren(['oturan', 'zaman'])",
+          "oturan": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+          "izleyici": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+          "oyunVar": { ".validate": "newData.isBoolean()" },
+          "zaman": { ".validate": "newData.val() == now" },
+          "$diger": { ".validate": false }
+        }
+      }
+    },
     "odaGecmisi": {
       ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true",
       "$oda": {

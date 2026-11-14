@@ -12,6 +12,31 @@
 }
 #arkaPlan { transition: filter .4s ease, transform .4s ease; }
 
+/* Odanın üst çubuğundaki tek "Oyunlar" düğmesi ve açılan liste (js/oyun/oyunlar.js) */
+.oyunlar-sarmal { position: relative; flex: none; margin-left: 10px; }
+.oyunlar-tus { display: inline-flex; align-items: center; gap: 2px; }
+.oyunlar-tus.acik { background: var(--oda-vurgu); color: var(--oda-vurgu-yazi); border-color: var(--oda-vurgu); }
+.oyunlar-sayi {
+  margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-grid; place-items: center;
+  background: var(--oda-vurgu); color: var(--oda-vurgu-yazi); font-size: 11px; font-weight: 900;
+}
+.oyunlar-ok { width: 0; height: 0; margin-left: 6px; border: 4px solid transparent; border-top-color: currentColor; border-bottom-width: 0; opacity: .7; transition: transform .15s; }
+.oyunlar-tus.liste-acik .oyunlar-ok { transform: rotate(180deg); }
+.oyunlar-listesi {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 90; min-width: 230px;
+  display: grid; gap: 4px; padding: 6px; border-radius: 16px;
+  background: #1c1c1f; border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
+  animation: oyunBelir .14s ease;
+}
+.oyunlar-listesi[hidden] { display: none; }
+.oyunlar-listesi .oyun-satiri {
+  margin: 0; width: 100%; justify-content: flex-start; text-align: left; border-radius: 11px;
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 14px;
+}
+.oyunlar-listesi .oyun-satiri .etiket { display: inline !important; }
+.oyunlar-listesi .oyun-satiri .okey-sayac { margin-left: auto; }
+.oyunlar-listesi .oyun-satiri.acik { background: var(--oda-vurgu); color: var(--oda-vurgu-yazi); border-color: var(--oda-vurgu); }
+
 .oyun-ikon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- koltuk ---------- */
