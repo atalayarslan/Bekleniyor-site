@@ -245,7 +245,16 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // Space: oynat / duraklat (yazı kutularında yazarken çalışmaz)
+// Medya tuşları sayfa öndeyken tuş olayı olarak da gelebilir: ⏯ ⏭ ⏮
 function klavyeKisayollariniBagla() {
+  document.addEventListener("keydown", (e) => {
+    const medya = { MediaPlayPause: "oynatTus", MediaTrackNext: "atlaTus", MediaTrackPrevious: "geriTus" }[e.key];
+    if (medya && katildi) {
+      e.preventDefault();
+      if (!$(medya).disabled) $(medya).click();
+      return;
+    }
+  });
   document.addEventListener("keydown", (e) => {
     if (e.code !== "Space" || !katildi || e.ctrlKey || e.altKey || e.metaKey) return;
     const hedef = e.target;
@@ -1223,6 +1232,53 @@ function medyaOturumunuGuncelle() {
       ? [{ src: "https://i.ytimg.com/vi/" + simdiki.videoId + "/hqdefault.jpg", sizes: "480x360", type: "image/jpeg" }] : []
   });
   navigator.mediaSession.playbackState = simdiki.duraklatildi ? "paused" : "playing";
+  medyaTusKilidiniGuncelle();
+}
+
+// Klavyedeki medya tuşları (⏯ ⏭ ⏮): Chrome bu tuşları en son ses çalmaya başlayan oynatıcıya gönderir. Müzik YouTube'un
+// gömülü oynatıcısından çaldığı için tuşlar ona gidiyordu: durdur çalışıyor ama ileri/geri hiçbir şey yapmıyordu.
+// Masaüstünde sayfanın kendisi sessiz bir ses çalar ve her şarkı başlayınca tuşları yeniden sahiplenir; böylece
+// tuşlar yukarıdaki medya oturumuna (odanın oynat/duraklat/ileri/geri işlerine) gelir. Telefonda yapılmaz
+// (telefonda yeni bir ses başlamak çalan müziği durdurabilir; orada kilit ekranı tuşları zaten çalışıyor).
+const MEDYA_KILIDI_ACIK = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && "mediaSession" in navigator;
+let medyaKilidi = null;
+let kilitliSarki = null;
+function sessizSes() {
+  // 6 saniyelik sessiz WAV (Chrome kısa sesleri medya oturumu saymaz)
+  const hiz = 8000, ornek = hiz * 6, veri = new DataView(new ArrayBuffer(44 + ornek * 2));
+  const yaz = (i, m) => [...m].forEach((c, j) => veri.setUint8(i + j, c.charCodeAt(0)));
+  yaz(0, "RIFF"); veri.setUint32(4, 36 + ornek * 2, true); yaz(8, "WAVEfmt "); veri.setUint32(16, 16, true);
+  veri.setUint16(20, 1, true); veri.setUint16(22, 1, true); veri.setUint32(24, hiz, true); veri.setUint32(28, hiz * 2, true);
+  veri.setUint16(32, 2, true); veri.setUint16(34, 16, true); yaz(36, "data"); veri.setUint32(40, ornek * 2, true);
+  return URL.createObjectURL(new Blob([veri], { type: "audio/wav" }));
+}
+function kilidiSahiplen() {
+  if (!medyaKilidi || !simdiki || simdiki.duraklatildi) return;
+  medyaKilidi.pause();
+  medyaKilidi.play().catch(() => { });
+}
+function medyaTusKilidiniGuncelle() {
+  if (!MEDYA_KILIDI_ACIK) return;
+  if (!katildi) {
+    if (medyaKilidi) medyaKilidi.pause();
+    return;
+  }
+  if (!medyaKilidi) {
+    medyaKilidi = new Audio(sessizSes());
+    medyaKilidi.loop = true;
+  }
+  if (!simdiki || simdiki.duraklatildi) {
+    medyaKilidi.pause();
+    return;
+  }
+  const kimlik = sarkiKimligi(simdiki) + "|" + simdiki.baslangic;
+  if (medyaKilidi.paused || kimlik !== kilitliSarki) {
+    kilitliSarki = kimlik;
+    kilidiSahiplen();
+    // YouTube oynatıcısı yeni şarkıyı birazdan başlatıp tuşları geri alır; ardından tekrar sahiplenilir
+    setTimeout(kilidiSahiplen, 2000);
+    setTimeout(kilidiSahiplen, 6000);
+  }
 }
 
 function medyaTuslariniBagla() {
