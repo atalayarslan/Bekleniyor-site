@@ -32,33 +32,71 @@ function lobiyiBaslat() {
   lobiyiCiz();
 }
 
+// Odanın kartı: üstte odanın kendi arka planı (resim; video ise karta gelince oynar), adı ve canlılık rozeti;
+// altta çalan şarkı (kapağıyla, çalıyorsa ses çubukları oynar) ve içeridekiler.
 function odaKarti(id, oda) {
   const bilgi = oda.bilgi || {};
   const tasarim = tasarimiTamamla(oda.tasarim, id);
   const icerdekiler = katilanListesi(oda.katilanlar);
   const calan = oda.muzik && oda.muzik.simdiki;
-  // İçeridekiler: ilk 5 kişinin fotoğrafı ve isimleri
+  const caliyor = !!(calan && !calan.duraklatildi && icerdekiler.length);
   const isimler = icerdekiler.slice(0, 3).map((k) => k.ad).join(", ") + (icerdekiler.length > 3 ? " +" + (icerdekiler.length - 3) : "");
   // Mini oynatıcıda dinlenen oda: kartına basınca sayfa yenilenmeden odaya dönülür
   const dinlenen = typeof katildi !== "undefined" && katildi && id === odaId;
-  const kart = el("a", {
-    className: "oda-karti" + (dinlenen ? " dinlenen" : ""), href: "?oda=" + id,
-    onclick: (e) => { if (dinlenen) { e.preventDefault(); odayaGeriDon(); } }
-  },
-    dinlenen ? el("div", { className: "kart-rozet" }, "🎧 Buradasın") : null,
+  const gorsel = el("div", { className: "kart-gorsel" },
+    el("div", { className: "kart-rozetler" },
+      dinlenen ? el("span", { className: "kart-rozet burada" }, "Buradasın") : null,
+      el("span", { className: "kart-rozet" + (icerdekiler.length ? " canli" : "") },
+        icerdekiler.length ? icerdekiler.length + " kişi içeride" : "Şu an boş")),
     el("div", { className: "kart-emoji" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
-    el("h3", {}, bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
-    el("div", { className: "kart-alt" },
-      (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + (icerdekiler.length ? icerdekiler.length + " kişi içeride" : "şu an boş")),
-    // Kişilere basınca odaya girilmez, içeridekilerin listesi açılır
-    icerdekiler.length ? el("div", {
-      className: "kart-kisiler", title: "Kimler var?",
-      onclick: (e) => { e.preventDefault(); e.stopPropagation(); kisileriGoster(e.currentTarget, icerdekiler, id); }
-    }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null,
-    calan ? el("div", { className: "kart-calan" }, "♪ " + calan.baslik + (sanatciBul(calan) ? " — " + sanatciBul(calan) : "")) : null);
+    el("div", { className: "kart-baslik" },
+      el("h3", {}, bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
+      bilgi.sahipAdi ? el("div", { className: "kart-sahip" }, bilgi.sahipAdi) : null));
+  kartGorseliniYukle(id, gorsel);
+  const sanatci = calan ? sanatciBul(calan) : "";
+  const kart = el("a", {
+    className: "oda-karti" + (dinlenen ? " dinlenen" : "") + (caliyor ? " caliyor" : ""), href: "?oda=" + id,
+    onclick: (e) => { if (dinlenen) { e.preventDefault(); odayaGeriDon(); } },
+    onmouseenter: () => { const v = gorsel.querySelector("video"); if (v) v.play().catch(() => { }); },
+    onmouseleave: () => { const v = gorsel.querySelector("video"); if (v) v.pause(); }
+  },
+    gorsel,
+    el("div", { className: "kart-govde" },
+      calan ? el("div", { className: "kart-calan" },
+        kapakResmi(calan, { className: "kart-kapak" }),
+        el("div", { className: "kart-sarki" }, el("b", {}, calan.baslik), el("small", {}, sanatci || (caliyor ? "Çalıyor" : "Duraklatıldı"))),
+        caliyor ? el("span", { className: "kart-dalga", "aria-hidden": "true" }, el("i"), el("i"), el("i"), el("i")) : null)
+        : el("div", { className: "kart-calan bos" }, "Şu an şarkı çalmıyor"),
+      // Kişilere basınca odaya girilmez, içeridekilerin listesi açılır
+      icerdekiler.length ? el("div", {
+        className: "kart-kisiler", title: "Kimler var?",
+        onclick: (e) => { e.preventDefault(); e.stopPropagation(); kisileriGoster(e.currentTarget, icerdekiler, id); }
+      }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null));
   kart.style.setProperty("--k1", tasarim.arka2 === tasarim.arka1 ? tasarim.daire1 : tasarim.arka1);
   kart.style.setProperty("--k2", tasarim.arka2 === tasarim.arka1 ? tasarim.daire2 : tasarim.arka2);
+  kart.style.setProperty("--kv", /^#[0-9a-f]{6}$/i.test(tasarim.vurgu || "") ? tasarim.vurgu : "#1db954");
   return kart;
+}
+
+// Kartın arka planı: odanın arka plan resmi/videosu, yoksa ilk fotoğrafı. Her oda için bir kez okunur.
+const kartGorselleri = new Map();
+function kartGorseliniYukle(id, kutu) {
+  if (!db) return;
+  if (!kartGorselleri.has(id)) {
+    kartGorselleri.set(id, (async () => {
+      const fotolar = (await db.ref("odaFotolari/" + id).get()).val() || (id === ANA_ODA ? Object.assign({}, ANA_ODA_FOTOLARI) : {});
+      return fotolar.arka || fotolar.f0 || null;
+    })().catch(() => null));
+  }
+  kartGorselleri.get(id).then((kaynak) => {
+    if (!kaynak) return;
+    const medya = videoMu(kaynak)
+      ? el("video", { src: kaynak, muted: true, loop: true, playsInline: true, preload: "metadata" })
+      : el("img", { src: kaynak, alt: "", loading: "lazy" });
+    medya.className = "kart-medya";
+    kutu.prepend(medya);
+    kutu.classList.add("resimli");
+  });
 }
 
 function benimOdalarim() {
@@ -90,13 +128,22 @@ function lobiyiCiz() {
     odalarim.replaceChildren(...kartlar);
   }
 
-  // Açık odalar: ana oda her zaman en başta
-  const acik = Object.keys(tumOdalar).filter((id) => id !== ANA_ODA && tumOdalar[id].bilgi && tumOdalar[id].bilgi.herkeseAcik !== false)
+  // Açık odalar: ana oda her zaman en başta; "Odalarım"da zaten görünen odalar burada tekrar gösterilmez
+  const benimkiler = new Set(kullanici ? [...benimOdalarim(), ...Object.keys(tumOdalar).filter((id) =>
+    yonetici && tumOdalar[id].bilgi && tumOdalar[id].bilgi.sahip === kullanici.uid)] : []);
+  const acik = Object.keys(tumOdalar).filter((id) => id !== ANA_ODA && !benimkiler.has(id) && tumOdalar[id].bilgi && tumOdalar[id].bilgi.herkeseAcik !== false)
     .sort((a, b) => Object.keys(tumOdalar[b].katilanlar || {}).length - Object.keys(tumOdalar[a].katilanlar || {}).length
       || (tumOdalar[b].bilgi.olusturma || 0) - (tumOdalar[a].bilgi.olusturma || 0));
-  $("acikOdalar").replaceChildren(
-    odaKarti(ANA_ODA, tumOdalar[ANA_ODA] || {}),
-    ...acik.map((id) => odaKarti(id, tumOdalar[id])));
+  const acikKartlar = [...(benimkiler.has(ANA_ODA) ? [] : [odaKarti(ANA_ODA, tumOdalar[ANA_ODA] || {})]), ...acik.map((id) => odaKarti(id, tumOdalar[id]))];
+  $("acikOdalar").replaceChildren(...(acikKartlar.length ? acikKartlar
+    : [el("div", { className: "bos-kutu" }, "Şu an başka açık oda yok. Kendi odanı aç, linkini arkadaşlarına gönder.")]));
+
+  // Karşılamadaki canlı sayı: şu an kaç kişi kaç odada
+  const kisiSayisi = Object.values(tumOdalar).reduce((t, o) => t + katilanListesi(o.katilanlar).length, 0);
+  const doluOda = Object.values(tumOdalar).filter((o) => katilanListesi(o.katilanlar).length).length;
+  const canli = $("lobiCanli");
+  if (canli) canli.textContent = kisiSayisi ? "Şu an " + kisiSayisi + " kişi, " + doluOda + " odada dinliyor" : "Şu an kimse yok, ilk sen gir";
+  if (canli) canli.classList.toggle("canli", kisiSayisi > 0);
 
   $("lobiYonetimTus").hidden = !yonetici;
 }
