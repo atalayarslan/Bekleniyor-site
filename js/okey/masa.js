@@ -44,23 +44,6 @@
     return K.RENK_ADLARI[tas.r] + " " + tas.n + (K.okeyMi(tas, okey) ? " · OKEY" : "");
   }
 
-  function avatar(kisi, sure) {
-    const a = h("div", { sinif: "okey-avatar", stil: { background: kisi.renk } }, kisi.bot ? "🤖" : (kisi.ad || "?")[0].toUpperCase());
-    if (sure) {
-      const cevre = 2 * Math.PI * 24;
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 54 54");
-      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      c.setAttribute("cx", 27); c.setAttribute("cy", 27); c.setAttribute("r", 24);
-      c.style.strokeDasharray = cevre;
-      c.style.strokeDashoffset = cevre * (1 - sure.kalan / sure.toplam);
-      if (sure.kalan / sure.toplam < 0.3) c.style.stroke = "#e5484d";
-      svg.append(c);
-      a.append(svg);
-    }
-    return a;
-  }
-
   window.OkeyMasa = function (kok, olaylar) {
     let g = null;          // son çizilen görünüm
     let olcek = 1;
@@ -72,10 +55,13 @@
     let sekenId = null;
 
     const sahne = h("div", { sinif: "okey-sahne" });
-    // Tema/Ayarlar/Kalk/Çetele/Kurallar: ölçeklenen masanın dışında, ekranın sağ üst köşesinde (üstteki koltuğu örtmez)
-    const kose = h("div", { sinif: "kose-tuslar" });
     kok.classList.add("okey");
-    kok.replaceChildren(sahne, kose);
+    kok.replaceChildren(sahne);
+    // Ortak oyun kabuğu (js/oyun/kabuk.js): koltuklar, menü (sağ üst), sıra şeridi, olay bildirimi, pencereler.
+    // Sıra şeridi masanın ön kenarında durur (üstteki koltuğu örtmesin); yeri her çizimde korunur.
+    const KB = window.OyunKabugu(kok, { oyun: "okey" });
+    const siraYeri = h("div", { sinif: "okey-sira-yeri" });
+    KB.sira({ yazi: "", yer: siraYeri });
 
     function sigdir() {
       const r = kok.getBoundingClientRect();
@@ -202,50 +188,51 @@
         if (tasma > 1) alan.style.transform = "scale(" + Math.max(0.6, 1 / tasma).toFixed(3) + ")";
       });
 
-      // Koltuklar
+      // Koltuklar (ortak kabuk): boş koltuğa tıklayınca Otur / Bot ekle; dolu koltuğa tıklayınca yetkiye göre seçenekler.
+      // "koltuk kN" sınıfı sadece masadaki yeri içindir (okey-masa.css).
       const koltuklar = g.koltuklar.map((kol, k) => {
-        // Boş koltuk: izleyici oturabilir; masada oturan bot ekleyebilir
         if (kol.bos) {
-          // "+": izleyici oturur; oturan oyuncu (el sürmüyorsa) bu koltuğa geçer
+          // İzleyici oturur; oturan oyuncu (el sürmüyorsa) bu koltuğa geçer; masada oturan bot ekleyebilir
           const oturulur = olaylar.otur && (g.izleyici || g.koltukDegisir);
-          return h("div", { sinif: "koltuk bos k" + k, veri: { koltuk: k } },
-            h("div", {
-              sinif: "okey-avatar" + (oturulur ? " oturulur" : ""), stil: { background: "rgba(255,255,255,.08)" },
-              title: oturulur ? (g.izleyici ? "Bu koltuğa otur" : "Bu koltuğa geç") : null,
-              onclick: oturulur ? () => olaylar.otur(k) : null
-            }, "+"),
-            h("div", {}, h("div", { sinif: "ad" }, "Boş koltuk"),
-              g.izleyici && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Otur") : null,
-              g.botEkle && olaylar.botEkle ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botEkle(k) }, "🤖 Bot ekle") : null));
+          return KB.koltuk({
+            bos: true, koltuk: k, sinif: "koltuk k" + k, alt: oturulur ? (g.izleyici ? "Oturmak için tıkla" : "Buraya geç") : null,
+            eylemler: [
+              oturulur ? { yazi: g.izleyici ? "Otur" : "Buraya geç", ikon: "arti", is: () => olaylar.otur(k) } : null,
+              g.botEkle && olaylar.botEkle ? { yazi: "Bot ekle", ikon: "bot", is: () => olaylar.botEkle(k) } : null
+            ]
+          });
         }
         const siraOnda = g.sira === k && !g.bitti;
-        const yancilar = h("div", { sinif: "yancilar" },
+        const alt = [
+          h("span", {}, "Toplam ", h("span", { sinif: "puan" }, String(kol.puan))),
+          kol.acti ? h("span", { sinif: "okey-rozet" + (kol.acti === "cift" ? " cift" : "") }, kol.acti === "cift" ? "Çift açtı" : "Açtı · " + kol.acilisDegeri) : null,
+          kol.ceza ? h("span", { sinif: "okey-ceza" }, "Ceza " + kol.ceza) : null,
+          kol.bagli === false ? h("span", {}, "bağlantı yok") : null,
+          kol.cikacak ? h("span", {}, "el bitince kalkacak") : null
+        ];
+        const yancilar = kol.yancilar.length ? h("div", { sinif: "yancilar" },
           kol.yancilar.map((y) => h("div", { sinif: "yanci", stil: { background: y.renk }, title: y.ad + " yancı" }, y.ad[0])),
-          kol.yancilar.length ? h("span", { stil: { fontSize: "11px", color: "#a7a7a7", marginLeft: "4px" } }, "👁 " + kol.yancilar.length + " yancı") : null,
-          // Yancı olmak sadece masada oturmayanlara (izleyicilere) açık; oyuncular başkasının taşına bakamaz
-          g.izleyici && !kol.bos ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.yanciOl(k) }, g.izlenen === k ? "İzliyorsun" : "Yancı ol") : null,
-          // Oyuncu el ortasında kalktı ya da uzun süredir yok: izleyici yerine oturup elini devralabilir
-          g.izleyici && kol.devralinabilir && olaylar.otur ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.otur(k) }, "Yerine otur") : null,
-          // Botu el aralarında masadakiler çıkarabilir; kalkıp giden oyuncunun yerine bot konabilir
-          kol.bot && g.botEkle && g.bitti && olaylar.botCikar ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botCikar(k) }, "Botu çıkar") : null,
-          !kol.bot && kol.devralinabilir && g.botEkle && olaylar.botEkle ? h("button", { sinif: "yanci-tus", onclick: () => olaylar.botEkle(k) }, "🤖 Yerine bot koy") : null);
-        return h("div", { sinif: "koltuk k" + k + (siraOnda ? " sira" : "") + (kol.bagli === false ? " kopuk" : ""), veri: { koltuk: k } },
-          avatar(kol, siraOnda ? g.sure : null),
-          h("div", {},
-            h("div", { sinif: "ad" }, kol.ad + (kol.ben ? " (sen)" : "") + (kol.bagli === false ? " · bağlantı yok" : "")),
-            h("div", { sinif: "alt" },
-              h("span", {}, "Toplam ", h("span", { sinif: "puan" }, String(kol.puan))),
-              kol.acti ? h("span", { sinif: "okey-rozet" + (kol.acti === "cift" ? " cift" : "") }, kol.acti === "cift" ? "Çift açtı" : "Açtı · " + kol.acilisDegeri) : null,
-              kol.ceza ? h("span", { stil: { color: "#ff8a7a", fontWeight: 800 } }, "Ceza " + kol.ceza) : null)),
-          yancilar);
+          h("span", { sinif: "yanci-sayi" }, kol.yancilar.length + " yancı")) : null;
+        return KB.koltuk({
+          koltuk: k, sinif: "koltuk k" + k, ad: kol.ad, foto: kol.foto, renk: kol.renk, bot: kol.bot, ben: kol.ben,
+          sira: siraOnda, kopuk: kol.bagli === false, alt, ek: yancilar,
+          eylemler: [
+            // Yancı olmak sadece masada oturmayanlara (izleyicilere) açık; oyuncular başkasının taşına bakamaz
+            g.izleyici ? { yazi: g.izlenen === k ? "İzliyorsun (bırak)" : "Yancı ol", ikon: "bilgi", is: () => olaylar.yanciOl(k) } : null,
+            // Oyuncu el ortasında kalktı ya da uzun süredir yok: izleyici yerine oturup elini devralabilir
+            g.izleyici && kol.devralinabilir && olaylar.otur ? { yazi: "Yerine otur", ikon: "arti", is: () => olaylar.otur(k) } : null,
+            !kol.bot && kol.devralinabilir && g.botEkle && olaylar.botEkle ? { yazi: "Yerine bot koy", ikon: "bot", is: () => olaylar.botEkle(k) } : null,
+            // Bot her an çıkarılabilir; el sürüyorsa el bitince kalkar
+            kol.bot && !kol.cikacak && g.botEkle && olaylar.botCikar ? { yazi: "Botu çıkar", ikon: "kapat", tehlikeli: true, is: () => olaylar.botCikar(k) } : null,
+            // Masayı kuran ya da oda sahibi oyuncuyu masadan kaldırabilir
+            !kol.bot && !kol.ben && !kol.devralinabilir && g.kaldirabilir && olaylar.kaldir ? { yazi: "Masadan kaldır", ikon: "kalk", tehlikeli: true, is: () => olaylar.kaldir(k, kol.ad) } : null
+          ]
+        });
       });
 
-      const durum = g.durumYazisi ? h("div", { sinif: "durum-yazisi" }, g.durumYazisi) : null;
-      kose.replaceChildren(
-        ...(g.ekTuslar || []).map((t) => h("button", { sinif: "okey-tus" + (t.secili ? " ana" : ""), onclick: t.is, title: t.ipucu || "" }, t.yazi)),
-        h("button", { sinif: "okey-tus", onclick: olaylar.cetele }, "📋 Çetele"),
-        h("button", { sinif: "okey-tus", onclick: olaylar.kurallar }, "📖 Kurallar"));
-      iskelet.ust.replaceChildren(...koltuklar, durum || "", istakaCiz());
+      KB.menu(g.menu || []);
+      KB.sira({ benim: !!g.benimSiram, yazi: g.durumYazisi || "" });
+      iskelet.ust.replaceChildren(...koltuklar, siraYeri, istakaCiz());
       sigdir();
     }
 
@@ -576,21 +563,12 @@
     function sureGuncelle(sure) {
       if (!g) return;
       g.sure = sure;
-      const c = sahne.querySelector(".koltuk.sira circle");
-      if (!c) return;
-      const cevre = 2 * Math.PI * 24;
-      c.style.strokeDashoffset = cevre * (1 - sure.kalan / sure.toplam);
-      c.style.stroke = sure.kalan / sure.toplam < 0.3 ? "#e5484d" : "";
+      // El yokken (ya da bittiyse) şeritte süre çizgisi görünmez
+      KB.sureCizgisi(g.bitti || !sure ? null : sure.kalan / sure.toplam);
     }
 
-    let bildirimZamani = null;
-    function bildir(metin, tur) {
-      kok.querySelectorAll(".okey-bildirim").forEach((x) => x.remove());
-      const oge = h("div", { sinif: "okey-bildirim" + (tur === "ceza" ? " ceza" : "") }, metin);
-      kok.append(oge);
-      clearTimeout(bildirimZamani);
-      bildirimZamani = setTimeout(() => oge.remove(), 2600);
-    }
+    // Olay bildirimi masanın ortasında (ortak kabuk); "ceza" uyarı olarak gösterilir
+    function bildir(metin, tur) { KB.bildir(metin, tur === "ceza" ? "uyari" : tur); }
 
     // Koltuğun üstünde yukarı süzülen puan (+101, −101)
     function puanUcur(koltuk, miktar) {
@@ -603,14 +581,14 @@
 
     // genis: çetele gibi büyük içerik için; "tam": masa alanını neredeyse tamamen kaplar (odanın çetelesi)
     // kapaninca: pencere nasıl kapanırsa kapansın (düğme ya da dışına tıklama) çağrılır
+    // Pencere (ortak kabuk). t.sinif "kirmizi" → zarar veren (kırmızı), "soluk" → soluk düğme; t.oge: hazır öğe
     function pencere(baslik, govde, tuslar = [], genis = false, kapaninca = null) {
-      kok.querySelectorAll(".okey-pencere").forEach((x) => x.remove());
-      const kapat = () => { p.remove(); if (kapaninca) kapaninca(); };
-      const p = h("div", { sinif: "okey-pencere", onclick: (e) => e.target === p && kapat() },
-        h("div", { sinif: genis === "tam" ? "okey-genis okey-tam" : genis ? "okey-genis" : "" }, h("h3", {}, baslik), govde,
-          h("div", { sinif: "alt-tuslar" }, (tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) => t.oge ||   // düğme yerine hazır öğe (ör. tema adı)
-            h("button", { sinif: "okey-tus" + (t.ana ? " ana" : "") + (t.sinif ? " " + t.sinif : ""), onclick: () => { kapat(); t.is && t.is(); } }, t.yazi)))));
-      kok.append(p);
+      const donustur = (t) => t.oge ? t : Object.assign({}, t, {
+        tehlikeli: t.tehlikeli || t.sinif === "kirmizi", soluk: t.soluk || t.sinif === "soluk",
+        sinif: t.sinif === "kirmizi" || t.sinif === "soluk" ? null : t.sinif
+      });
+      return KB.pencere(baslik, govde, tuslar.map(donustur),
+        { tam: genis === "tam", genis: genis === true, kapaninca, sinif: "okey-pencere-ic" + (genis === "tam" ? " okey-tam" : genis ? " okey-genis" : "") });
     }
 
     // Uçuş animasyonu için öğe bulucular
@@ -625,6 +603,6 @@
       perAlani: (k) => sahne.querySelector(".per-alani.p" + k)
     };
 
-    return { ciz, sureGuncelle, ucur, bildir, puanUcur, pencere, oge, h, tasOgesi, islekVurgula };
+    return { ciz, sureGuncelle, ucur, bildir, puanUcur, pencere, oge, h, tasOgesi, islekVurgula, kabuk: KB };
   };
 })();

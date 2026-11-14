@@ -112,10 +112,12 @@
         else if (o.tur === "sure") masa.bildir(ad(o.k) + ": süre doldu, otomatik oynandı");
         else if (o.tur === "islekGosterildi") {
           masa.islekVurgula(o.per);
-          masa.bildir("⚠️ " + ad(o.k) + " gösterdi: " + ad(o.atan) + " işlek taş attı", "ceza");
+          masa.bildir(ad(o.k) + " gösterdi: " + ad(o.atan) + " işlek taş attı", "ceza");
           await new Promise((r) => setTimeout(r, 1400));   // ceza yazısından önce okunsun
         }
         else if (o.tur === "islekDegil") masa.bildir(ad(o.k) + " gösterdi ama taş o pere işlenmiyor (ceza yok)");
+        else if (o.tur === "bilgi" || o.tur === "cikarildi") masa.bildir(o.metin);
+        else if (o.tur === "bitirildi") masa.bildir("Oyun bitirildi" + (o.ad ? " (" + o.ad + ")" : ""), "ceza");
       } catch (e) { }
     }
   }
@@ -290,15 +292,25 @@
       const yancilar = (kol.yancilar || []).map((y) => ({ ad: y.ad, renk: "#7c5cff" }));
       if (kol.bos) return { bos: true, yancilar };
       return {
-        ad: kol.ad, renk: RENKLER[s], ben: s === k, bagli: kol.bagli, devralinabilir: kol.devralinabilir, bot: kol.bot, yancilar,
+        ad: kol.ad, foto: kol.foto, renk: RENKLER[s], ben: s === k, bagli: kol.bagli, devralinabilir: kol.devralinabilir, bot: kol.bot,
+        cikacak: kol.cikacak, yancilar,
         puan: toplam ? toplam[s].top : 0, ceza: E ? E.cezalar[s] : 0, tasSayisi: E ? E.tasSayilari[s] : 0,
         acti: E ? E.acti[s] : null, acilisDegeri: E ? E.acilisDegeri[s] : 0
       };
     });
 
-    const ekTuslar = [{ yazi: "🎨 Tema", ipucu: "Taş, ıstaka ve masa teması", is: temaPaneli }];
-    if (durum.ben.kurucu || durum.ben.yetkili) ekTuslar.push({ yazi: "⚙️ Ayarlar", ipucu: "Oyun türü, el sayısı, tur süresi", is: ayarPaneli });
-    if (oturuyorum()) ekTuslar.push({ yazi: "🚪 Kalk", ipucu: "Koltuktan kalk", is: kalkSor });
+    // Oyun menüsü (ortak kabuk; sıra her oyunda aynı: Ses · Ayarlar · Kurallar · Tema · Çetele · Oyunu bitir · Kalk)
+    const yetkiliMi = !!(durum.ben.kurucu || durum.ben.yetkili);
+    const oyunSuruyor = elVar || !!(durum.oyun && !durum.oyun.bitis);
+    const menu = [
+      masa.kabuk.sesTusu(uygula),
+      yetkiliMi ? { ad: "ayar", yazi: "Ayarlar", ikon: "ayar", ipucu: "Oyun türü, el sayısı, tur süresi", is: ayarPaneli } : null,
+      { ad: "kural", yazi: "Kurallar", ikon: "kural", is: kurallariGoster },
+      { ad: "tema", yazi: "Tema", ikon: "tema", ipucu: "Taş, ıstaka ve masa teması", is: temaPaneli },
+      { ad: "cetele", yazi: "Çetele", ikon: "cetele", is: ceteleGoster },
+      oyunSuruyor && yetkiliMi ? { ad: "bitir", yazi: "Oyunu bitir", ikon: "bitir", ipucu: "Süren oyunu sonuçsuz bitir", is: bitirSor } : null,
+      oturuyorum() ? { ad: "kalk", yazi: "Kalk", ikon: "kalk", is: kalkSor } : null
+    ];
 
     masa.ciz({
       okey: E ? E.okey : { r: 0, n: 1 }, gosterge: E ? E.gosterge : null, gostergeMasada: E ? E.gostergeMasada : true,
@@ -319,17 +331,31 @@
         ac: { etkin: benSiram && E.asama === "at" && a && (a.acti ? a.yeniPer : a.seriOlur || a.ciftOlur), yazi: E && E.acti[k] ? "Per koy" : "El aç",
           ipucu: "Istakada yan yana dizdiğin geçerli perler masaya konur" }
       },
-      koltuklar, ekTuslar, benim
+      koltuklar, menu, benim, kaldirabilir: yetkiliMi
     });
     sureyiIslet();
   }
 
-  // Kalkmadan önce sorulur. "Hayır" kırmızı ve belirgin, "Evet" soluk: göz önce kalmaya gitsin.
-  // Pencerenin dışına tıklamak da "Hayır" sayılır.
+  // Kalkmadan önce sorulur (ortak kabuk): "Hayır" kırmızı ve belirgin, "Evet" soluk. Dışına tıklamak "Hayır".
   function kalkSor() {
-    masa.pencere("Masadan ayrılmak istiyor musunuz?",
-      masa.h("p", { sinif: "kalk-not" }, durum.el && !durum.el.bitti ? "El sürüyor: kalkarsan elin masada kalır, yerine başkası ya da bot oturabilir." : ""),
-      [{ yazi: "Evet", sinif: "soluk", is: () => gonder({ t: "kalk" }) }, { yazi: "Hayır", sinif: "kirmizi" }]);
+    masa.kabuk.kalkSor(durum.el && !durum.el.bitti ? "El sürüyor: kalkarsan elin masada kalır, yerine başkası ya da bot oturabilir." : "",
+      () => gonder({ t: "kalk" }));
+  }
+
+  function bitirSor() {
+    masa.kabuk.onayla({
+      baslik: "Oyun bitirilsin mi?", evet: "Bitir",
+      metin: "Süren oyun sonuçsuz biter (kimse kazanmış sayılmaz). Biten eller çetelede kalır. Sonra yeni oyun başlatabilirsiniz.",
+      is: () => gonder({ t: "bitir" })
+    });
+  }
+
+  function kaldirSor(v, adi) {
+    masa.kabuk.onayla({
+      baslik: adi + " masadan kaldırılsın mı?", evet: "Kaldır",
+      metin: durum.el && !durum.el.bitti ? "El sürüyor: eli masada kalır, yerine başkası ya da bot oturabilir." : "Koltuğu boşalır, izleyici olarak kalır.",
+      is: () => gonder({ t: "kaldir", koltuk: sunucudaki(v) })
+    });
   }
 
   function kalanSure() {
@@ -350,13 +376,34 @@
     }, 250);
   }
 
+  // El bitince: o elin çetelesi. Oyun bittiyse ortak oyun sonu ekranı (kazananlar, özet, Rövanş) ve altında çetele.
   function sonucuGoster(baslik) {
     if (!masa || !durum || !durum.oyun || !acik) return;
-    const govde = masa.h("div", { sinif: "cetele koyu" }, OkeyCetele.ciz(durum.oyun, { vurguEl: durum.oyun.eller.length }));
+    const O = durum.oyun;
+    const cetele = masa.h("div", { sinif: "cetele koyu" }, OkeyCetele.ciz(O, { vurguEl: O.eller.length }));
     const tuslar = [{ yazi: "Odanın çetelesi", is: ceteleSayfasi }];
-    if (oturuyorum()) tuslar.push({ yazi: durum.oyun.bitis ? "Yeni oyun" : "Sonraki el", ana: true, is: () => gonder({ t: "sonraki" }) });
-    else tuslar.push({ yazi: "Kapat", ana: true });
-    masa.pencere(baslik + (durum.oyun.bitis ? " · oyun bitti" : ""), govde, tuslar, true);
+    if (!O.bitis) {
+      if (oturuyorum()) tuslar.push({ yazi: "Sonraki el", ana: true, is: () => gonder({ t: "sonraki" }) });
+      else tuslar.push({ yazi: "Kapat", ana: true });
+      masa.pencere(baslik, cetele, tuslar, true);
+      return;
+    }
+    const onde = OkeyCetele.ondekiler(O);
+    const toplam = OkeyCetele.toplamlar(O);
+    const k = benimKoltugum();
+    const kazandim = oturuyorum() && onde.includes(k);
+    const oyuncular = O.oyuncular.map((o, s) => o && {
+      ad: o.ad, foto: durum.koltuklar[s] && durum.koltuklar[s].foto, renk: RENKLER[s], bot: durum.koltuklar[s] && durum.koltuklar[s].bot,
+      kazandi: onde.includes(s)
+    }).filter(Boolean);
+    const sn = Math.round(((O.bitis || Date.now()) - O.baslangic) / 1000);
+    const ozet = [["El", String(O.eller.length)], ["Süre", Math.floor(sn / 60) + " dk"]];
+    if (onde.length) ozet.push(["Kazanan puanı", String(toplam[onde[0]].top)]);
+    tuslar.push(oturuyorum() ? { yazi: "Rövanş", ana: true, is: () => gonder({ t: "sonraki" }) } : { yazi: "Kapat", ana: true });
+    masa.kabuk.oyunSonu({
+      baslik: kazandim ? "Kazandın" : onde.length ? onde.map((s) => O.oyuncular[s].ad).join(", ") + " kazandı" : "Oyun bitti",
+      kazandim, oyuncular, ozet, alt: baslik, ek: cetele, tuslar
+    });
   }
 
   // Odanın çetelesi (sunucudaki son 50 oyun) masanın üstünde büyük pencerede: solda oyunlar, sağda seçilenin çetelesi.
@@ -382,7 +429,7 @@
           k.classList.add("silinir");
           k.append(h("button", {
             sinif: "cetele-sil", title: "Bu oyunu çeteleden sil",
-            onclick: (e) => { e.stopPropagation(); if (confirm("Bu oyun çeteleden silinsin mi? Geri alınamaz.")) sil(o.id); }
+            onclick: (e) => { e.stopPropagation(); masa.kabuk.onayla({ baslik: "Bu oyun çeteleden silinsin mi?", metin: "Geri alınamaz.", evet: "Sil", ust: true, is: () => sil(o.id) }); }
           }, "✕"));
         }
         return k;
@@ -414,8 +461,8 @@
     }
     const hepsiniSil = h("button", {
       sinif: "cetele-hepsini-sil", title: "Odanın bütün okey çetelesini sil (süren oyun kalır)",
-      onclick: () => { if (confirm("Odanın bütün okey çetelesi silinsin mi? Süren oyun kalır. Geri alınamaz.")) sil(null); }
-    }, "🗑 Hepsini sil");
+      onclick: () => masa.kabuk.onayla({ baslik: "Odanın bütün okey çetelesi silinsin mi?", metin: "Süren oyun kalır. Geri alınamaz.", evet: "Hepsini sil", ust: true, is: () => sil(null) })
+    }, "Hepsini sil");
 
     const ad = document.getElementById("odaAdi");
     const zaman = setInterval(() => { if (!liste.isConnected) clearInterval(zaman); else if (!document.hidden) yukle(); }, 20000);
@@ -512,6 +559,7 @@
     otur: (v) => gonder({ t: "otur", koltuk: sunucudaki(v) }),
     botEkle: (v) => gonder({ t: "bot", koltuk: sunucudaki(v) }),
     botCikar: (v) => gonder({ t: "botCikar", koltuk: sunucudaki(v) }),
+    kaldir: kaldirSor,
     sonrakiEl: () => gonder({ t: durum && durum.el ? "sonraki" : "basla" }),
     cetele: ceteleGoster,
     kurallar: kurallariGoster

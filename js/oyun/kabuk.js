@@ -264,8 +264,9 @@
     // tuslar: [{ yazi, is, ana, tehlikeli, soluk, oge }]; secenek: { genis, tam, kapaninca, sinif }
     function pencere(baslik, govde, tuslar, sec) {
       sec = sec || {};
-      kok.querySelectorAll(".oyun-pencere-arka").forEach((x) => x.remove());
-      const arka = h("div", { sinif: "oyun-pencere-arka" });
+      // ust: açık pencerenin üstünde açılır (ör. çetele penceresinde silme onayı); yoksa önceki pencere kapanır
+      if (!sec.ust) kok.querySelectorAll(".oyun-pencere-arka").forEach((x) => x.remove());
+      const arka = h("div", { sinif: "oyun-pencere-arka" + (sec.ust ? " ust" : "") });
       const kapat = () => { arka.remove(); if (sec.kapaninca) sec.kapaninca(); };
       arka.addEventListener("click", (e) => { if (e.target === arka) kapat(); });
       const tusOgeleri = (tuslar && tuslar.length ? tuslar : [{ yazi: "Kapat" }]).map((t) => t.oge || h("button", {
@@ -286,7 +287,8 @@
     // Onay: "Vazgeç" sade, zarar veren seçenek kırmızı
     function onayla(o) {
       return pencere(o.baslik, o.metin ? h("p", {}, o.metin) : null,
-        [{ yazi: o.vazgec || "Vazgeç" }, { yazi: o.evet || "Tamam", tehlikeli: o.tehlikeli !== false, ana: o.tehlikeli === false, is: o.is }]);
+        [{ yazi: o.vazgec || "Vazgeç" }, { yazi: o.evet || "Tamam", tehlikeli: o.tehlikeli !== false, ana: o.tehlikeli === false, is: o.is }],
+        { ust: !!o.ust });
     }
 
     // Kalkma sorusu: "Hayır" kırmızı ve belirgin, "Evet" soluk (göz önce kalmaya gitsin). Dışına tıklamak "Hayır".

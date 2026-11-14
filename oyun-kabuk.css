@@ -129,6 +129,7 @@
   position: absolute; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px;
   background: rgba(0, 0, 0, .55); animation: oyunBelir .15s ease;
 }
+.oyun-pencere-arka.ust { z-index: 80; }
 .oyun-pencere {
   position: relative; width: min(520px, 100%); max-height: 88%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
   border-radius: 20px; background: #161618; border: 1px solid rgba(255, 255, 255, .1); color: #fff;
@@ -187,6 +188,8 @@
 
 @media (max-width: 760px) {
   .oyun-menu { position: static; max-width: none; justify-content: center; }
+  /* Kendi satırı olmayan oyunlarda (okey) menü üstte tek sıra, ortada */
+  .oyun-menu:not(.yerinde) { position: absolute; top: 6px; left: 6px; right: 6px; flex-wrap: nowrap; }
   .oyun-menu-tus { height: 30px; padding: 0 10px; font-size: 12px; }
   .oyun-menu-tus span { display: none; }
   .oyun-menu-tus.tehlikeli span { display: inline; }

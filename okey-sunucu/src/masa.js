@@ -240,8 +240,45 @@ export class OkeyMasasi {
         if (k < 0 && !this.yetkili(ben)) return "Botu çıkarmak için önce masaya otur";
         const h = Number(mesaj.koltuk);
         if (!this.botMu(h)) return "Bu koltukta bot yok";
-        if (oyunSuruyor) return "El sürerken bot çıkarılamaz; el bitince çıkarabilirsin";
+        // El sürerken bot hemen kalkmaz (el yarıda kalmasın): el bitince kalkar. O zamana kadar oynar ve
+        // isteyen yerine oturup elini devralabilir.
+        if (oyunSuruyor) {
+          m.koltuklar[h].cikacak = true;
+          this.olaylar.push({ tur: "bilgi", metin: m.koltuklar[h].ad + " el bitince masadan kalkacak" });
+          return;
+        }
         m.koltuklar[h] = null;
+        return;
+      }
+      // Oyuncuyu masadan kaldırma: masayı kuran ya da oda sahibi. El sürüyorsa eli masada kalır (kalkmış gibi):
+      // yerine başkası ya da bot oturabilir, kimse oturmazsa süre dolunca otomatik oynanır.
+      case "kaldir": {
+        if (m.kurucu !== ben.kim && !this.yetkili(ben)) return "Oyuncuyu sadece masayı kuran ya da oda sahibi kaldırabilir";
+        const h = Number(mesaj.koltuk);
+        if (!(h >= 0 && h < 4)) return "Geçersiz koltuk";
+        if (h === k) return "Kendini kaldıramazsın, Kalk'a bas";
+        const kol = m.koltuklar[h];
+        if (!kol || kol.bot || String(kol.kim).startsWith("bos:")) return "Bu koltukta oyuncu yok";
+        m.koltuklar[h] = oyunSuruyor ? Object.assign({}, kol, { ayrildi: 1, kim: "bos:" + h }) : null;
+        if (!oyunSuruyor) { this.insanKalmadiysa(); this.alarmKur(); }
+        this.olaylar.push({ tur: "cikarildi", metin: kol.ad + " masadan kaldırıldı" });
+        return;
+      }
+      // Oyunu sonuçsuz bitirme: masayı kuran ya da oda sahibi. Biten eller çetelede kalır ("yarıda bitti").
+      case "bitir": {
+        if (m.kurucu !== ben.kim && !this.yetkili(ben)) return "Oyunu sadece masayı kuran ya da oda sahibi bitirebilir";
+        if (!oyunSuruyor && !(m.oyun && !m.oyun.bitis)) return "Süren oyun yok";
+        m.el = null;
+        if (m.oyun && !m.oyun.bitis) {
+          m.oyun.bitis = Date.now();
+          m.oyun.yarida = true;
+          if (m.oyun.eller.length) this.ceteleyeYaz(); else m.oyun = null;
+        }
+        // Kalkmış oyuncuların tutulan koltukları ve el bitince kalkacak botlar boşalır
+        m.koltuklar = m.koltuklar.map((x) => (x && (String(x.kim).startsWith("bos:") || x.cikacak) ? null : x));
+        this.insanKalmadiysa();
+        this.alarmKur();
+        this.olaylar.push({ tur: "bitirildi", ad: ben.ad });
         return;
       }
       // Çeteleyi temizleme: sadece oda sahibi (ve yönetici). Tek oyun ({id}) ya da hepsi; süren oyun silinmez.
@@ -780,6 +817,8 @@ export class OkeyMasasi {
     });
     if (m.oyun.elSayisi && m.oyun.eller.length >= m.oyun.elSayisi) m.oyun.bitis = Date.now();
     m.baslayan = (m.baslayan + 1) % 4;
+    // "Botu çıkar" denmiş botlar el bitince kalkar
+    m.koltuklar = m.koltuklar.map((x) => (x && x.bot && x.cikacak ? null : x));
     this.alarmKur();   // tur süresi biter; el sırasında kopanların koltuk süresi kalır
     this.olaylar.push({ tur: "elBitti", baslik });
     this.ceteleyeYaz();
@@ -805,7 +844,7 @@ export class OkeyMasasi {
       ayar: m.ayar,
       koltuklar: m.koltuklar.map((x, i) => (x ? {
         ad: x.ad, foto: x.foto, bagli: !!x.bot || bagli.has(x.kim), bos: false, yancilar: yancilar[i], bot: !!x.bot,
-        devralinabilir: this.bosaldi(x)
+        devralinabilir: this.bosaldi(x), cikacak: !!x.cikacak
       } : { bos: true, yancilar: yancilar[i] })),
       izleyici: this.baglilar().filter((x) => this.koltugum(x.ben.kim) < 0).length,
       oyun: m.oyun,

@@ -63,7 +63,7 @@
 /* Masanın üstündeki katman (koltuklar, durum yazısı, düğmeler, ıstakam). Boş yerleri tıklamayı masaya geçirir. */
 .ust-katman { position: absolute; inset: 0; pointer-events: none; }
 .ust-katman > * { pointer-events: auto; }
-.durum-yazisi { pointer-events: none !important; }
+.okey-sira-yeri { pointer-events: none !important; }
 
 /* ---------- Masa (perspektif) ---------- */
 .masa-3b {
@@ -403,18 +403,10 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 .per-sira + .per-sira { margin-bottom: calc(var(--kucuk-y) * -0.22); }
 
 /* ---------- Koltuklar (masanın dışında, düz) ---------- */
-.koltuk {
-  position: absolute;
-  display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px;
-  min-width: 190px;
-  padding: 8px 12px 8px 8px;
-  border-radius: 16px;
-  background: rgba(20,20,20,.82);
-  border: 1px solid rgba(255,255,255,.08);
-  color: #fff;
-  backdrop-filter: blur(6px);
-  z-index: 5;
-}
+/* Koltuğun görünümü ortak kabuktan (.oyun-koltuk); burada sadece masadaki yeri */
+.oyun-koltuk.koltuk { position: absolute; min-width: 200px; z-index: 5; }
+.oyun-koltuk.koltuk .oyun-koltuk-yazi b { font-size: 15px; }
+.oyun-koltuk.koltuk .oyun-koltuk-yazi small { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; white-space: normal; }
 .koltuk.k2 { left: 50%; top: 0; transform: translateX(-50%); }
 .koltuk.k1 { right: -170px; top: 270px; }   /* masanın dışında, ıstakayı örtmesin */
 .koltuk.k3 { left: -170px; top: 270px; }
@@ -509,17 +501,12 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 .istaka-bandi {
   display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: center; white-space: nowrap;
 }
-/* Sağ üst köşe; üstteki koltuğa (ortada) uzanmasın diye genişliği yarım ekranın biraz altında, sığmazsa alt satıra iner */
-.kose-tuslar {
-  position: absolute; right: 14px; top: 10px; z-index: 6; max-width: calc(50% - 150px);
-  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
-}
 .okey-tus {
   border: 0; border-radius: 999px; padding: 9px 16px; font: inherit; font-weight: 800; font-size: 14px;
   background: rgba(255,255,255,.1); color: #fff; cursor: pointer; white-space: nowrap;
 }
 .okey-tus:hover { background: rgba(255,255,255,.18); }
-.okey-tus.ana { background: #1db954; color: #000; }
+.okey-tus.ana { background: var(--oda-vurgu, #1db954); color: var(--oda-vurgu-yazi, #000); }
 .okey-tus.ana:hover { filter: brightness(1.1); }
 .okey-tus:disabled { opacity: .45; cursor: default; filter: none; }
 .gosterge-durum {
@@ -529,11 +516,16 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 .gosterge-durum b { color: #fff; }
 .gosterge-durum .tamam { color: #1db954; }
 
-.durum-yazisi {
-  position: absolute; left: 50%; top: 772px; transform: translateX(-50%);   /* masanın ön kenarında (perlerin altında) */
-  padding: 7px 14px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff;
-  font-size: 13.5px; font-weight: 800; white-space: nowrap; z-index: 6; pointer-events: none;
+/* Sıra şeridi (ortak kabuk) masanın ön kenarında, perlerin altında */
+.okey-sira-yeri {
+  position: absolute; left: 50%; top: 760px; transform: translateX(-50%); z-index: 6; pointer-events: none;
+  display: grid; justify-items: center; width: max-content; max-width: 900px;
 }
+.okey-sira-yeri .oyun-sira { white-space: nowrap; }
+/* Okeyin menüsü sağ üstte: üstteki koltuğa (ortada) uzanmasın */
+@media (min-width: 761px) { .okey > .oyun-menu { max-width: calc(50% - 150px); } }
+.koltuk .okey-ceza { color: #ff8a7a; font-weight: 800; }
+.yanci-sayi { font-size: 11px; color: #a7a7a7; margin-left: 4px; }
 .yanci-bandi {
   padding: 6px 14px; border-radius: 999px; background: #7c5cff; color: #fff; font-weight: 800; font-size: 13px;
 }
@@ -567,39 +559,25 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 .kalk-not:empty { display: none; }
 
 /* ---------- Pencere (el sonu, çetele, kurallar) ---------- */
-.okey-pencere {
-  position: absolute; inset: 0; z-index: 50; display: grid; place-items: center;
-  background: rgba(0,0,0,.55);
-}
-.okey-pencere > div {
-  min-width: 420px; max-width: 640px; max-height: 80%; overflow: auto;
-  background: #181818; border: 1px solid #333; border-radius: 18px; padding: 22px 24px; color: #fff;
-  box-shadow: 0 30px 60px rgba(0,0,0,.6);
-}
-.okey-pencere > div.okey-genis { width: min(860px, 92%); max-width: none; max-height: 88%; background: #0d1612; border-color: #2a3b31; }
+
 /* Odanın çetelesi: masa alanını kaplar; oyun listesi ve çetele ayrı ayrı kayar, dar alanda alt alta */
-.okey-pencere > div.okey-tam { width: 96%; height: 94%; max-height: 94%; display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
+.oyun-pencere.okey-tam { width: 96%; height: 94%; max-height: 94%; }
+.oyun-pencere.okey-tam .oyun-pencere-govde { display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
 .okey-tam .oda-cetelesi { flex: 1; min-height: 0; display: grid; grid-template-columns: 320px 1fr; gap: 20px; background: none; }
 .okey-tam .oda-cetelesi > section { min-height: 0; overflow: auto; padding-right: 4px; align-content: start; }
 @container (max-width: 760px) {
   .okey-tam .oda-cetelesi { display: block; overflow: auto; }
   .okey-tam .oda-cetelesi > section { overflow: visible; margin-bottom: 18px; }
 }
-.okey-pencere h3 { margin: 0 0 12px; font-size: 20px; }
-.okey-pencere table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.okey-pencere th, .okey-pencere td { padding: 8px 6px; border-bottom: 1px solid #2a2a2a; text-align: center; }
-.okey-pencere th { color: #a7a7a7; font-size: 12px; }
-.okey-pencere td.eksi { color: #1db954; font-weight: 800; }
-.okey-pencere td.arti { color: #ff8a7a; }
-.okey-pencere .alt-tuslar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-.okey-pencere p { color: #ccc; line-height: 1.5; }
 
-.okey-bildirim {
-  position: absolute; left: 50%; top: 18px; transform: translateX(-50%); z-index: 60;
-  padding: 10px 16px; border-radius: 999px; background: #fff; color: #000; font-weight: 800; font-size: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.4); pointer-events: none; white-space: nowrap;
-}
-.okey-bildirim.ceza { background: #e5484d; color: #fff; }
+.okey-pencere-ic table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.okey-pencere-ic th, .okey-pencere-ic td { padding: 8px 6px; border-bottom: 1px solid #2a2a2a; text-align: center; }
+.okey-pencere-ic th { color: #a7a7a7; font-size: 12px; }
+.okey-pencere-ic td.eksi { color: #1db954; font-weight: 800; }
+.okey-pencere-ic td.arti { color: #ff8a7a; }
+
+.okey-pencere-ic p { color: #ccc; line-height: 1.5; }
+
 
 /* ---------- Tema paneli ---------- */
 .tema-paneli { display: grid; row-gap: 12px; color: #e6ece7; }
@@ -636,11 +614,11 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 .tema-satir input[type=text] { flex: 1; min-width: 180px; height: 36px; border-radius: 10px; border: 1px solid #2a3b31; background: #0d1612; color: #e6ece7; padding: 0 10px; font: inherit; font-size: 13px; }
 .tema-etiket { font-size: 12px; color: #93a59a; font-weight: 700; }
 .tema-hata { color: #ff8a7a; }
-.okey-pencere select {
+.okey-pencere-ic select {
   height: 38px; border-radius: 10px; border: 1px solid #2a3b31; background: #0d1612; color: #e6ece7;
   padding: 0 10px; font: inherit; font-size: 14px;
 }
-.okey-pencere select:disabled { opacity: .55; }
+.okey-pencere-ic select:disabled { opacity: .55; }
 
 /* ---------- Odaya yerleşim (index.html) ----------
    Masa, fotoğrafların durduğu sahneyi kaplar: üst çubuğun altı, açık panellerin arası, alttaki çalar çubuğunun üstü.
