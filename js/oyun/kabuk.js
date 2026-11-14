@@ -14,7 +14,7 @@
 //   K.oyunSonu({ baslik, kazanan, oyuncular, ozet, tuslar, ek })
 //   K.sesAcik() / K.sesDegistir() / K.sesCal(tur)
 //
-// Yeni oyun eklerken kontrol listesi: oyun/KONTROL.md
+// Yeni oyun eklerken kontrol listesi: README.md, 5. bölüm
 
 (function () {
   "use strict";

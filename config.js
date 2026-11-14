@@ -1,4 +1,4 @@
-// Firebase ve YouTube ayarları. Nasıl doldurulacağı KURULUM.md dosyasında yazıyor.
+// Firebase ve YouTube ayarları. Nasıl doldurulacağı README.md dosyasında (7. bölüm) yazıyor.
 // Bu değerlerin sitede herkese görünmesi normal; güvenliği Firebase kuralları
 // ve YouTube anahtarındaki site kısıtlaması sağlıyor.
 window.AYARLAR = {
