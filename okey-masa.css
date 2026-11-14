@@ -525,6 +525,22 @@ body:not(.okey-surukleme) .atilan:not(.kapali):hover .tas.kilitli.alttaki::after
 /* Okeyin menüsü sağ üstte: üstteki koltuğa (ortada) uzanmasın */
 @media (min-width: 761px) { .okey > .oyun-menu { max-width: calc(50% - 150px); } }
 .koltuk .okey-ceza { color: #ff8a7a; font-weight: 800; }
+
+/* Telefon yatay: masa ekrana sığmak için çok küçülür (ölçek ~0,3). Koltuklar ve sıra şeridi bu ölçeğin tersiyle
+   büyütülür ki yazılar okunsun; ıstakam da biraz büyür (taşlar parmakla tutulabilsin). */
+@media (max-height: 520px) and (orientation: landscape) {
+  .oyun-koltuk.koltuk { scale: min(2.8, max(1, calc(0.72 / var(--olcek, 1)))); }
+  .oyun-koltuk.koltuk.k2 { transform-origin: 50% 0; }
+  .oyun-koltuk.koltuk.k1 { transform-origin: 100% 50%; }
+  .oyun-koltuk.koltuk.k3 { transform-origin: 0 50%; }
+  .oyun-koltuk.koltuk.k0 { transform-origin: 100% 100%; }   /* ıstakanın solunda: sola doğru büyür, ıstakayı örtmez */
+  /* Sıra şeridi masanın dışında (masa.js oraya taşır), sol üst köşede, normal boyda */
+  .okey > .okey-sira-yeri { left: 8px; top: 6px; transform: none; justify-items: start; max-width: 42%; z-index: 30; }
+  .okey > .okey-sira-yeri .oyun-sira { white-space: normal; text-align: left; justify-items: start; }
+  .oyun-koltuk.koltuk.k0 { left: -330px; }
+  .okey > .oyun-menu { max-width: none; flex-wrap: nowrap; }
+  .istaka-alani { scale: min(1.45, max(1, calc(0.42 / var(--olcek, 1)))); transform-origin: 50% 100%; }
+}
 .yanci-sayi { font-size: 11px; color: #a7a7a7; margin-left: 4px; }
 .yanci-bandi {
   padding: 6px 14px; border-radius: 999px; background: #7c5cff; color: #fff; font-weight: 800; font-size: 13px;

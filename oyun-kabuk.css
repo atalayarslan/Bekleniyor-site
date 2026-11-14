@@ -204,6 +204,37 @@
   .oyun-olay { font-size: 14px; padding: 10px 14px; }
   .oyun-sonu-ozet dd { font-size: 15px; white-space: nowrap; }
 }
+/* Telefon yatay (kısa ekran): telefonda oyunlar yan tutularak oynanır. Odanın üst çubuğu daralır, menü sadece
+   simgelerle, koltuklar ve yazılar küçülür; oyun alanına en çok yer kalır. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .oda-gorunumu.okey-acik, .oda-gorunumu.bilardo-acik { --ust: 2.7rem; }
+  .oyun-menu { gap: 4px; top: 4px; right: 6px; }
+  .oyun-menu-tus { height: 30px; padding: 0 9px; font-size: 12px; }
+  .oyun-menu-tus span { display: none; }
+  .oyun-menu-tus .oyun-ikon { width: 17px; height: 17px; }
+  .oyun-koltuk { padding: 3px 9px 3px 3px; column-gap: 6px; }
+  .oyun-avatar { width: 34px; height: 34px; }
+  .oyun-avatar-ic { width: 28px; height: 28px; font-size: 12px; }
+  .oyun-avatar-ic .oyun-ikon { width: 16px; height: 16px; }
+  .oyun-avatar.bos { width: 28px; height: 28px; margin: 3px; }
+  .oyun-koltuk-yazi b { font-size: 12px; }
+  .oyun-koltuk-yazi small { font-size: 10px; }
+  .oyun-sira { padding: 4px 12px; gap: 3px; border-radius: 12px; }
+  .oyun-sira-yazi { font-size: 12px; line-height: 1.25; }
+  .oyun-sira-sure { width: min(200px, 50vw); height: 3px; }
+  .oyun-olay { font-size: 14px; padding: 9px 14px; }
+  .oyun-pencere { max-height: 94%; border-radius: 16px; }
+  .oyun-pencere-ust { padding: 12px 16px 4px; }
+  .oyun-pencere-ust h3 { font-size: 16px; }
+  .oyun-pencere-tuslar { padding: 8px 16px 12px; }
+  .oyun-tus { height: 34px; padding: 0 14px; font-size: 13px; }
+  .oyun-sonu { gap: 6px; }
+  .oyun-sonu-kupa { width: 42px; height: 42px; }
+  .oyun-sonu-kupa .oyun-ikon { width: 24px; height: 24px; }
+  .oyun-sonu-kisi .oyun-avatar { width: 46px; height: 46px; }
+  .oyun-sonu-kisi .oyun-avatar-ic { width: 40px; height: 40px; font-size: 16px; }
+  .oyun-sonu-ozet dd { font-size: 15px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .oyun-sira.benim, .oyun-pencere, .oyun-pencere-arka, .oyun-koltuk-menu { animation: none; }
   .oyun-konfeti { display: none; }

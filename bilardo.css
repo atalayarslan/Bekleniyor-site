@@ -88,6 +88,26 @@
 .b-kilit[hidden] { display: none; }
 .b-kurallar p { margin: 8px 0; }
 
+/* Telefon yatay: masa ortada en büyük hâliyle; koltuklar iki yanda dar sütunlarda, falso ve ince ayar o sütunların
+   altında (ayrı bir alt satır yok); üstte ince bir sıra şeridi */
+@media (max-height: 520px) and (orientation: landscape) {
+  .bilardo { padding: 4px 8px 2px; gap: 4px; grid-template-rows: auto minmax(0, 1fr); }
+  .b-ust { min-height: 0; gap: 6px; grid-template-columns: minmax(0, 1fr) auto; }
+  .b-ust-bos { display: none; }
+  .b-ust-menu .oyun-menu { flex-wrap: nowrap; }
+  .b-sahne { grid-template-columns: minmax(118px, 150px) minmax(0, 1fr) minmax(118px, 150px); gap: 8px; }
+  .b-yan { gap: 5px; align-content: center; }
+  .b-takim-adi { display: none; }
+  .b-mini { width: 14px; height: 14px; font-size: 7px; }
+  .b-grup { min-height: 14px; gap: 2px; padding: 0 2px; }
+  .b-grup small { font-size: 9.5px; }
+  .b-alt { position: absolute; left: 8px; bottom: 6px; min-height: 0; gap: 8px; justify-content: flex-start; z-index: 5; }
+  .b-falso { width: 34px; height: 34px; }
+  .b-falso-kutu small { display: none; }
+  .b-ince { width: 92px; height: 24px; }
+  .b-ipucu, .b-kilit { display: none; }
+}
+
 /* Dar ekran: koltuklar masanın üstünde yan yana, masa altta */
 @media (max-width: 760px) {
   .bilardo { padding: 6px 6px 4px; gap: 6px; }

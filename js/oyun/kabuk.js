@@ -49,7 +49,9 @@
     bilgi: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 11v5 M12 8h.01",
     basari: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M8 12.5l2.5 2.5L16 9.5",
     kupa: "M8 4h8v5a4 4 0 0 1-8 0z M8 6H5a3 3 0 0 0 3 4 M16 6h3a3 3 0 0 1-3 4 M12 13v4 M9 20h6 M10 17h4",
-    kapat: "M6 6l12 12 M18 6L6 18"
+    kapat: "M6 6l12 12 M18 6L6 18",
+    tamEkran: "M4 9V4h5 M15 4h5v5 M20 15v5h-5 M9 20H4v-5",
+    kucult: "M9 4v5H4 M20 9h-5V4 M15 20v-5h5 M4 15h5v5"
   };
   function ikon(ad, sinif) {
     const ns = "http://www.w3.org/2000/svg";
@@ -196,8 +198,29 @@
     // ---------- menü ----------
     // tuslar: [{ ad: "ses"|"ayar"|"kural"|"bitir"|"kalk"|başka, yazi, ikon, is, ipucu, secili }]
     // Sıra her oyunda aynıdır: Ses · Ayarlar · Kurallar · oyuna özel · Oyunu bitir · Kalk
-    const SIRA = { ses: 0, ayar: 1, kural: 2, bitir: 8, kalk: 9 };
+    const SIRA = { tamEkran: -1, ses: 0, ayar: 1, kural: 2, bitir: 8, kalk: 9 };
+    // Telefonda (dokunmatik) "Tam ekran": tarayıcı çubukları gizlenir, oyun bütün ekranı kullanır; Android'de
+    // ekran yatay kilitlenir (telefon yan tutulup oynanır). iPhone tam ekranı desteklemiyorsa düğme çıkmaz.
+    const dokunmatik = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+    function tamEkranTusu() {
+      if (!dokunmatik || !document.fullscreenEnabled) return null;
+      const acik = !!document.fullscreenElement;
+      return {
+        ad: "tamEkran", yazi: acik ? "Küçült" : "Tam ekran", ikon: acik ? "kucult" : "tamEkran", ipucu: acik ? "Tam ekrandan çık" : "Tam ekran (yatay)",
+        is: async () => {
+          try {
+            if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+            await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+            if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => { });
+          } catch (e) { }
+        }
+      };
+    }
+    let sonMenu = [];
+    document.addEventListener("fullscreenchange", () => { if (menuKutu) menu(sonMenu); });
     function menu(tuslar) {
+      sonMenu = tuslar;
+      tuslar = [tamEkranTusu(), ...tuslar];
       if (!menuKutu) {
         // menuYeri verilmişse menü o satırın içinde durur (oyunun üst satırı); yoksa oyun alanının sağ üst köşesinde
         const yer = secenek && secenek.menuYeri;

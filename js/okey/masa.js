@@ -62,6 +62,8 @@
     const KB = window.OyunKabugu(kok, { oyun: "okey" });
     const siraYeri = h("div", { sinif: "okey-sira-yeri" });
     KB.sira({ yazi: "", yer: siraYeri });
+    const YATAY_TELEFON = window.matchMedia("(max-height: 520px) and (orientation: landscape)");
+    YATAY_TELEFON.addEventListener("change", () => { if (g) ciz(g); });
 
     function sigdir() {
       const r = kok.getBoundingClientRect();
@@ -232,7 +234,10 @@
 
       KB.menu(g.menu || []);
       KB.sira({ benim: !!g.benimSiram, yazi: g.durumYazisi || "" });
-      iskelet.ust.replaceChildren(...koltuklar, siraYeri, istakaCiz());
+      // Telefon yatayken masa çok küçülür: sıra şeridi ölçeklenen masanın dışında, sol üst köşede durur
+      const kisaEkran = YATAY_TELEFON.matches;
+      if (kisaEkran) kok.append(siraYeri);
+      iskelet.ust.replaceChildren(...koltuklar, kisaEkran ? "" : siraYeri, istakaCiz());
       sigdir();
     }
 
