@@ -200,3 +200,58 @@ yerel oyun sunucusuna (`127.0.0.1:8787`) bağlanır.
 - Arka plan videosu en fazla 20 MB; MP4 ve WebM olduğu gibi saklanır, diğerleri yüksek kalitede çevrilir.
 - Oyun galibiyetleri 15 Kasım 2026'dan itibaren sayılır.
 - YouTube oynatıcısıyla çalarken bazı videolarda reklam çıkabilir; akış sunucusu açıkken çıkmaz.
+
+## 9. İnceleme notları: Android'de ekran kapalıyken müzik (16 Kasım 2026)
+
+Kod okunarak çıkarıldı: `js/oda.js` (sonrakiniHemenYukle, sonrakineGec, senkronla, karmaOynatici, medya oturumu,
+reklam bekçisi), `js/kesintisiz.js`, `js/baslat.js` (tanı kaydı) ve `akis-sunucusu/sunucu.py`'nin `/hazirla` ile
+`/akis` kısımları. Hiçbiri gerçek telefonda denenmedi; düzeltmeden önce tanı kaydıyla doğrulanmalı.
+
+**Bugünkü yapı (telefon, akış açık):** `KesintisizSes` tek bir `<audio>` + MediaSource kullanır; şarkılar aynı
+tampona art arda eklenir, öğe hiç durmaz. `oynatici.onceden()` sadece sıradaki ilk şarkıyı önceden ekler.
+"Sonraki"ye basılınca `sonrakiniHemenYukle()` şarkıyı odadan önce bu cihazda başlatır, sonra
+`sonrakineGec(biten, true)` odayı ilerletir.
+
+**Tanı kaydı zaten var:** adrese `&tani=1` eklenince sol altta "— ses —" başlığıyla son 14 satır görünür (geç →,
+eklendi, çalıyor, bekliyor, play() reddedildi, [gizli] işareti). Sadece bellekte durur, sayfa yenilenince silinir,
+kopyalanamaz. Kullanıcı bugüne kadar bu kayıtla deneme yapmadı.
+
+### Bulgular (önem sırasıyla)
+
+1. **Şarkı baştan sona inmeden çalmıyor (6–7 sn sessizliğin asıl sebebi).** `kesintisiz.js` içindeki `ekle()`
+   `fetch()` + `arrayBuffer()` ile dosyanın TAMAMINI bekleyip öyle ekliyor. Şarkı önceden eklenmediyse (art arda iki
+   "sonraki", sıradaki henüz inmemiş, `onceden` hiç çağrılmamış) ses, bütün dosya inene kadar gelmiyor. Sunucu `/akis`
+   üzerinden indirirken de veri verebiliyor ve dosya parçalı MP4; yani parça parça eklenebilir.
+   Öneri: `yanit.body.getReader()` ile gelen parçaları sırayla `appendBuffer` et; ilk parçalar gelince çalsın.
+2. **Şarkının başı atlanıyor.** `sonrakineGec(…, hemenBasladi=true)` `akisaHazirla` beklemesini atlayıp `baslangic`'ı
+   hemen yazıyor. Ses 1. maddedeki gecikmeyle gelince `onloadedmetadata` ve `senkronla` (fark > 2,5 sn) odanın saatine
+   sarıyor. Öneri: bu yolda `baslangic`, şarkı bu cihazda gerçekten çalmaya başladığı ana göre yazılsın ya da
+   düzeltilsin (ör. "playing" olayında `konumaGit(medya.currentTime)`); 1. madde düzelince fark zaten küçülür.
+3. **Sadece bir şarkı önceden ekleniyor.** `akisiOncedenHazirla` sunucuda yalnız `sira[0]`'ın sesini tam indiriyor,
+   `onceden()` de yalnız onu tampona ekliyor. Öneri: sıradaki 2 şarkı tam hazırlanıp eklensin; "sonraki"den hemen
+   sonra yeni sıradaki için `onceden` beklemeden çağrılsın (şimdi 5 sn'lik `muzikBakimi` turunu bekliyor).
+4. **Kilit ekranı tuşları odaya bakıyor, oynatıcıya değil.** `play` işleyicisi sadece `simdiki.duraklatildi` ise
+   `devamEt()` çağırıyor. Oda "çalıyor" derken ses gelmiyorsa tuş hiçbir şey yapmıyor; kullanıcının "durdur tuşu
+   tepki vermedi" dediği durum. `pause` Firebase transaction'ına bağlı. Öneri: `play` işleyicisi oda çalıyorsa
+   doğrudan `oynatici.playVideo()` çağırsın (işleyici dokunma sayılır); `pause` önce yerel öğeyi durdursun.
+5. **Kilit ekranı gerçeği göstermiyor.** `playbackState` sadece odanın durumundan yazılıyor; `setPositionState` yok.
+   Öğe "bekliyor" (veri yok) durumundayken de "çalıyor" görünüyor. Öğenin `playing` / `pause` / `waiting`
+   olaylarından güncellenmeli.
+6. **"Reklam çalıyor olabilir" uyarısı.** Bekçi yalnız `oynatici.mod !== "medya"` ve sayfa görünürken çalışır; uyarı
+   çıktıysa YouTube moduna düşülmüştür. Düşme yolları: (a) `akisCalisiyor` false (sağlık yoklaması gizli sayfada üst
+   üste iki kez başarısız; sonraki her şarkı YouTube'a gider), (b) `medya.onerror` → "ses hatası": şarkı oturum
+   boyunca `akistanCalmayanlar`'da kalır ve ekran açılınca geri alınmaz, çünkü `youtubeDususleri`'ne girmez;
+   `kesintisiz.js`'te `fetch` hatası (ağ, HTTP 4xx/5xx) da bu yoldan geçer, (c) takılma bekçisinin 3 denemesi.
+   Öneri: gizli sayfada `akisCalisiyor` düşürülmesin; "ses hatası" da ekran açılınca bir kez yeniden denensin.
+7. **Bekleme sırasında öğe "bekliyor" durumunda.** Şarkı yokken öğe tamponun sonuna atlayıp veri bekliyor
+   (duraklatılmıyor). Android Chrome'un ekran kapalıyken uzun süre veri bekleyen sesi askıya alıp almadığı
+   bilinmiyor; kullanıcının "şarkı geçti ama ses gelmedi, ekranı açınca çaldı" gözlemi buna uyuyor. Tanı kaydında
+   "bekliyor (veri yok)" satırından sonra "çalıyor" gelip gelmediğine bakılmalı. Gelmiyorsa çözüm: beklerken
+   tampona kısa sessiz ses parçaları eklenip öğe gerçekten çalar hâlde tutulsun.
+8. **Eski şarkıya geri yükleme yarışı (düşük olasılık).** `sonrakiniHemenYukle` `yuklenenId`'yi yeni şarkıya çeviriyor;
+   oda güncellenmeden `senkronla` çalışırsa eski şarkıyı yeniden yükler. Firebase transaction yerelde hemen
+   uygulandığı için pencere çok kısa; ama transaction iptal olursa (başkası zaten geçtiyse) cihaz bir tur yanlış
+   şarkıda kalır. Öneri: geçiş sürerken `senkronla` yükleme yapmasın.
+9. **0,02 sn'lik baş.** Normal `<audio>` yolunda `yukle()` önce `src` + `play()`, sonra `onloadedmetadata` içinde
+   sarıyor. Kesintisiz yolda `atla()` şarkının başına atlayıp sonra odaya sarıyor. Öneri: hedef saniye `atla()`dan
+   önce verilsin (`hedefSaniye`), böylece tek atlamada doğru yere gidilsin.
