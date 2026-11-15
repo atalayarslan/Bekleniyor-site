@@ -690,6 +690,8 @@ export class OkeyMasasi {
     }
     if (K.okeyMi(tas, E.okey)) this.ceza(k, K.ceza("okeyAtma", tas, E.okey, this.ayar()), "Okey attı");
     this.botlarIslekBakar();
+    // Ortada taş kalmadıysa (son taşı bu oyuncu çekip attı) sıra bir sonrakine geçmez: el hemen biter
+    if (!E.deste.length) return this.desteBitti();
     this.siradaki();
   }
 
