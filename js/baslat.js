@@ -106,18 +106,27 @@ function akisAdresiniKaydet() {
 function taniModunuAc() {
   const kutu = el("div", {
     style: {
-      position: "fixed", left: "8px", bottom: "8px", zIndex: "99999", maxWidth: "70vw",
+      position: "fixed", left: "8px", bottom: "8px", zIndex: "99999", maxWidth: "calc(100vw - 16px)",
       padding: "6px 8px", borderRadius: "6px", background: "rgba(0,0,0,0.85)", color: "#3f3",
-      font: "12px monospace", whiteSpace: "pre", pointerEvents: "none"
+      font: "11px monospace", whiteSpace: "pre-wrap", pointerEvents: "none"
     }
   });
   document.body.append(kutu);
   const satirlar = [];
   let fareSatiri = "";
   const ad = (h) => h ? (h.id || (typeof h.className === "string" && h.className) || h.tagName) : "yok";
+  const sesSatirlari = [];
   const ciz = () => {
     kutu.textContent = ["TANI · pencere " + innerWidth + "x" + innerHeight + " · zoom %" + Math.round(devicePixelRatio * 100),
-      fareSatiri, ...satirlar.slice(0, 6)].join("\n");
+      fareSatiri, ...satirlar.slice(0, 4), "— ses —", ...sesSatirlari.slice(0, 14)].join("\n");
+  };
+  // Ses oynatıcısında olanlar (şarkı geçişi, play() sonucu, ekran açık/kapalı): ekran görüntüsüyle sorun okunabilsin
+  window.taniYaz = (metin) => {
+    const s = new Date();
+    const saat = [s.getHours(), s.getMinutes(), s.getSeconds()].map((x) => String(x).padStart(2, "0")).join(":");
+    sesSatirlari.unshift(saat + (document.hidden ? " [gizli] " : " ") + metin);
+    if (sesSatirlari.length > 40) sesSatirlari.length = 40;
+    ciz();
   };
   ["pointerdown", "click"].forEach((tur) => document.addEventListener(tur, (e) => {
     satirlar.unshift(tur + " " + Math.round(e.clientX) + "," + Math.round(e.clientY) + " → " + ad(e.target));

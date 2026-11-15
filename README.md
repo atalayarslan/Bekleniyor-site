@@ -34,6 +34,7 @@ Bu dosya sitenin tek belgesidir: neyin nerede olduğu, hangi servisin ne iş yap
 | `js/baslat.js` | Açılış: önce giriş kapısı, sonra lobi ya da oda |
 | `js/lobi.js` | Lobi: oda kartları, oda açma/silme, canlı sayaç, oyun rozetleri |
 | `js/oda.js` | Oda: müzik (sıra, çalma, eşitleme), arama, Spotify/YouTube içe aktarma, şarkı eşleştirme, medya tuşları |
+| `js/kesintisiz.js` | Telefonda akış modunun kesintisiz ses oynatıcısı (şarkılar tek öğede art arda) |
 | `js/tasarim.js` | Odanın görünümü ve düzen modu (renk, fotoğraf, GIF/video, arka plan videosu) |
 | `js/listeler.js` | Kişisel şarkı listeleri |
 | `js/istatistik.js` | Sitede/dinleme süreleri ve lobideki sıralama (oyun galibiyetleri dahil) |
@@ -85,10 +86,15 @@ Her okuma ve yazma Google girişi ister; ayrıntılar `database.rules.json` içi
 - Spotify şarkıları çalınacağı an YouTube'da aranır. Eşleştirme şarkı adını, sanatçıyı ve Spotify'daki süreyi
   karşılaştırır; canlı, konser, remix, cover gibi sürümler geride kalır ("live" yazarak aranırsa öne çıkar).
 - Akış sunucusu açıksa şarkılar reklamsız çalar; kapalıysa YouTube oynatıcısı kullanılır.
-- Telefonda ekran kapalıyken: "sonraki"ye basınca ya da şarkı bitince sıradaki şarkı aynı anda bu cihazda akıştan
-  başlatılır, oda sonra güncellenir (tarayıcı gizli sayfada yeni sesi ancak dokunuşun/biten sesin hemen ardından
-  başlatıyor). Sıradaki şarkının sesi önceden tamamen hazırlanır. Sayfa gizliyken YouTube'a düşülmez (gizli sayfada
-  YouTube çalamaz); ekran açılınca akış yeniden denenir, YouTube'a düşülmüşse şarkı kaldığı saniyeden akışa döner.
+- Telefonda akış modu "kesintisiz"dir (`js/kesintisiz.js`): şarkılar tek bir ses öğesine art arda eklenir
+  (MediaSource; akış sunucusunun ses dosyaları parçalı MP4). Android'deki Chrome ekran kapalıyken durmuş bir
+  oynatıcıyı yeniden başlatmadığı için öğe hiç durmaz; şarkı geçişi yeni şarkının başladığı yere atlamaktır,
+  şarkı gelmediyse öğe sessizce bekler. Sıradaki şarkı önceden eklenir, şarkı bitince kesintisiz ona akılır.
+  `?kesintisiz=0` ile kapatılır. Bilgisayarda ve YouTube modunda normal oynatıcı kullanılır.
+- "Sonraki"ye basınca ya da şarkı bitince sıradaki şarkı aynı anda bu cihazda başlatılır, oda sonra güncellenir.
+  Sayfa gizliyken YouTube'a düşülmez (gizli sayfada YouTube çalamaz); ekran açılınca akış yeniden denenir,
+  YouTube'a düşülmüşse şarkı kaldığı saniyeden akışa döner.
+- Sorun ararken `?tani=1`: ekranın altında ses olayları (şarkı geçişi, play() sonucu, ekran kapalı mı) yazılır.
 - Klavyedeki medya tuşları (⏯ ⏭ ⏮) odanın şarkılarını yönetir (bilgisayarda).
 
 ## 5. Oyunlar

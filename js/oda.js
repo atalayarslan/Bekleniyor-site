@@ -1032,6 +1032,8 @@ function akisiOncedenHazirla() {
   if (!akisCalisiyor) return;
   // Hemen sıradaki şarkının sesi tamamen indirilir (ekran kapalıyken "sonraki"ye basılınca beklemeden çalsın);
   // diğerlerinin sadece başı
+  const ilk = siraListesi()[0];
+  if (ilk && gecerliId(ilk.videoId) && typeof oynatici !== "undefined" && oynatici && oynatici.onceden) oynatici.onceden(ilk.videoId);
   siraListesi().slice(0, 3).forEach((sarki, sira) => {
     if (!gecerliId(sarki.videoId)) return;
     for (const tur of AKIS_TURLERI) {
@@ -1068,9 +1070,14 @@ async function akisaHazirla(videoId) {
 // YouTube oynatıcısıyla aynı yöntemleri sunan karma oynatıcı: o anki şarkıyı ya akış sunucusundan
 // (kendi <video>/<audio> öğemiz) ya da YouTube'dan çalar. Sitenin geri kalanı farkı bilmez.
 function karmaOynatici(yt) {
-  // Sesi çalan asıl öğe (zaman, duraklatma, bitiş hep ondan okunur)
-  const medya = new Audio();
+  // Sesi çalan asıl öğe (zaman, duraklatma, bitiş hep ondan okunur). Telefonda şarkılar tek bir öğeye art arda
+  // eklenir (js/kesintisiz.js): öğe hiç durmadığı için ekran kapalıyken şarkı geçişinde tarayıcı sesi kesmez.
+  // ?kesintisiz=0 ile kapatılabilir (sorun ararken).
+  const kesintisiz = TELEFON && window.kesintisizMi && window.kesintisizMi() && new URLSearchParams(location.search).get("kesintisiz") !== "0";
+  const medya = kesintisiz ? new KesintisizSes() : new Audio();
   medya.preload = "auto";
+  const tani = (m) => { if (window.taniYaz) window.taniYaz(m); };
+  tani("oynatıcı: " + (kesintisiz ? "kesintisiz (tek öğe)" : "normal") + (TELEFON ? " · telefon" : ""));
   // Bilgisayarlarda sese senkron sessiz görüntü; telefonlarda görüntü yok (ekran kapalıyken de çalsın)
   const goruntu = TELEFON ? null : $("akisVideo");
   if (goruntu) goruntu.muted = true;
@@ -1176,7 +1183,12 @@ function karmaOynatici(yt) {
     };
     medya.src = akisAdresi + "/akis?a=" + akisAnahtari + "&v=" + kimlik + "&tur=ses";
     goruntuyuYukle(kimlik);
-    if (oynat) medya.play().catch(() => { });
+    tani("yükle " + kimlik + (oynat ? " · çal" : " · bekle") + " · mod " + mod);
+    if (oynat) {
+      const s = medya.play();
+      if (!kesintisiz && s && s.then) s.then(() => tani("play() tamam"), (e) => tani("play() reddedildi: " + e.name));
+      else if (s && s.catch) s.catch(() => { });
+    } else if (kesintisiz) medya.pause();   // oda duraklatılmışsa yeni şarkı beklesin
     yedegiKur(kimlik, oynat);
   };
   // Sunucu 20 saniyede şarkıyı veremezse YouTube'a dönülür. Ama sayfa gizliyken (telefonun ekranı kapalı) dönülmez:
@@ -1259,6 +1271,13 @@ function karmaOynatici(yt) {
   return {
     get mod() { return mod; },
     get yt() { return yt; },
+    get kesintisiz() { return kesintisiz; },
+    // Telefonda sıradaki şarkı önceden aynı öğeye eklenir: çalan şarkı bitince kesintisiz ona geçilir
+    onceden: (kimlik) => {
+      if (kesintisiz && mod === "medya" && medya.onceden && !akistanCalmayanlar.has(kimlik)) {
+        medya.onceden(kimlik, akisAdresi + "/akis?a=" + akisAnahtari + "&v=" + kimlik + "&tur=ses");
+      }
+    },
     loadVideoById: (s) => yukle(s, true),
     cueVideoById: (s) => yukle(s, false),
     playVideo: () => (mod === "medya" ? medya.play().catch(() => { }) : yt.playVideo()),
