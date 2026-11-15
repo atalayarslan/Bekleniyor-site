@@ -72,13 +72,79 @@ function listelerCiz() {
       el("button", { className: "tus-kucuk", onclick: dosyadanListeYukle }, "⬆ Dosyadan yükle"),
       el("button", { className: "tus-kucuk", onclick: yerImiPenceresi }, "🔖 YouTube'dan birebir kopyala")),
     kayitlar.length
-      ? el("div", {}, kayitlar.map(([id, liste]) => el("button", {
-        className: "liste-karti", onclick: () => { acikListe = id; listelerCiz(); }
-      }, listeKapagi(liste), el("div", { className: "sarki-bilgi" },
-        el("div", { className: "sarki-adi" }, liste.ad),
-        el("div", { className: "sarki-alt" }, listeSarkilari(liste).length + " şarkı")))))
+      ? listeKartlari(kayitlar)
       : el("p", { className: "not" }, "Henüz listen yok. Yeni bir liste oluştur ya da daha önce indirdiğin bir liste dosyasını yükle.")
   );
+}
+
+// Listelerim: her kartın solundaki ⠿ tutamağından tutup yukarı/aşağı sürükleyerek sıra değiştirilir
+// (fare ve dokunmatik). Sıra "olusturma" alanında saklanır: listeler bu sayıya göre büyükten küçüğe dizilir,
+// yeni liste o anki zamanı aldığı için hep en üste gelir.
+function listeKartlari(kayitlar) {
+  const kutu = el("div", { className: "liste-kartlari" });
+  for (const [id, liste] of kayitlar) {
+    const tutamak = el("span", { className: "liste-tutamak", title: "Sürükleyip sırasını değiştir" }, "⠿");
+    const satir = el("div", { className: "liste-satiri" }, tutamak, el("button", {
+      className: "liste-karti", onclick: () => { acikListe = id; listelerCiz(); }
+    }, listeKapagi(liste), el("div", { className: "sarki-bilgi" },
+      el("div", { className: "sarki-adi" }, liste.ad),
+      el("div", { className: "sarki-alt" }, listeSarkilari(liste).length + " şarkı"))));
+    satir.dataset.id = id;
+    tutamak.addEventListener("pointerdown", (o) => listeSurukle(o, satir, kutu));
+    kutu.append(satir);
+  }
+  return kutu;
+}
+
+function listeSurukle(olay, satir, kutu) {
+  if (olay.button !== 0) return;
+  olay.preventDefault();
+  // Olaylar pencereden dinlenir: kart DOM'da yer değiştirince tutamağın fare yakalaması düşer
+  const pencere = window;
+  const ilkSira = [...kutu.children].map((s) => s.dataset.id).join();
+  satir.classList.add("suruklenen");
+  const hareket = (o) => {
+    if (o.pointerId !== olay.pointerId) return;
+    // Fare hangi kartın ortasını geçtiyse sürüklenen kart onun yerine geçer
+    const digerleri = [...kutu.children].filter((s) => s !== satir);
+    const sonraki = digerleri.find((s) => { const r = s.getBoundingClientRect(); return o.clientY < r.top + r.height / 2; });
+    if (sonraki ? satir.nextElementSibling !== sonraki : kutu.lastElementChild !== satir) kutu.insertBefore(satir, sonraki || null);
+    // Panelin kenarına gelince liste kayar
+    let kaydirici = kutu.parentElement;
+    while (kaydirici && kaydirici !== document.body && !/(auto|scroll)/.test(getComputedStyle(kaydirici).overflowY)) kaydirici = kaydirici.parentElement;
+    if (!kaydirici || kaydirici === document.body) return;
+    const r = kaydirici.getBoundingClientRect();
+    if (o.clientY < r.top + 30) kaydirici.scrollTop -= 12;
+    else if (o.clientY > r.bottom - 30) kaydirici.scrollTop += 12;
+  };
+  const bitir = (o) => {
+    if (o.pointerId !== olay.pointerId) return;
+    pencere.removeEventListener("pointermove", hareket);
+    pencere.removeEventListener("pointerup", bitir);
+    pencere.removeEventListener("pointercancel", bitir);
+    satir.classList.remove("suruklenen");
+    const yeniSira = [...kutu.children].map((s) => s.dataset.id);
+    if (yeniSira.join() !== ilkSira) listeSirasiniKaydet(yeniSira);
+  };
+  pencere.addEventListener("pointermove", hareket);
+  pencere.addEventListener("pointerup", bitir);
+  pencere.addEventListener("pointercancel", bitir);
+}
+
+async function listeSirasiniKaydet(idler) {
+  // En büyük mevcut değerden geriye doğru sayılar verilir (şimdiki zamanı geçmez, yeni listeler yine üste gelir)
+  const tavan = Math.min(Date.now(), Math.max(...idler.map((id) => Number((listeler[id] || {}).olusturma) || 0), idler.length));
+  const guncelleme = {};
+  idler.forEach((id, i) => {
+    guncelleme[id + "/olusturma"] = tavan - i;
+    if (listeler[id]) listeler[id].olusturma = tavan - i;
+  });
+  try {
+    await sureliYaz(() => listelerRef.update(guncelleme));
+  } catch (e) {
+    bildir("Liste sırası kaydedilemedi: " + e.message);
+    listelerCiz();
+  }
 }
 
 function karistir(dizi) {

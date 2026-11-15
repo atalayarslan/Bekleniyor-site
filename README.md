@@ -36,7 +36,7 @@ Bu dosya sitenin tek belgesidir: neyin nerede olduğu, hangi servisin ne iş yap
 | `js/oda.js` | Oda: müzik (sıra, çalma, eşitleme), arama, Spotify/YouTube içe aktarma, şarkı eşleştirme, medya tuşları |
 | `js/kesintisiz.js` | Telefonda akış modunun kesintisiz ses oynatıcısı (şarkılar tek öğede art arda) |
 | `js/tasarim.js` | Odanın görünümü ve düzen modu (renk, fotoğraf, GIF/video, arka plan videosu) |
-| `js/listeler.js` | Kişisel şarkı listeleri |
+| `js/listeler.js` | Kişisel şarkı listeleri (⠿ tutamağıyla sürükleyip sıralanır; sıra `olusturma` sayısında tutulur, büyük olan üstte) |
 | `js/istatistik.js` | Sitede/dinleme süreleri ve lobideki sıralama (oyun galibiyetleri dahil) |
 | `js/yonetim.js` | Yönetim paneli (sadece yönetici) |
 | `js/oyun/kabuk.js`, `oyun-kabuk.css` | Bütün oyunların ortak parçaları (aşağıda 5. bölüm) |

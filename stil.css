@@ -2010,6 +2010,48 @@ a {
   background: #2a2a2a;
 }
 
+/* Listelerim: solda sürükleme tutamağı */
+.liste-satiri {
+  display: flex;
+  align-items: center;
+  border-radius: 0.5rem;
+}
+
+.liste-satiri .liste-karti {
+  flex: 1;
+  min-width: 0;
+}
+
+.liste-tutamak {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  color: #777;
+  font-size: 1.1rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  border-radius: 0.4rem;
+}
+
+.liste-tutamak:hover {
+  color: #ddd;
+  background: #2a2a2a;
+}
+
+.liste-satiri.suruklenen {
+  background: #2a2a2a;
+  box-shadow: 0 0 0 1px #1db954 inset, 0 6px 18px #0008;
+  opacity: 0.95;
+}
+
+.liste-satiri.suruklenen .liste-tutamak {
+  cursor: grabbing;
+  color: #1db954;
+}
+
 .liste-kapak {
   width: 3rem;
   height: 3rem;
