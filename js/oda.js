@@ -171,17 +171,24 @@ function sahneyiPanellereBagla() {
 // Alt çubuk: normalde gizli, fare alttaki şeride ya da tutamağa gelince açılır, çubuktan çıkınca kapanır.
 // 📌 ile sabitlenir (tercih tarayıcıda hatırlanır). Şarkı değişince birkaç saniye görünür.
 let cubukKapatmaZamanlayici = null;
+// Fare gerçekten çubuğun üstünde mi? ":hover" kullanılmaz: çubuk duran farenin altına kayınca tarayıcı onu
+// "üstünde" sayar ve çubuk fare kıpırdayana (ya da pencereden çıkana) kadar açık takılı kalırdı.
+// Bu yüzden yalnızca çubuğun üstünde gerçek bir fare hareketi görülünce "üstünde" sayılır.
+let fareCubukta = false;
 
 function cubuguAc(sure) {
   clearTimeout(cubukKapatmaZamanlayici);
   $("oda").classList.add("cubuk-acik");
-  if (sure) cubukKapatmaZamanlayici = setTimeout(cubuguKapat, sure);
+  if (sure) {
+    fareCubukta = false;   // kendiliğinden açıldı: fare oynayana kadar "üstünde" sayılmaz
+    cubukKapatmaZamanlayici = setTimeout(cubuguKapat, sure);
+  }
 }
 
 function cubuguKapat() {
   clearTimeout(cubukKapatmaZamanlayici);
   // Fare çubuktaysa, ilerleme sürükleniyorsa ya da bir menü açıksa kapanmaz
-  if ($("calar").matches(":hover") || ilerlemeSurukleniyor || !$("acilirMenu").hidden) {
+  if (fareCubukta || ilerlemeSurukleniyor || !$("acilirMenu").hidden) {
     cubukKapatmaZamanlayici = setTimeout(cubuguKapat, 800);
     return;
   }
@@ -201,8 +208,24 @@ function cubukDavranisiniBagla() {
   $("calarBolgesi").addEventListener("mouseenter", ac);
   $("calarTutamak").addEventListener("mouseenter", ac);
   $("calarTutamak").addEventListener("click", ac);
-  $("calar").addEventListener("mouseenter", () => clearTimeout(cubukKapatmaZamanlayici));
-  $("calar").addEventListener("mouseleave", () => { cubukKapatmaZamanlayici = setTimeout(cubuguKapat, 600); });
+  // Yalnızca gerçek hareket "üstünde" sayılır (kayan çubuğun tarayıcıya yaptırdığı sahte olaylar değil)
+  // (sayfa genelinde son konum tutulur; çubuk kayınca tarayıcının aynı konumla attığı olay hareket sayılmaz)
+  let sonX = null, sonY = null;
+  document.addEventListener("mousemove", (o) => {
+    if (o.clientX === sonX && o.clientY === sonY) return;
+    sonX = o.clientX; sonY = o.clientY;
+    if (!fareCubukta && $("calar").contains(o.target)) { fareCubukta = true; clearTimeout(cubukKapatmaZamanlayici); }
+  }, { passive: true });
+  const ayrildi = () => {
+    fareCubukta = false;
+    if ($("oda").classList.contains("cubuk-acik")) {
+      clearTimeout(cubukKapatmaZamanlayici);
+      cubukKapatmaZamanlayici = setTimeout(cubuguKapat, 600);
+    }
+  };
+  $("calar").addEventListener("mouseleave", ayrildi);
+  window.addEventListener("blur", () => { if (fareCubukta) ayrildi(); });
+  document.addEventListener("mouseleave", () => { if (fareCubukta) ayrildi(); });
 }
 
 let sonGosterilenKimlik = null;
@@ -211,7 +234,7 @@ function sarkiDegisinceCubuguGoster() {
   if (!katildi || !kimlik || kimlik === sonGosterilenKimlik) return;
   const ilk = sonGosterilenKimlik === null;
   sonGosterilenKimlik = kimlik;
-  if (!ilk && !$("calar").matches(":hover")) cubuguAc(4000);
+  if (!ilk && !fareCubukta) cubuguAc(4000);
 }
 
 // ---------- Telefonda ekran kapanınca ----------
