@@ -546,6 +546,8 @@ function sonrakiniHemenYukle() {
     if (!siradaki || !gecerliId(siradaki.videoId) || akistanCalmayanlar.has(siradaki.videoId)) return false;
     yuklenenId = siradaki.videoId;
     oynatici.loadVideoById({ videoId: siradaki.videoId, startSeconds: 0 });
+    // Yeni sıradaki şarkı da hemen hazırlansın (5 sn'lik bakım turu beklenmesin; art arda "sonraki" için)
+    setTimeout(akisiOncedenHazirla, 1500);
     return true;
   } catch (e) {
     return false;
@@ -1018,8 +1020,10 @@ async function akisSunucusunuDene() {
   clearTimeout(zaman);
   // Ekran kapalıyken telefon ağ isteklerini geciktirebiliyor: tek bir başarısız yoklama yüzünden bütün şarkılar
   // YouTube'a (gizli sayfada çalamayan) geçmesin; sunucu ancak üst üste iki yoklamada yoksa kapalı sayılır.
-  if (!akisCalisiyor && onceki && document.hidden && ++akisYoklamaHatasi < 2) akisCalisiyor = true;
+  // Ekran kapalıyken YouTube zaten çalamadığı için sunucu hiç "kapalı" sayılmaz; ekran açılınca yeniden yoklanır.
+  if (!akisCalisiyor && onceki && document.hidden) { akisCalisiyor = true; akisYoklamaHatasi++; }
   else if (akisCalisiyor) akisYoklamaHatasi = 0;
+  if (onceki !== akisCalisiyor && window.taniYaz) window.taniYaz("akış sunucusu " + (akisCalisiyor ? "açık" : "KAPALI"));
   if (!akisCalisiyor && !akisaUlasilamadi) akisaUlasilamadi = Date.now();
   if (akisCalisiyor && akisaUlasilamadi) {
     akisOlayi("akış sunucusuna yeniden ulaşıldı", { kopukluk_sn: Math.round((Date.now() - akisaUlasilamadi) / 1000) });
@@ -1053,14 +1057,14 @@ const AKIS_TURLERI = ["ses", "video720"];
 const oncedenHazirlananlar = new Set();
 function akisiOncedenHazirla() {
   if (!akisCalisiyor) return;
-  // Hemen sıradaki şarkının sesi tamamen indirilir (ekran kapalıyken "sonraki"ye basılınca beklemeden çalsın);
-  // diğerlerinin sadece başı
+  // İlk iki şarkının sesi sunucuda tamamen indirilir (ekran kapalıyken "sonraki"ye basılınca beklemeden çalsın),
+  // üçüncünün sadece başı. Sıradaki ilk şarkı ayrıca bu cihazın tamponuna önceden eklenir.
   const ilk = siraListesi()[0];
   if (ilk && gecerliId(ilk.videoId) && typeof oynatici !== "undefined" && oynatici && oynatici.onceden) oynatici.onceden(ilk.videoId);
   siraListesi().slice(0, 3).forEach((sarki, sira) => {
     if (!gecerliId(sarki.videoId)) return;
     for (const tur of AKIS_TURLERI) {
-      const tam = sira === 0 && tur === "ses";
+      const tam = sira <= 1 && tur === "ses";   // ilk iki şarkının sesi sunucuda tam insin (art arda "sonraki")
       const anahtar = sarki.videoId + ":" + tur + (tam ? ":tam" : "");
       if (oncedenHazirlananlar.has(anahtar)) continue;
       oncedenHazirlananlar.add(anahtar);
@@ -1175,8 +1179,11 @@ function karmaOynatici(yt) {
   const youtubeDususleri = new Set();
   const youtubeaDon = (kimlik, oynat, neden) => {
     akisOlayi("şarkı YouTube'dan çalınıyor (akış olmadı)", { neden, ...sesDurumu() }, kimlik);
+    tani("YouTube'a düşüldü " + kimlik + ": " + neden);
     akistanCalmayanlar.add(kimlik);
-    if (!/^ses hatası/.test(neden)) youtubeDususleri.add(kimlik);
+    // Ses hatası ekran açıkken olduysa şarkı oturum boyunca YouTube'dan çalar; ekran kapalıyken olduysa ekran
+    // açılınca bir kez daha akıştan denenir
+    if (!/^ses hatası/.test(neden) || document.hidden) youtubeDususleri.add(kimlik);
     medyayiBosalt();
     akisSunucusunuDene();
     const secenek = { videoId: kimlik, startSeconds: simdiki && simdiki.videoId === kimlik ? konumHesapla(simdiki) : 0 };
@@ -1263,8 +1270,11 @@ function karmaOynatici(yt) {
   // Ses akışı şarkının ortasında takılabiliyor (sunucudaki indirme yarıda kesilirse): görüntü ve süre
   // çubuğu sürer ama ses gelmez, ileri sarmak da işe yaramaz. Ses 10 sn ilerlemezse akış odanın o anki
   // yerinden yeniden açılır (yüklenince onloadedmetadata oraya sarar); 3 denemede düzelmezse YouTube'dan çalar.
+  // Kilit ekranı oda değil sesin gerçek durumunu göstersin (ses durduysa ▶ görünsün ve çalışsın)
+  medya.addEventListener("pause", () => { if (mod === "medya") kilitEkraniDurumu("paused"); });
   medya.addEventListener("playing", () => {
     if (mod !== "medya") return;
+    kilitEkraniDurumu("playing");
     clearTimeout(yedekZamanlayici);  // o bekçi ilk yükleme içindi; çaldıktan sonrasına takılma bekçisi bakar
     if (!calanKimlik) akisOlayi("şarkı akıştan başladı", { bekleme_sn: (Date.now() - yuklemeBasi) / 1000 }, medyaKimlik);
     else if (yenidenDeneme && takilmaVar) akisOlayi("takılma düzeldi", { deneme: yenidenDeneme, ...sesDurumu() }, medyaKimlik);
@@ -1348,6 +1358,19 @@ function medyaOturumunuGuncelle() {
   medyaTusKilidiniGuncelle();
 }
 
+// Bu cihazdaki sesin gerçek durumu kilit ekranına yazılır (çalıyor / durdu, şarkının neresinde)
+function kilitEkraniDurumu(durum) {
+  if (!("mediaSession" in navigator)) return;
+  try {
+    navigator.mediaSession.playbackState = durum;
+    if (window.taniYaz) window.taniYaz("kilit ekranı: " + durum);
+    if (durum === "playing" && oynaticiHazir && navigator.mediaSession.setPositionState) {
+      const sure = oynatici.getDuration() || (simdiki && simdiki.sure) || 0, konum = oynatici.getCurrentTime() || 0;
+      if (sure > 0 && konum >= 0 && konum <= sure) navigator.mediaSession.setPositionState({ duration: sure, position: konum, playbackRate: 1 });
+    }
+  } catch (e) { }
+}
+
 // Klavyedeki medya tuşları (⏯ ⏭ ⏮): Chrome bu tuşları en son ses çalmaya başlayan oynatıcıya gönderir. Müzik YouTube'un
 // gömülü oynatıcısından çaldığı için tuşlar ona gidiyordu: durdur çalışıyor ama ileri/geri hiçbir şey yapmıyordu.
 // Masaüstünde sayfanın kendisi sessiz bir ses çalar ve her şarkı başlayınca tuşları yeniden sahiplenir; böylece
@@ -1396,14 +1419,24 @@ function medyaTusKilidiniGuncelle() {
 
 function medyaTuslariniBagla() {
   if (!("mediaSession" in navigator)) return;
+  // Kilit ekranı tuşları önce bu cihazdaki oynatıcıya dokunur: oda "çalıyor" derken ses durmuşsa ▶ sesi yeniden
+  // başlatır (tuşa basmak tarayıcıda dokunma sayılır), ⏸ sesi hemen keser; oda da ona göre güncellenir.
   const tuslar = {
-    play: () => simdiki && simdiki.duraklatildi && devamEt(),
-    pause: () => simdiki && !simdiki.duraklatildi && duraklat(),
+    play: () => {
+      if (!simdiki) return;
+      if (simdiki.duraklatildi) devamEt();
+      else if (oynaticiHazir) oynatici.playVideo();
+    },
+    pause: () => {
+      if (oynaticiHazir) oynatici.pauseVideo();
+      if (simdiki && !simdiki.duraklatildi) duraklat();
+    },
     nexttrack: () => $("atlaTus").click(),
     previoustrack: () => $("geriTus").click()
   };
   for (const [olay, is] of Object.entries(tuslar)) {
-    try { navigator.mediaSession.setActionHandler(olay, is); } catch (e) { }
+    const kayitli = () => { if (window.taniYaz) window.taniYaz("kilit ekranı tuşu: " + olay); is(); };
+    try { navigator.mediaSession.setActionHandler(olay, kayitli); } catch (e) { }
   }
 }
 

@@ -207,7 +207,35 @@ Kod okunarak çıkarıldı: `js/oda.js` (sonrakiniHemenYukle, sonrakineGec, senk
 reklam bekçisi), `js/kesintisiz.js`, `js/baslat.js` (tanı kaydı) ve `akis-sunucusu/sunucu.py`'nin `/hazirla` ile
 `/akis` kısımları. Hiçbiri gerçek telefonda denenmedi; düzeltmeden önce tanı kaydıyla doğrulanmalı.
 
-**Bugünkü yapı (telefon, akış açık):** `KesintisizSes` tek bir `<audio>` + MediaSource kullanır; şarkılar aynı
+### Sonuç (v72, 16 Kasım 2026): telefondaki tanı kaydıyla bulunan asıl sebep
+
+Kullanıcının `&tani=1` ekran görüntüleri (Android Chrome, ekran kapalı, art arda "sonraki") her geçişte
+`QuotaExceededError: The SourceBuffer is full` gösterdi: **telefonun ses tamponu küçük**, şarkı tek parça
+eklenemiyordu. Bu "şarkı eklenemedi" hatası sayılıyor, öğe duruyor (`play() reddedildi: AbortError`, `durdu`) ve
+site YouTube'a düşüyordu ("reklam çalıyor olabilir" uyarısı da buradan). Aşağıdaki 1, 4, 5, 6 ve 7. maddelerin
+gözlemleri bu tek sebebe bağlanıyor. Yapılanlar:
+
+- `kesintisiz.js` baştan yazıldı: indirme hemen başlar, gelen parçalar bellekte birikir, tampona en çok 256 KB'lık
+  parçalarla, sırayla ve yer oldukça eklenir. Tampon dolarsa çalınmış kısım ve sırası gelmemiş şarkılar silinir,
+  yine yer yoksa çalma ilerledikçe eklenir; **dolu tampon artık asla hata değildir**. İlk parça gelince şarkı çalar
+  (1. madde). Öğe, yeni şarkının başlayacağı noktada bekler; şarkı ilk saniyesinden başlar (2. ve 9. madde büyük
+  ölçüde). Başka şarkıya geçilince süren indirmeler iptal edilir. Şarkının hepsi eklenmeden `duration` NaN döner
+  (yoksa `senkronla` şarkıyı bitmiş sanıp atlıyordu).
+- Ağ hatasında indirme 3 kez denenir. Ekran kapalıyken alınan "ses hatası" ekran açılınca bir kez daha akıştan
+  denenir; ekran kapalıyken sağlık yoklaması başarısız olsa da akış sunucusu kapalı sayılmaz (6. madde).
+- Sıradaki ilk iki şarkı sunucuda tam hazırlanır; "sonraki"den 1,5 sn sonra yeni sıradaki hazırlanmaya başlar (3).
+- Kilit ekranı: ▶ oda çalıyorsa oynatıcıyı doğrudan başlatır, ⏸ önce yerel sesi durdurur; `playbackState` ve
+  `setPositionState` sesin gerçek durumundan yazılır (4, 5).
+- Tanı kaydı tarayıcıda saklanır (son 300 satır, sayfa yenilense de kalır); `&tani=1` iken sol üstte
+  **Kaydı kopyala** ve **Temizle** düğmeleri var. Kayda ekran açıldı/kapandı, kilit ekranı tuşları, akış sunucusu
+  açık/kapalı, YouTube'a düşme nedeni, indirme süresi ve boyutu da yazılır.
+- 7. madde (beklerken sessiz ses) gerekmedi: kayıtta gizli sayfada "bekliyor" sonrası "çalıyor" geliyor.
+
+Test (bilgisayarda, telefon görünümünde, sahte akış sunucusu, tampon 1,5 MB'a sınırlanarak): art arda üç
+"sonraki" 0,3–1,3 sn'de ve şarkı başından çaldı, kendiliğinden biten şarkıdan sonraki boşluksuz geçti, 50'den
+fazla "tampon dolu" olayına rağmen hiç YouTube'a düşülmedi. Gerçek telefonda henüz denenmedi.
+
+**Bugünkü yapı (telefon, akış açık, v72 öncesi):** `KesintisizSes` tek bir `<audio>` + MediaSource kullanır; şarkılar aynı
 tampona art arda eklenir, öğe hiç durmaz. `oynatici.onceden()` sadece sıradaki ilk şarkıyı önceden ekler.
 "Sonraki"ye basılınca `sonrakiniHemenYukle()` şarkıyı odadan önce bu cihazda başlatır, sonra
 `sonrakineGec(biten, true)` odayı ilerletir.

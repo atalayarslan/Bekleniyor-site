@@ -115,7 +115,15 @@ function taniModunuAc() {
   const satirlar = [];
   let fareSatiri = "";
   const ad = (h) => h ? (h.id || (typeof h.className === "string" && h.className) || h.tagName) : "yok";
-  const sesSatirlari = [];
+  // Ses kaydı tarayıcıda saklanır (son 300 satır): sayfa yenilense de kaybolmaz, "Kaydı kopyala" ile gönderilebilir
+  const KAYIT = "taniSesKaydi";
+  let sesSatirlari = [];
+  try { sesSatirlari = JSON.parse(localStorage.getItem(KAYIT) || "[]").slice(0, 300); } catch (e) { }
+  let kaydetZamanlayici = null;
+  const kaydet = () => {
+    clearTimeout(kaydetZamanlayici);
+    kaydetZamanlayici = setTimeout(() => { try { localStorage.setItem(KAYIT, JSON.stringify(sesSatirlari)); } catch (e) { } }, 300);
+  };
   const ciz = () => {
     kutu.textContent = ["TANI · pencere " + innerWidth + "x" + innerHeight + " · zoom %" + Math.round(devicePixelRatio * 100),
       fareSatiri, ...satirlar.slice(0, 4), "— ses —", ...sesSatirlari.slice(0, 14)].join("\n");
@@ -125,9 +133,20 @@ function taniModunuAc() {
     const s = new Date();
     const saat = [s.getHours(), s.getMinutes(), s.getSeconds()].map((x) => String(x).padStart(2, "0")).join(":");
     sesSatirlari.unshift(saat + (document.hidden ? " [gizli] " : " ") + metin);
-    if (sesSatirlari.length > 40) sesSatirlari.length = 40;
+    if (sesSatirlari.length > 300) sesSatirlari.length = 300;
+    kaydet();
     ciz();
   };
+  document.addEventListener("visibilitychange", () => window.taniYaz(document.hidden ? "— ekran kapandı / sayfa gizlendi —" : "— ekran açıldı —"));
+  window.taniYaz("— sayfa açıldı —");
+  const tus = (yazi, is) => el("button", { type: "button", onclick: is, style: { font: "11px monospace", padding: "3px 6px", borderRadius: "4px", border: "1px solid #3f3", background: "#000", color: "#3f3" } }, yazi);
+  const tuslar = el("div", { style: { position: "fixed", left: "8px", top: "8px", zIndex: "99999", display: "flex", gap: "6px" } },
+    tus("Kaydı kopyala", async () => {
+      const metin = [...sesSatirlari].reverse().join("\n");
+      try { await navigator.clipboard.writeText(metin); bildir("Ses kaydı kopyalandı (" + sesSatirlari.length + " satır)"); } catch (e) { prompt("Kopyala:", metin); }
+    }),
+    tus("Temizle", () => { sesSatirlari = []; kaydet(); ciz(); }));
+  document.body.append(tuslar);
   ["pointerdown", "click"].forEach((tur) => document.addEventListener(tur, (e) => {
     satirlar.unshift(tur + " " + Math.round(e.clientX) + "," + Math.round(e.clientY) + " → " + ad(e.target));
     ciz();
