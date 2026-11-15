@@ -85,6 +85,10 @@ Her okuma ve yazma Google girişi ister; ayrıntılar `database.rules.json` içi
 - Spotify şarkıları çalınacağı an YouTube'da aranır. Eşleştirme şarkı adını, sanatçıyı ve Spotify'daki süreyi
   karşılaştırır; canlı, konser, remix, cover gibi sürümler geride kalır ("live" yazarak aranırsa öne çıkar).
 - Akış sunucusu açıksa şarkılar reklamsız çalar; kapalıysa YouTube oynatıcısı kullanılır.
+- Telefonda ekran kapalıyken: "sonraki"ye basınca ya da şarkı bitince sıradaki şarkı aynı anda bu cihazda akıştan
+  başlatılır, oda sonra güncellenir (tarayıcı gizli sayfada yeni sesi ancak dokunuşun/biten sesin hemen ardından
+  başlatıyor). Sıradaki şarkının sesi önceden tamamen hazırlanır. Sayfa gizliyken YouTube'a düşülmez (gizli sayfada
+  YouTube çalamaz); ekran açılınca akış yeniden denenir, YouTube'a düşülmüşse şarkı kaldığı saniyeden akışa döner.
 - Klavyedeki medya tuşları (⏯ ⏭ ⏮) odanın şarkılarını yönetir (bilgisayarda).
 
 ## 5. Oyunlar
