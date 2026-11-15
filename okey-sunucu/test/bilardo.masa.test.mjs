@@ -141,4 +141,21 @@ for (const koltuklar of [[0, 1], [0, 1, 3], [0, 1, 2, 3]]) {
   assert.strictEqual(atis("dunya").faul, null);
   assert.strictEqual(atis("dunya").devam, true);
 }
+// 5) Istaka skini: oyuncunun seçimi koltuğuyla herkese gider; geçersiz ad yok sayılır; botların kendi ıstakası var
+{
+  const masa = masaKur();
+  await bekle();
+  const ben = { kim: "m:abcdefghijkl", ad: "Ali" };
+  const ws = { serializeAttachment() { } };
+  masa.isle_(ben, ws, { t: "istaka", id: "ejderha" });
+  masa.isle_(ben, ws, { t: "otur", koltuk: 0 });
+  masa.isle_(ben, null, { t: "bot", koltuk: 1 });
+  let g = masa.gorunum(ben, new Set([ben.kim]));
+  assert.strictEqual(g.koltuklar[0].istaka, "ejderha");
+  assert.ok(g.koltuklar[1].istaka, "botun ıstakası olmalı");
+  masa.isle_(ben, ws, { t: "istaka", id: "<script>" });
+  masa.isle_(ben, ws, { t: "istaka", id: "galaksi" });
+  g = masa.gorunum(ben, new Set([ben.kim]));
+  assert.strictEqual(g.koltuklar[0].istaka, "galaksi");
+}
 console.log("bilardo masası: tamam");

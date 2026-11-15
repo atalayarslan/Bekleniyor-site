@@ -42,7 +42,7 @@ Bu dosya sitenin tek belgesidir: neyin nerede olduğu, hangi servisin ne iş yap
 | `js/oyun/oyunlar.js` | Oda üst çubuğundaki tek "Oyunlar" düğmesi |
 | `js/okey/` | Okey: `kurallar.js` (kurallar, sunucuyla ortak), `masa.js` (masa çizimi), `okey.js` (bağlantı), `cetele.js`, `temalar.js` |
 | `okey-masa.css`, `okey-cetele.css` | Okey masası ve çetele görünümü |
-| `js/bilardo/` | Bilardo: `fizik.js` (fizik, kurallar, bot; sunucuyla ortak), `bilardo.js` (masa ve bağlantı) |
+| `js/bilardo/` | Bilardo: `fizik.js` (fizik, kurallar, bot; sunucuyla ortak), `gorunum.js` (ıstaka skinleri ve top setleri), `bilardo.js` (masa, temalar ve bağlantı) |
 | `bilardo.css` | Bilardo yerleşimi |
 | `okey-cetele.html` | Eski çetele linklerini odaya yönlendirir |
 | `database.rules.json` | Firebase güvenlik kuralları (değişince Firebase'e yayınlanmalı, bkz. 6. bölüm) |
@@ -95,6 +95,9 @@ ortadaki oyun alanıdır.
 - Masa sunucuda tutulur (Cloudflare Durable Object). Kurallar sunucuda uygulanır; tarayıcı sadece çizer.
 - Telefon yatay tutulduğunda ayrı bir düzen devreye girer; telefonda menüde "Tam ekran" düğmesi vardır.
 - Oyun bitince galibiyetler sunucuda kaydedilir (sadece Google hesapları; botlar sayılmaz).
+- Görünüm (sadece çizim, oyunu etkilemez): okeyde taş/masa teması; bilardoda masa teması, ıstaka skini (sıradan,
+  nadir, destansı, efsanevi; bazıları canlı) ve top seti. Bilardoda ıstakayı masadaki herkes görür (sunucu iletir);
+  masa ve toplar kişinin kendi ekranındadır. Seçim `kullanicilar/<uid>/bilardoTema` içinde `m=…;i=…;t=…` olarak saklanır.
 
 ### Yeni oyun eklerken kontrol listesi
 

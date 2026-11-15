@@ -19,6 +19,7 @@ const DB = "https://bekleniyor-e16eb-default-rtdb.europe-west1.firebasedatabase.
 const KOLTUK_BEKLEME = 120 * 1000;   // bağlantısı kopanın koltuğu (oyun yokken) bu kadar onun için tutulur
 const BOT_BEKLEME = 1500;            // atış bittikten sonra botun düşünme süresi (ms)
 const BOT_ADLARI = ["Bot Ayşe", "Bot Mehmet", "Bot Zeynep", "Bot Can"];
+const BOT_ISTAKALARI = ["gece", "buz", "siber", "lav"];   // botların ıstakaları (sadece görünüm)
 const SURELER = [20, 30, 45, 60, 90];
 
 const yeniMasa = () => ({ oda: null, ayar: { sure: 45, kural: "bar" }, kurucu: null, koltuklar: [null, null, null, null], oyun: null, skor: {}, kiran: 0 });
@@ -205,6 +206,15 @@ export class BilardoMasasi {
     const k = this.koltugum(ben.kim);
     const suruyor = this.oyunSuruyor();
     switch (mesaj.t) {
+      // Oyuncunun ıstaka skini (sadece görünüm): atış sırası ondayken masadaki herkes görür
+      case "istaka": {
+        const id = String(mesaj.id || "");
+        if (!/^[a-z]{2,16}$/.test(id)) return;
+        ben.istaka = id;
+        if (ws) ws.serializeAttachment(ben);
+        if (k >= 0) m.koltuklar[k].istaka = id;
+        return;
+      }
       case "otur": {
         const h = Number(mesaj.koltuk);
         if (!(h >= 0 && h < 4)) return "Geçersiz koltuk";
@@ -219,7 +229,7 @@ export class BilardoMasasi {
         const kol = m.koltuklar[h];
         if (kol && !this.bosaldi(kol)) return "Bu koltuk dolu";
         if (!m.koltuklar.some((x) => x && !x.bot)) m.kurucu = ben.kim;
-        m.koltuklar[h] = { kim: ben.kim, ad: ben.ad, foto: ben.foto, ayrildi: null };
+        m.koltuklar[h] = { kim: ben.kim, ad: ben.ad, foto: ben.foto, ayrildi: null, istaka: ben.istaka || "" };
         if (suruyor && m.oyun.sira === h) this.sureyiKur();
         return;
       }
@@ -439,9 +449,9 @@ export class BilardoMasasi {
     return {
       ben: { koltuk: k, ad: ben.ad, yetkili: this.yetkili(ben), kurucu: m.kurucu === ben.kim },
       ayar: m.ayar,
-      koltuklar: m.koltuklar.map((x) => (x ? {
+      koltuklar: m.koltuklar.map((x, i) => (x ? {
         ad: x.ad, foto: x.foto, bos: false, bot: !!x.bot, bagli: !!x.bot || bagli.has(x.kim), devralinabilir: this.bosaldi(x),
-        galibiyet: (m.skor[x.kim] && m.skor[x.kim].galibiyet) || 0
+        galibiyet: (m.skor[x.kim] && m.skor[x.kim].galibiyet) || 0, istaka: x.istaka || (x.bot ? BOT_ISTAKALARI[i % 4] : "")
       } : { bos: true })),
       izleyici: this.baglilar().filter((x) => this.koltugum(x.ben.kim) < 0).length,
       oyun: m.oyun && {

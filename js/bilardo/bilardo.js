@@ -86,6 +86,7 @@
     soylenenAd = benimAdim();
     const yerel = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
     gonder({ t: "merhaba", kart, ad: soylenenAd, misafir: yerel ? { id: misafirKimligi(), ad: soylenenAd } : undefined });
+    istakaBildir();
   }
   setInterval(() => { if (ws && ws.readyState === 1 && soylenenAd !== benimAdim()) merhaba(); }, 1500);
 
@@ -308,8 +309,22 @@
     { id: "pembe", ad: "Pembe", kece: ["#e46a9f", "#c24a80", "#7c2550"], bant: "#9a3463", bantBurun: "rgba(255,200,225,.6)", tahta: ["#f1ece6", "#d6cfc6", "#aea59a"], elmas: "#7c2550", cepKenar: "#3b1026" },
     { id: "oda", ad: "Odanın rengi" }
   ];
-  let temaId = "klasik";
-  try { temaId = localStorage.getItem("bilardoTema") || "klasik"; } catch (e) { }
+  // Seçimler: masa teması, ıstaka skini, top seti. Tarayıcıda ve Google hesabında tek satır olarak saklanır
+  // (kullanicilar/<uid>/bilardoTema = "m=klasik;i=ejderha;t=neon"; eski kayıtlarda sadece masa teması yazar).
+  const G = window.BilardoGorunum;
+  const gorunum = { masa: "klasik", istaka: "klasik", top: "klasik" };
+  function gorunumuCoz(metin) {
+    const s = String(metin || "");
+    if (!s.includes("=")) { if (s) gorunum.masa = s; return; }
+    for (const p of s.split(";")) {
+      const [a, b] = p.split("=");
+      if (a === "m" && TEMALAR.some((x) => x.id === b)) gorunum.masa = b;
+      if (a === "i" && G.ISTAKALAR.some((x) => x.id === b)) gorunum.istaka = b;
+      if (a === "t" && G.TOP_SETLERI.some((x) => x.id === b)) gorunum.top = b;
+    }
+  }
+  const gorunumMetni = () => "m=" + gorunum.masa + ";i=" + gorunum.istaka + ";t=" + gorunum.top;
+  try { gorunumuCoz(localStorage.getItem("bilardoGorunum") || localStorage.getItem("bilardoTema")); } catch (e) { }
 
   // "#rrggbb" iki renk arasında karışım (o: 0 → a, 1 → b)
   function renkKaris(a, b, o) {
@@ -325,38 +340,101 @@
       bant: renkKaris(r, "#000000", 0.55), bantBurun: renkKaris(r, "#ffffff", 0.45), tahta: ["#3a3a40", "#24242a", "#121215"], elmas: renkKaris(r, "#ffffff", 0.6), cepKenar: "#121215" };
   }
   function bilardoTemasi() {
-    if (temaId === "oda") return odaTemasi();
-    return TEMALAR.find((t) => t.id === temaId) || TEMALAR[0];
+    if (gorunum.masa === "oda") return odaTemasi();
+    return TEMALAR.find((t) => t.id === gorunum.masa) || TEMALAR[0];
   }
-  function temaSec(id, kaydet) {
-    if (!TEMALAR.some((t) => t.id === id)) return;
-    temaId = id;
-    try { localStorage.setItem("bilardoTema", id); } catch (e) { }
-    masaOnbellek = null;
+  // tur: "masa" | "istaka" | "top"
+  function gorunumSec(tur, id, kaydet) {
+    gorunum[tur] = id;
+    try { localStorage.setItem("bilardoGorunum", gorunumMetni()); } catch (e) { }
+    if (tur === "masa") masaOnbellek = null;
+    if (tur === "istaka") istakaBildir();
     if (kaydet && typeof kullanici !== "undefined" && kullanici && typeof db !== "undefined" && db) {
-      db.ref("kullanicilar/" + kullanici.uid + "/bilardoTema").set(id).catch(() => { });
+      db.ref("kullanicilar/" + kullanici.uid + "/bilardoTema").set(gorunumMetni()).catch(() => { });
     }
     ciz();
   }
   function temayiYukle() {
     try {
       if (typeof kullanici === "undefined" || !kullanici || typeof db === "undefined" || !db) return;
-      db.ref("kullanicilar/" + kullanici.uid + "/bilardoTema").get().then((s) => { if (s.val() && s.val() !== temaId) temaSec(s.val(), false); }).catch(() => { });
+      db.ref("kullanicilar/" + kullanici.uid + "/bilardoTema").get().then((s) => {
+        if (!s.val() || s.val() === gorunumMetni()) return;
+        gorunumuCoz(s.val());
+        try { localStorage.setItem("bilardoGorunum", gorunumMetni()); } catch (e) { }
+        masaOnbellek = null;
+        istakaBildir();
+        ciz();
+      }).catch(() => { });
     } catch (e) { }
   }
+  // Masadakiler senin ıstakanı görsün: seçim sunucuya bildirilir (sunucu atış sırasındakinin skinini herkese iletir)
+  function istakaBildir() { gonder({ t: "istaka", id: gorunum.istaka }); }
+
+  // Önizlemeler: ıstaka ve top seti küçük tuvallere aynı çizimle çizilir
+  function istakaOnizleme(id) {
+    // Kısa çizilir ki önizlemede kalın ve ayrıntılı görünsün; ikiye katlı çözünürlük (keskin)
+    const t = h("canvas", { width: 680, height: 64, sinif: "b-onizleme-tuval" });
+    const c = t.getContext("2d");
+    c.scale(2, 2);
+    G.istakaCiz(c, 8, 15, 300, 15, id, performance.now());
+    if (G.canliMi(id)) {
+      // Canlı skinler önizlemede de oynar (pencere kapanınca durur)
+      const kare = () => {
+        if (!t.isConnected) return;
+        c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, t.width, t.height); c.scale(2, 2);
+        G.istakaCiz(c, 8, 15, 300, 15, id, performance.now());
+        requestAnimationFrame(kare);
+      };
+      requestAnimationFrame(kare);
+    }
+    return t;
+  }
+  function topOnizleme(id) {
+    const t = h("canvas", { width: 480, height: 128, sinif: "b-onizleme-tuval" });
+    const c = t.getContext("2d");
+    c.scale(2, 2);
+    [1, 3, 11, 14, 8, 0].forEach((no, i) => G.topCiz(c, no, 30 + i * 36, 32, 15, id, false));
+    return t;
+  }
+
+  let temaSekmesi = "masa";
   function temaPaneli() {
-    const kartlar = h("div", { sinif: "b-tema-kartlari" });
-    const ciz_ = () => kartlar.replaceChildren(...TEMALAR.map((t) => {
-      const x = t.id === "oda" ? odaTemasi() : t;
-      return h("button", {
-        type: "button", sinif: "b-tema-karti" + (t.id === temaId ? " secili" : ""),
-        onclick: () => { temaSec(t.id, true); ciz_(); }
-      }, h("span", { sinif: "b-tema-onizleme", stil: {
-        "--tahta": "linear-gradient(180deg," + x.tahta.join(",") + ")", "--kece": "radial-gradient(circle," + x.kece.join(",") + ")", "--bant": x.bant
-      } }, h("i")), h("b", {}, t.ad));
-    }));
+    const sekmeler = h("div", { sinif: "b-tema-sekmeler", role: "tablist" });
+    const govde = h("div", {});
+    const nadirlikRozeti = (n) => {
+      const r = G.NADIRLIK[n] || G.NADIRLIK.siradan;
+      return h("span", { sinif: "b-nadirlik", stil: { "--nr": r.renk } }, r.ad);
+    };
+    const ciz_ = () => {
+      sekmeler.replaceChildren(...[["masa", "Masa"], ["istaka", "Istaka"], ["top", "Toplar"]].map(([id, ad]) => h("button", {
+        type: "button", role: "tab", sinif: "b-tema-sekme" + (temaSekmesi === id ? " secili" : ""), onclick: () => { temaSekmesi = id; ciz_(); }
+      }, ad)));
+      if (temaSekmesi === "masa") {
+        govde.replaceChildren(h("div", { sinif: "b-tema-kartlari" }, TEMALAR.map((t) => {
+          const x = t.id === "oda" ? odaTemasi() : t;
+          return h("button", {
+            type: "button", sinif: "b-tema-karti" + (t.id === gorunum.masa ? " secili" : ""),
+            onclick: () => { gorunumSec("masa", t.id, true); ciz_(); }
+          }, h("span", { sinif: "b-tema-onizleme", stil: {
+            "--tahta": "linear-gradient(180deg," + x.tahta.join(",") + ")", "--kece": "radial-gradient(circle," + x.kece.join(",") + ")", "--bant": x.bant
+          } }, h("i")), h("b", {}, t.ad));
+        })));
+      } else {
+        const liste = temaSekmesi === "istaka" ? G.ISTAKALAR : G.TOP_SETLERI;
+        govde.replaceChildren(h("div", { sinif: "b-skin-listesi" }, liste.map((s) => h("button", {
+          type: "button", sinif: "b-skin-karti nadirlik-" + s.nadirlik + (gorunum[temaSekmesi] === s.id ? " secili" : ""),
+          stil: { "--nr": (G.NADIRLIK[s.nadirlik] || G.NADIRLIK.siradan).renk },
+          onclick: () => { gorunumSec(temaSekmesi, s.id, true); ciz_(); }
+        },
+          temaSekmesi === "istaka" ? istakaOnizleme(s.id) : topOnizleme(s.id),
+          h("span", { sinif: "b-skin-yazi" }, h("b", {}, s.ad), h("small", {}, s.aciklama)),
+          nadirlikRozeti(s.nadirlik)))));
+      }
+    };
     ciz_();
-    pencere("Masa teması", h("div", {}, h("p", {}, "Masanın görünümü sadece senin ekranında değişir; oyunu etkilemez."), kartlar));
+    pencere("Görünüm", h("div", {},
+      h("p", {}, "Masa ve toplar sadece senin ekranında değişir. Istakanı atış sırası sendeyken masadaki herkes görür."),
+      sekmeler, govde));
   }
 
   function masayiCiz(c) {
@@ -465,57 +543,25 @@
     c.lineCap = "butt";
   }
 
+  // Top: gölge + seçilen top setiyle gövde (js/bilardo/gorunum.js). Dik ekranda sayılar düz okunsun diye döner.
   function topCiz(c, i, x, y, soluk) {
     c.save();
     if (soluk) c.globalAlpha = 0.45;
-    // gölge
     c.fillStyle = "rgba(0,0,0,.35)";
     c.beginPath(); c.ellipse(x + 3, y + 4, R, R * 0.9, 0, 0, 7); c.fill();
-    // gövde
-    c.beginPath(); c.arc(x, y, R, 0, 7); c.closePath();
-    c.fillStyle = i >= 9 ? "#f4f1e8" : RENKLER[i];
-    c.fill();
-    if (i >= 9) {
-      c.save(); c.clip();
-      c.fillStyle = RENKLER[i];
-      c.fillRect(x - R, y - R * 0.55, 2 * R, R * 1.1);
-      c.restore();
-    }
-    if (i > 0) {
-      c.fillStyle = "#fbfaf4";
-      c.beginPath(); c.arc(x, y, R * 0.5, 0, 7); c.fill();
-      c.fillStyle = "#111";
-      c.font = "bold " + (i > 9 ? 9 : 10.5) + "px Nunito, Arial, sans-serif";
-      c.textAlign = "center"; c.textBaseline = "middle";
-      // Dik ekranda masa döndüğü için sayı geri döndürülür (düz okunsun)
-      c.save(); c.translate(x, y); if (dik) c.rotate(Math.PI / 2);
-      c.fillText(String(i), 0, 0.6);
-      c.restore();
-    }
-    // ışık
-    const p = c.createRadialGradient(x - R * 0.4, y - R * 0.45, 1, x, y, R * 1.05);
-    p.addColorStop(0, "rgba(255,255,255,.75)"); p.addColorStop(0.25, "rgba(255,255,255,.12)"); p.addColorStop(1, "rgba(0,0,0,.28)");
-    c.fillStyle = p;
-    c.beginPath(); c.arc(x, y, R, 0, 7); c.fill();
+    G.topCiz(c, i, x, y, R, gorunum.top, dik);
     c.restore();
   }
 
-  function istakaCiz(c, b, d, geri) {
-    // Istaka beyazın arkasında, nişanın tersine uzanır; geri çekildikçe uzaklaşır
+  // Istaka beyazın arkasında, nişanın tersine uzanır; geri çekildikçe uzaklaşır. Skin: atış sırasındakinin seçimi.
+  let canliIstaka = false;
+  function istakaCiz(c, b, d, geri, skin) {
     const bas = R + 4 + geri * 0.9;
     const boy = 520;
     const x1 = b.x - d.x * bas, y1 = b.y - d.y * bas;
     const x2 = b.x - d.x * (bas + boy), y2 = b.y - d.y * (bas + boy);
-    c.save();
-    c.lineCap = "round";
-    c.strokeStyle = "rgba(0,0,0,.3)"; c.lineWidth = 9;
-    c.beginPath(); c.moveTo(x1 + 4, y1 + 6); c.lineTo(x2 + 4, y2 + 6); c.stroke();
-    const g = c.createLinearGradient(x1, y1, x2, y2);
-    g.addColorStop(0, "#e8e3d4"); g.addColorStop(0.03, "#e8e3d4"); g.addColorStop(0.035, "#2b6fa8"); g.addColorStop(0.05, "#f1d9a6");
-    g.addColorStop(0.62, "#d7a560"); g.addColorStop(0.64, "#1a1a1a"); g.addColorStop(1, "#3a2414");
-    c.strokeStyle = g; c.lineWidth = 7;
-    c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
-    c.restore();
+    G.istakaCiz(c, x1, y1, x2, y2, skin, performance.now());
+    if (G.canliMi(skin)) canliIstaka = true;
   }
 
   function nisanCiz(c, toplar, b, d, yasal) {
@@ -606,7 +652,7 @@
     if (!oynatilan && O && !O.bitti) {
       if (benim && toplar[0] && !tasiyor) {
         nisanCiz(c, toplar, toplar[0], yon, yasalHedefler());
-        istakaCiz(c, toplar[0], yon, cekme * CEKME_EN_COK);
+        istakaCiz(c, toplar[0], yon, cekme * CEKME_EN_COK, gorunum.istaka);
         if (cekiyor) {
           // güç çubuğu (alt tahtada)
           c.fillStyle = "rgba(0,0,0,.45)"; c.fillRect(W / 2 - 150, H + 34, 300, 12);
@@ -619,11 +665,14 @@
         const b = O.elde && uzakG.beyaz ? uzakG.beyaz : toplar[0];
         c.save(); c.globalAlpha = 0.8;
         nisanCiz(c, toplar, b, uzakG.yon, null);
-        istakaCiz(c, b, uzakG.yon, uzakG.cekme * CEKME_EN_COK);
+        istakaCiz(c, b, uzakG.yon, uzakG.cekme * CEKME_EN_COK, (durum.koltuklar[O.sira] || {}).istaka);
         c.restore();
       }
     }
     sureCiz();
+    // Canlı ıstaka (parlayan, kıvılcımlı...) görünürken masa her karede yeniden çizilir
+    if (canliIstaka && !document.hidden) { canliIstaka = false; requestAnimationFrame(() => ciz()); }
+    else canliIstaka = false;
   }
 
   // Kalan atış süresi: sıra şeridindeki çizgi ve sıradakinin avatarındaki halka (kabuk)
@@ -949,7 +998,7 @@
       K.sesTusu(uygula),
       yetkili ? { ad: "ayar", yazi: "Ayarlar", ikon: "ayar", is: ayarPaneli } : null,
       { ad: "kural", yazi: "Kurallar", ikon: "kural", is: kurallariGoster },
-      { ad: "tema", yazi: "Tema", ikon: "tema", ipucu: "Masanın görünümü", is: temaPaneli },
+      { ad: "tema", yazi: "Görünüm", ikon: "tema", ipucu: "Masa, ıstaka ve top görünümü", is: temaPaneli },
       oyunVar() && yetkili ? { ad: "bitir", yazi: "Oyunu bitir", ikon: "bitir", ipucu: "Süren oyunu sonuçsuz bitir", is: () => K.onayla({
         baslik: "Oyun bitirilsin mi?", evet: "Bitir",
         metin: "Süren oyun sonuçsuz biter (kimse kazanmış sayılmaz). Sonra yeni oyun başlatabilirsiniz.",
