@@ -128,7 +128,11 @@
       if (acikMenu && !acikMenu.contains(e.target) && !(acikMenu.sahibi && acikMenu.sahibi.contains(e.target))) menuyuKapat();
     }, true);
     function menuyuKapat() {
-      if (acikMenu) { acikMenu.remove(); acikMenu = null; }
+      if (acikMenu) {
+        if (acikMenu.sahibi) acikMenu.sahibi.classList.remove("menu-acik");
+        acikMenu.remove();
+        acikMenu = null;
+      }
     }
 
     // ---------- avatar + süre halkası ----------
@@ -177,6 +181,7 @@
             sinif: y.tehlikeli ? "tehlikeli" : "", onclick: (ev) => { ev.stopPropagation(); menuyuKapat(); y.is(); }
           }, y.ikon ? ikon(y.ikon) : null, y.yazi)));
           menu.sahibi = oge;
+          oge.classList.add("menu-acik");
           oge.append(menu);
           acikMenu = menu;
         };

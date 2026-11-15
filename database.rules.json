@@ -274,6 +274,10 @@
           ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
           ".validate": "newData.hasChildren(['id', 'kod']) && newData.child('id').isString() && newData.child('id').val().length <= 40 && newData.child('kod').isString() && newData.child('kod').val().length <= 1500"
         },
+        "bilardoTema": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid",
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
         "slot1": {
           ".write": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.uid == $uid && !root.child('yasakli').child(auth.uid).exists() && (!data.exists() || newData.val() == data.val() || !newData.parent().parent().parent().child('odalar').child(data.val()).child('bilgi').exists())",
           ".validate": "newData.isString() && newData.val().length <= 40"

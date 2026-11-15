@@ -88,6 +88,20 @@
 .b-kilit[hidden] { display: none; }
 .b-kurallar p { margin: 8px 0; }
 
+/* Masa teması seçici: her kart küçük bir masa önizlemesi */
+.b-tema-kartlari { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 10px; }
+.b-tema-karti {
+  display: grid; gap: 8px; padding: 8px; border-radius: 14px; border: 2px solid transparent;
+  background: rgba(255,255,255,.05); color: #fff; font: inherit; font-size: 13px; cursor: pointer; text-align: center;
+}
+.b-tema-karti:hover { background: rgba(255,255,255,.1); }
+.b-tema-karti.secili { border-color: var(--oda-vurgu); background: rgba(255,255,255,.1); }
+.b-tema-onizleme {
+  display: block; aspect-ratio: 2 / 1.1; border-radius: 10px; padding: 7px; background: var(--tahta);
+  box-shadow: 0 6px 14px rgba(0,0,0,.45);
+}
+.b-tema-onizleme i { display: block; height: 100%; border-radius: 4px; background: var(--kece); box-shadow: 0 0 0 3px var(--bant); }
+
 /* Telefon yatay: masa ortada en büyük hâliyle; koltuklar iki yanda dar sütunlarda, falso ve ince ayar o sütunların
    altında (ayrı bir alt satır yok); üstte ince bir sıra şeridi */
 @media (max-height: 520px) and (orientation: landscape) {

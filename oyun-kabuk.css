@@ -52,7 +52,10 @@
 .oyun-koltuk.bos { background: transparent; border-style: dashed; border-color: rgba(255, 255, 255, .22); backdrop-filter: none; }
 .oyun-koltuk.bos .oyun-koltuk-yazi b { color: rgba(255, 255, 255, .6); font-weight: 700; }
 .oyun-koltuk.sira { border-color: var(--oda-vurgu); box-shadow: 0 0 0 1px var(--oda-vurgu), 0 0 26px color-mix(in srgb, var(--oda-vurgu) 45%, transparent); }
-.oyun-koltuk.kopuk { opacity: .55; }
+/* Bağlantısı kopan oyuncu soluk görünür; açılan seçenek menüsü soluklaşmaz */
+.oyun-koltuk.kopuk > :not(.oyun-koltuk-menu) { opacity: .55; }
+/* Menüsü açık koltuk yandaki koltukların üstünde kalır (menü onların arkasına düşmesin) */
+.oyun-koltuk.menu-acik { z-index: 60; }
 .oyun-koltuk-yazi { min-width: 0; display: grid; line-height: 1.2; }
 .oyun-koltuk-yazi b { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .oyun-koltuk-yazi small { font-size: 11.5px; color: rgba(255, 255, 255, .62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

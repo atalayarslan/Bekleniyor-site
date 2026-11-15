@@ -70,7 +70,7 @@ Bu dosya sitenin tek belgesidir: neyin nerede olduğu, hangi servisin ne iş yap
 | `odaFotolari/<oda>` | Fotoğraflar (`f0`–`f5`) ve arka plan (`arka`: resim, küçük video ya da oyun sunucusundaki video adresi) |
 | `odaOyunlari/<oda>/<oyun>` | Masanın kısa özeti (oturan, izleyici, oyun sürüyor mu); lobideki oyun rozeti |
 | `odaGecmisi/<oda>` | Odada çalınan şarkılar |
-| `kullanicilar/<uid>` | Oda hakları (`slot1`, `slot2`), şarkı listeleri, okey teması |
+| `kullanicilar/<uid>` | Oda hakları (`slot1`, `slot2`), şarkı listeleri, okey teması, bilardo masa teması |
 | `istatistik/<uid>` | Sitede ve dinlemede geçen süre (sıralama) |
 | `eslesmeler` | Spotify şarkısı → YouTube videosu eşleşmeleri (bir kez yazılır) |
 | `aramaOnbellek` | YouTube aramaları (7 gün; kota harcamamak için) |

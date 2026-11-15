@@ -295,10 +295,75 @@
     c.arcTo(x, y + hh, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
   }
 
+  // ---------- masa temaları ----------
+  // Her oyuncu kendi ekranındaki masanın görünümünü seçer (okeydeki gibi); oyunu etkilemez. Seçim tarayıcıda ve
+  // Google hesabında (kullanicilar/<uid>/bilardoTema) saklanır, her cihazda aynı gelir.
+  const TEMALAR = [
+    { id: "klasik", ad: "Klasik yeşil", kece: ["#27a066", "#1a7f4d", "#0f5c37"], bant: "#0d5a36", bantBurun: "rgba(130,230,170,.55)", tahta: ["#7a4a26", "#5a3318", "#3f230f"], elmas: "#e9dcb8", cepKenar: "#2a1a0c" },
+    { id: "turnuva", ad: "Turnuva mavisi", kece: ["#3290d6", "#1f69aa", "#123f6e"], bant: "#164c80", bantBurun: "rgba(160,210,255,.6)", tahta: ["#454b57", "#2a2f38", "#16191f"], elmas: "#dfe7f0", cepKenar: "#0f1115" },
+    { id: "bordo", ad: "Bordo", kece: ["#b8394a", "#8a2433", "#55141f"], bant: "#6a1825", bantBurun: "rgba(255,170,180,.5)", tahta: ["#5a341f", "#3a2113", "#21120a"], elmas: "#f0d9a8", cepKenar: "#1c0f08" },
+    { id: "gece", ad: "Gece moru", kece: ["#7352cf", "#50349c", "#2a1a5c"], bant: "#3a257c", bantBurun: "rgba(205,185,255,.55)", tahta: ["#2e2e34", "#1c1c21", "#0e0e11"], elmas: "#cdbdff", cepKenar: "#0e0e11" },
+    { id: "altin", ad: "Siyah altın", kece: ["#353535", "#222222", "#121212"], bant: "#1a1a1a", bantBurun: "rgba(242,194,48,.7)", tahta: ["#4a3916", "#2e220b", "#171004"], elmas: "#f2c230", cepKenar: "#171004" },
+    { id: "buz", ad: "Buz", kece: ["#62bfd1", "#3e98ac", "#22626f"], bant: "#2b7584", bantBurun: "rgba(225,250,255,.7)", tahta: ["#ddd6c6", "#bdb4a2", "#8f8776"], elmas: "#3a3a3a", cepKenar: "#5c5446" },
+    { id: "pembe", ad: "Pembe", kece: ["#e46a9f", "#c24a80", "#7c2550"], bant: "#9a3463", bantBurun: "rgba(255,200,225,.6)", tahta: ["#f1ece6", "#d6cfc6", "#aea59a"], elmas: "#7c2550", cepKenar: "#3b1026" },
+    { id: "oda", ad: "Odanın rengi" }
+  ];
+  let temaId = "klasik";
+  try { temaId = localStorage.getItem("bilardoTema") || "klasik"; } catch (e) { }
+
+  // "#rrggbb" iki renk arasında karışım (o: 0 → a, 1 → b)
+  function renkKaris(a, b, o) {
+    const s = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+    const [x, y] = [s(a), s(b)];
+    return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * o).toString(16).padStart(2, "0")).join("");
+  }
+  // Odanın vurgu renginden keçe; tahta koyu
+  function odaTemasi() {
+    const v = getComputedStyle(document.getElementById("oda") || document.body).getPropertyValue("--oda-vurgu").trim();
+    const r = /^#[0-9a-f]{6}$/i.test(v) ? v : "#1db954";
+    return { id: "oda", ad: "Odanın rengi", kece: [renkKaris(r, "#ffffff", 0.08), renkKaris(r, "#000000", 0.3), renkKaris(r, "#000000", 0.62)],
+      bant: renkKaris(r, "#000000", 0.55), bantBurun: renkKaris(r, "#ffffff", 0.45), tahta: ["#3a3a40", "#24242a", "#121215"], elmas: renkKaris(r, "#ffffff", 0.6), cepKenar: "#121215" };
+  }
+  function bilardoTemasi() {
+    if (temaId === "oda") return odaTemasi();
+    return TEMALAR.find((t) => t.id === temaId) || TEMALAR[0];
+  }
+  function temaSec(id, kaydet) {
+    if (!TEMALAR.some((t) => t.id === id)) return;
+    temaId = id;
+    try { localStorage.setItem("bilardoTema", id); } catch (e) { }
+    masaOnbellek = null;
+    if (kaydet && typeof kullanici !== "undefined" && kullanici && typeof db !== "undefined" && db) {
+      db.ref("kullanicilar/" + kullanici.uid + "/bilardoTema").set(id).catch(() => { });
+    }
+    ciz();
+  }
+  function temayiYukle() {
+    try {
+      if (typeof kullanici === "undefined" || !kullanici || typeof db === "undefined" || !db) return;
+      db.ref("kullanicilar/" + kullanici.uid + "/bilardoTema").get().then((s) => { if (s.val() && s.val() !== temaId) temaSec(s.val(), false); }).catch(() => { });
+    } catch (e) { }
+  }
+  function temaPaneli() {
+    const kartlar = h("div", { sinif: "b-tema-kartlari" });
+    const ciz_ = () => kartlar.replaceChildren(...TEMALAR.map((t) => {
+      const x = t.id === "oda" ? odaTemasi() : t;
+      return h("button", {
+        type: "button", sinif: "b-tema-karti" + (t.id === temaId ? " secili" : ""),
+        onclick: () => { temaSec(t.id, true); ciz_(); }
+      }, h("span", { sinif: "b-tema-onizleme", stil: {
+        "--tahta": "linear-gradient(180deg," + x.tahta.join(",") + ")", "--kece": "radial-gradient(circle," + x.kece.join(",") + ")", "--bant": x.bant
+      } }, h("i")), h("b", {}, t.ad));
+    }));
+    ciz_();
+    pencere("Masa teması", h("div", {}, h("p", {}, "Masanın görünümü sadece senin ekranında değişir; oyunu etkilemez."), kartlar));
+  }
+
   function masayiCiz(c) {
     // tahta çerçeve
+    const tema = bilardoTemasi();
     const g = c.createLinearGradient(0, -KENAR, 0, H + KENAR);
-    g.addColorStop(0, "#7a4a26"); g.addColorStop(0.5, "#5a3318"); g.addColorStop(1, "#3f230f");
+    g.addColorStop(0, tema.tahta[0]); g.addColorStop(0.5, tema.tahta[1]); g.addColorStop(1, tema.tahta[2]);
     // Masanın odaya oturduğu gölge (gölge bulanıklığı dönüşümle ölçeklenmez: elle ölçeklenir)
     const m = c.getTransform();
     const s = Math.hypot(m.a, m.b) || 1;
@@ -316,12 +381,12 @@
     for (let i = 0; i < 18; i++) { c.beginPath(); c.moveTo(-KENAR, -KENAR + i * TH / 18 + 4); c.bezierCurveTo(W * 0.3, -KENAR + i * TH / 18 - 6, W * 0.7, -KENAR + i * TH / 18 + 10, W + KENAR, -KENAR + i * TH / 18); c.stroke(); }
     c.restore();
     // bantlar (keçeden biraz koyu)
-    c.fillStyle = "#0d5a36";
+    c.fillStyle = tema.bant;
     yuvarlakDikdortgen(c, -26, -26, W + 52, H + 52, 10); c.fill();
     // keçe
     // Üstten lamba ışığı: ortası parlak, kenarlara doğru kararır
     const k = c.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, W * 0.6);
-    k.addColorStop(0, "#27a066"); k.addColorStop(0.55, "#1a7f4d"); k.addColorStop(1, "#0f5c37");
+    k.addColorStop(0, tema.kece[0]); k.addColorStop(0.55, tema.kece[1]); k.addColorStop(1, tema.kece[2]);
     c.fillStyle = k;
     c.fillRect(0, 0, W, H);
     // bantların keçeye düşen gölgesi (dört kenar)
@@ -336,25 +401,68 @@
     c.fillStyle = "rgba(255,255,255,.2)";
     c.beginPath(); c.arc(F.AYAK.x, F.AYAK.y, 3, 0, 7); c.fill();
     // elmaslar
-    c.fillStyle = "#e9dcb8";
+    c.fillStyle = tema.elmas;
     for (let i = 1; i < 8; i++) if (i !== 4) for (const y of [-44, H + 44]) { c.beginPath(); c.arc(i * W / 8, y, 3.2, 0, 7); c.fill(); }
     for (let i = 1; i < 4; i++) for (const x of [-44, W + 44]) { c.beginPath(); c.arc(x, i * H / 4, 3.2, 0, 7); c.fill(); }
-    // delikler
-    for (let i = 0; i < 6; i++) {
-      const p = F.CEPLER[i];
-      const yan = i === 1 || i === 4;
-      const x = yan ? p.x : p.x + (p.x < 0 ? 4 : -4), y = yan ? p.y + (p.y < 0 ? 6 : -6) : p.y + (p.y < 0 ? 4 : -4);
-      const r = yan ? 25 : 28;
-      c.fillStyle = "#2a1a0c";
-      c.beginPath(); c.arc(x, y, r + 5, 0, 7); c.fill();
-      const dg = c.createRadialGradient(x, y, 2, x, y, r);
-      dg.addColorStop(0, "#000"); dg.addColorStop(1, "#111");
-      c.fillStyle = dg;
-      c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+    deliklerCiz(c);
+  }
+
+  // Delikler (sadece görüntü; fizik fizik.js'te): bantlar çenelerde biter, iki çenenin arası deliğin ağzıdır.
+  // Ağız koyu bir yolla deliğe iner; ağzın masaya açılan çizgisi ince kesik çizgiyle gösterilir: top bu çizgiyi
+  // biraz geçerse deliğe düşer. Bantların topun çarptığı kenarı (burun) açık renkle çizilir, çenenin nerede
+  // bittiği görünsün.
+  function deliklerCiz(c) {
+    const { KOSE, YAN } = F;
+    const CENE = 16;
+    const tema = bilardoTemasi();
+    // Köşe ve yan delik için, deliğin yerine göre aynalanmış noktalar
+    const delikler = [
+      { kx: 0, ky: 0, sx: 1, sy: 1 }, { kx: W, ky: 0, sx: -1, sy: 1 }, { kx: 0, ky: H, sx: 1, sy: -1 }, { kx: W, ky: H, sx: -1, sy: -1 }
+    ].map((d) => {
+      const p = (x, y) => [d.kx + d.sx * x, d.ky + d.sy * y];
+      return {
+        yol: [p(KOSE, 0), p(KOSE - CENE, -CENE), p(KOSE - CENE - 12, -CENE - 12), p(-CENE - 12, KOSE - CENE - 12), p(-CENE, KOSE - CENE), p(0, KOSE)],
+        agiz: [p(KOSE, 0), p(0, KOSE)],
+        merkez: p(-10, -10), r: 30
+      };
+    });
+    for (const sy of [1, -1]) {
+      const y0 = sy > 0 ? 0 : H;
+      const p = (x, y) => [W / 2 + x, y0 - sy * y];
+      delikler.push({
+        yol: [p(-YAN, 0), p(-YAN + 4, 18), p(-YAN + 5, 27), p(YAN - 5, 27), p(YAN - 4, 18), p(YAN, 0)],
+        agiz: [p(-YAN, 0), p(YAN, 0)],
+        merkez: p(0, 22), r: 27
+      });
     }
-    // bant uçları (çeneler) çizgisi
-    c.strokeStyle = "rgba(0,0,0,.35)"; c.lineWidth = 2;
+    for (const d of delikler) {
+      // Ağızdan deliğe inen yol: keçenin koyusu, deliğe doğru kararır
+      const [mx, my] = d.merkez;
+      const g = c.createRadialGradient(mx, my, d.r * 0.6, mx, my, d.r * 2.1);
+      g.addColorStop(0, "rgba(0,0,0,.85)"); g.addColorStop(1, tema.kece[2]);
+      c.fillStyle = g;
+      c.beginPath(); d.yol.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath(); c.fill();
+      // Delik: deri kenar + derinlik
+      c.fillStyle = tema.cepKenar;
+      c.beginPath(); c.arc(mx, my, d.r + 6, 0, 7); c.fill();
+      const dg = c.createRadialGradient(mx, my - d.r * 0.25, 2, mx, my, d.r);
+      dg.addColorStop(0, "#000"); dg.addColorStop(0.75, "#050505"); dg.addColorStop(1, "#1b1b1b");
+      c.fillStyle = dg;
+      c.beginPath(); c.arc(mx, my, d.r, 0, 7); c.fill();
+      c.strokeStyle = "rgba(255,255,255,.07)"; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(mx, my, d.r - 1, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+      // Ağız çizgisi: top bunu biraz geçince düşer
+      c.save();
+      c.setLineDash([5, 5]);
+      c.strokeStyle = "rgba(255,255,255,.28)"; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(...d.agiz[0]); c.lineTo(...d.agiz[1]); c.stroke();
+      c.restore();
+    }
+    // Bantların burnu (topun çarptığı kenar) ve çeneler: açık, belirgin çizgi; uçları yuvarlak
+    c.lineCap = "round";
+    c.strokeStyle = tema.bantBurun; c.lineWidth = 3;
     for (const [x1, y1, x2, y2] of F.BANTLAR) { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
+    c.lineCap = "butt";
   }
 
   function topCiz(c, i, x, y, soluk) {
@@ -841,6 +949,7 @@
       K.sesTusu(uygula),
       yetkili ? { ad: "ayar", yazi: "Ayarlar", ikon: "ayar", is: ayarPaneli } : null,
       { ad: "kural", yazi: "Kurallar", ikon: "kural", is: kurallariGoster },
+      { ad: "tema", yazi: "Tema", ikon: "tema", ipucu: "Masanın görünümü", is: temaPaneli },
       oyunVar() && yetkili ? { ad: "bitir", yazi: "Oyunu bitir", ikon: "bitir", ipucu: "Süren oyunu sonuçsuz bitir", is: () => K.onayla({
         baslik: "Oyun bitirilsin mi?", evet: "Bitir",
         metin: "Süren oyun sonuçsuz biter (kimse kazanmış sayılmaz). Sonra yeni oyun başlatabilirsiniz.",
@@ -936,7 +1045,7 @@
     tus.classList.toggle("acik", acik);
     tus.title = acik ? "Fotoğraflara dön" : "Bilardo masasını aç";
     if (acik) {
-      if (!tuval) kur_();
+      if (!tuval) { kur_(); temayiYukle(); }
       baglan();
       requestAnimationFrame(boyutla);
       uygula();
