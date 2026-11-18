@@ -399,21 +399,38 @@ function kisileriGoster(hedef, kisiler, odaKimligi) {
 
 // ---------- Pencereler ----------
 
+// Esc pencereyi kapatır: "Vazgeç / İptal / Kapat / Tamam" düğmesi varsa ona basılmış sayılır (onay bekleyen
+// işler "vazgeçildi" diye sonuçlansın), yoksa pencere doğrudan kapanır. Kapanınca odak açan öğeye döner.
+let pencereOncesiOdak = null;
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || $("pencere").hidden) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const kapatan = [...$("pencereKart").querySelectorAll(".pencere-tuslari button")]
+    .find((b) => /^(Vazgeç|İptal|Kapat|Tamam)$/i.test(b.textContent.trim()));
+  if (kapatan) kapatan.click(); else pencereKapat();
+}, true);
+
 function pencereAc(baslik, icerik, dugmeler) {
   const kart = $("pencereKart");
+  if ($("pencere").hidden) pencereOncesiOdak = document.activeElement;
   kart.replaceChildren(
-    el("h2", {}, baslik),
+    el("h2", { id: "pencereBaslik" }, baslik),
     ...(Array.isArray(icerik) ? icerik : [icerik]),
     el("div", { className: "pencere-tuslari" }, dugmeler.map((d) =>
       el("button", { className: d.ana ? "tus-ana" : d.tehlike ? "tus-tehlike" : "tus-cerceve", onclick: d.is }, d.yazi)))
   );
   $("pencere").hidden = false;
-  const ilkGirdi = kart.querySelector("input");
-  if (ilkGirdi) setTimeout(() => ilkGirdi.focus(), 30);
+  // Odak pencereye girer: varsa ilk yazı kutusuna, yoksa ana düğmeye
+  const ilk = kart.querySelector("input, textarea, select") || kart.querySelector(".pencere-tuslari .tus-ana") || kart.querySelector("button");
+  if (ilk) setTimeout(() => ilk.focus(), 30);
 }
 
 function pencereKapat() {
   $("pencere").hidden = true;
+  const onceki = pencereOncesiOdak;
+  pencereOncesiOdak = null;
+  if (onceki && onceki.isConnected && typeof onceki.focus === "function") { try { onceki.focus({ preventScroll: true }); } catch (e) { } }
 }
 
 function onayla(baslik, mesaj, evetYazisi = "Evet", tehlikeli = false) {

@@ -167,8 +167,9 @@ a {
   margin-top: 0.75rem;
 }
 
+/* Tehlike düğmeleri üzerine gelince koyu kırmızı: beyaz yazı okunur kalsın (#e5484d üstünde 3.9:1 idi, bu 5.5:1) */
 .tus-tehlike:hover {
-  background: var(--kirmizi);
+  background: #c0343a;
   color: #fff;
 }
 
@@ -548,6 +549,14 @@ a {
 .lobi .kart-kilit,
 .lobi .tus-cerceve { font-size: max(13px, 0.85rem); }
 
+/* Klavyeyle gezinirken nerede olduğun görünsün (fareyle tıklayınca çerçeve çıkmaz) */
+.lobi :is(a, button, input, [tabindex]):focus-visible,
+.pencere-kart :is(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.lobi .oda-karti:focus-visible { outline-color: var(--kv, #1db954); outline-offset: 3px; }
+
 /* Dokunmatik ekranda lobideki düğmeler parmakla rahat basılacak boyda (en az 44px) */
 @media (hover: none), (pointer: coarse) {
   .lobi .kullanici-cipi { min-height: 44px; min-width: 44px; justify-content: center; }
@@ -656,8 +665,8 @@ a {
 }
 
 .kisi-islemleri button.tehlike:hover {
-  border-color: #e5484d;
-  background: #e5484d;
+  border-color: #c0343a;
+  background: #c0343a;
   color: #fff;
 }
 
@@ -2489,8 +2498,8 @@ a {
 }
 
 .odadan-cik:hover {
-  background: #e5484d;
-  border-color: #e5484d;
+  background: #c0343a;
+  border-color: #c0343a;
 }
 
 .mini-mod .odadan-cik {
