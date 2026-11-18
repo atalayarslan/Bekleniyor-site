@@ -391,20 +391,22 @@ a {
   padding: 1rem 1.5rem 4rem;
 }
 
+/* Karşılama kısa tutulur: lobinin işi odaya girmek, odalar ilk ekranda görünsün */
 .karsilama {
-  padding: 2.5rem 0 1.5rem;
+  padding: 1.5rem 0 0.25rem;
 }
 
 .karsilama h1 {
-  font-size: 2.6rem;
-  line-height: 1.15;
-  margin: 0 0 0.75rem;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  margin: 0 0 0.4rem;
+  text-wrap: balance;
 }
 
 .karsilama p {
   color: var(--soluk);
-  font-size: 1.05rem;
-  max-width: 36rem;
+  font-size: 1rem;
+  max-width: 40rem;
   margin: 0;
 }
 
@@ -412,8 +414,12 @@ a {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin: 2rem 0 0.9rem;
+  margin: 1.75rem 0 0.9rem;
 }
+.bolum-baslik .yeni-oda-tus { margin-left: auto; }
+.bolum-baslik .rozet:empty { display: none; }
+.lobi-not { margin: 0; color: var(--soluk); font-size: 0.95rem; max-width: 40rem; }
+.oda-izgara > .lobi-not, .oda-izgara > .bos-kutu { grid-column: 1 / -1; }
 
 .bolum-baslik h2 {
   margin: 0;
@@ -468,6 +474,7 @@ a {
 .kart-gorsel {
   position: relative;
   aspect-ratio: 16 / 9;
+  flex: 1 0 auto;   /* aynı satırdaki kartlarda şarkısı olmayan kartın görüntüsü boşluğu doldurur */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -502,8 +509,13 @@ a {
 .kart-sahip { font-size: 0.78rem; color: rgba(255, 255, 255, 0.8); margin-top: 0.15rem; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
 
 .kart-govde { display: grid; gap: 0.6rem; padding: 0.75rem 0.9rem 0.85rem; }
+.kart-govde:empty { display: none; }
+/* Gizli oda: içinde biri var ama davetle girilir; kart soluk durur, bağlantı değildir */
+.oda-karti.kilitli { font: inherit; text-align: left; padding: 0; cursor: help; }
+.oda-karti.kilitli .kart-gorsel { filter: saturate(0.55) brightness(0.8); }
+.oda-karti.kilitli:hover { transform: none; border-color: rgba(255, 255, 255, 0.18); box-shadow: none; }
+.kart-kilit { color: var(--soluk); font-size: 0.85rem; font-weight: 700; }
 .kart-calan { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; }
-.kart-calan.bos { display: block; color: var(--soluk); font-size: 0.82rem; padding: 0.55rem 0; }
 .kart-kapak { width: 2.6rem; height: 2.6rem; border-radius: 0.45rem; object-fit: cover; background: #222; }
 .kart-sarki { min-width: 0; display: grid; line-height: 1.25; }
 .kart-sarki b, .kart-sarki small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -518,20 +530,6 @@ a {
 @keyframes kartDalga { 0%, 100% { height: 25%; } 50% { height: 100%; } }
 @media (prefers-reduced-motion: reduce) { .kart-dalga i, .lobi-canli.canli::before { animation: none; } }
 
-.oda-karti.yeni {
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 14rem;
-  text-align: center;
-  background: transparent;
-  border: 2px dashed rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  font: inherit;
-  color: var(--soluk);
-}
-.oda-karti.yeni:hover { color: #fff; border-color: rgba(255, 255, 255, 0.45); }
-.oda-karti.yeni .arti { font-size: 2.2rem; line-height: 1; }
 /* Odadakiler: üst üste binen küçük fotoğraflar */
 .avatar-yigini {
   display: inline-flex;
@@ -2894,7 +2892,7 @@ a {
   }
 
   .karsilama h1 {
-    font-size: 2rem;
+    font-size: 1.45rem;
   }
 
   .tablo .gizle-dar {
