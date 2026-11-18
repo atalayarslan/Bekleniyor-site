@@ -543,6 +543,9 @@ a {
 .davet-formu label { color: var(--soluk); font-size: max(13px, 0.9rem); }
 .davet-satiri { display: flex; gap: 0.5rem; }
 .davet-satiri .metin-kutusu { flex: 1; min-width: 0; }
+.davet-satiri .metin-kutusu[aria-invalid="true"] { border-color: #ff6b70; }
+.davet-hata { margin: 0; color: #ff8a8e; font-size: max(13px, 0.88rem); font-weight: 700; }
+.gizli-aciklama { margin-top: 0.6rem; }
 
 /* Lobide okunabilirlik tabanı: sitenin genel ölçeği (html font-size) telefonda 13px'e indiği için küçük
    yazılar 9-11px'e düşüyordu. Lobideki yazılar 12px'in altına inmez (genel ölçeğe dokunulmaz). */

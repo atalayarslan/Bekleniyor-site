@@ -352,7 +352,8 @@ function bildir(metin) {
   kutu.textContent = metin;
   kutu.classList.add("gorunur");
   clearTimeout(bildirimZamanlayici);
-  bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur"), 3200);
+  // Uzun mesaj daha uzun kalır (okumaya yetsin): 3,2 sn + harf başına 40 ms, en çok 8 sn
+  bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur"), Math.min(8000, 3200 + String(metin).length * 40));
 }
 
 // Odadakiler listesi. Her kayıt { ad, foto, zaman }; "zaman" odadaki sekme açık kaldıkça dakikada bir

@@ -123,7 +123,9 @@ function kilitliOdaCipi(id, oda) {
   const bilgi = oda.bilgi || {};
   const sayi = katilanListesi(oda.katilanlar).length;
   const aciklama = "Gizli oda. Girmek için " + (bilgi.sahipAdi || "oda sahibi") + " sana davet linkini göndermeli.";
-  return el("button", { type: "button", className: "gizli-oda", title: aciklama, onclick: () => bildir("🔒 " + aciklama) },
+  // Basınca açıklama satırın hemen altında yazar (kaybolan bildirim yerine)
+  const goster = () => { const p = $("gizliAciklama"); p.textContent = "🔒 " + (bilgi.ad || id) + ": " + aciklama; p.hidden = false; };
+  return el("button", { type: "button", className: "gizli-oda", title: aciklama, onclick: goster },
     "🔒 ", el("b", {}, bilgi.ad || id), el("small", {}, (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + sayi + " kişi"));
 }
 
@@ -168,13 +170,22 @@ function davetKimligi(metin) {
   } catch (e) { }
   return ODA_KIMLIGI.test(deger) ? deger : null;
 }
+// Hata kutunun hemen altında yazar (kaybolan bildirim yerine); ekran okuyucu da okur. Yazmaya başlayınca silinir.
 function davetFormunuBagla() {
+  const kutu = $("davetKutusu"), hata = $("davetHata");
+  const hataGoster = (metin) => {
+    hata.textContent = metin;
+    hata.hidden = !metin;
+    if (metin) kutu.setAttribute("aria-invalid", "true"); else kutu.removeAttribute("aria-invalid");
+  };
+  kutu.addEventListener("input", () => { if (!hata.hidden) hataGoster(""); });
   $("davetFormu").addEventListener("submit", (e) => {
     e.preventDefault();
-    const kutu = $("davetKutusu");
     const id = davetKimligi(kutu.value);
-    if (!id) { bildir("Bu bir oda linkine benzemiyor. Linkin sonunda “?oda=…” olmalı."); kutu.focus(); return; }
-    if (!(tumOdalar[id] && tumOdalar[id].bilgi)) { bildir("Bu linkte bir oda bulunamadı; oda silinmiş olabilir. Arkadaşından linki tekrar iste."); kutu.focus(); return; }
+    if (!kutu.value.trim()) { hataGoster("Önce arkadaşının gönderdiği linki buraya yapıştır."); kutu.focus(); return; }
+    if (!id) { hataGoster("Bu bir oda linkine benzemiyor. Linkin sonunda “?oda=…” olmalı."); kutu.focus(); return; }
+    if (!(tumOdalar[id] && tumOdalar[id].bilgi)) { hataGoster("Bu linkte bir oda bulunamadı; oda silinmiş olabilir. Arkadaşından linki tekrar iste."); kutu.focus(); return; }
+    hataGoster("");
     location.href = "?oda=" + encodeURIComponent(id);
   });
 }
@@ -229,6 +240,7 @@ function lobiyiCiz() {
   $("acikOdalar").replaceChildren(...listede.filter((id) => !kilitliMi(id)).map((id) => odaKarti(id, tumOdalar[id] || {})));
   const kilitliler = listede.filter(kilitliMi);
   $("gizliOdalar").hidden = !kilitliler.length;
+  if (!kilitliler.length) $("gizliAciklama").hidden = true;
   $("gizliOdalar").replaceChildren(el("span", { className: "son-odalar-baslik" }, "Gizli odalar:"),
     ...kilitliler.map((id) => kilitliOdaCipi(id, tumOdalar[id])));
   sonOdalariCiz(benimkiler);
