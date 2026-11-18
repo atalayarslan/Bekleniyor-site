@@ -436,6 +436,19 @@ a {
 .lobi-yan { position: sticky; top: 4.5rem; }
 .lobi-yan .siralama { max-width: none; }
 .lobi-yan .secenek-satiri { margin-bottom: 0.8rem; }
+/* Şu an kimler nerede: oda başına bir satır */
+.kimler-liste { display: grid; gap: 0.5rem; }
+.kimler-satir {
+  display: flex; align-items: center; gap: 0.7rem; min-height: 44px; padding: 0.5rem 0.9rem; border-radius: 0.8rem;
+  background: var(--yuzey2); border: 1px solid var(--kenar); color: #fff; text-decoration: none; font-size: max(13px, 0.9rem);
+}
+a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
+.kimler-adlar { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kimler-oda { color: var(--soluk); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kimler-git { margin-left: auto; color: var(--yesil); white-space: nowrap; }
+.kimler-satir.gizli { color: var(--soluk); background: transparent; border-style: dashed; }
+@media (max-width: 640px) { .kimler-oda { display: none; } }
+
 /* Oyunlar sekmesinde okey / bilardo seçimi: sekmelerden küçük, aynı dil */
 .oyun-secim { display: flex; gap: 0.35rem; margin-bottom: 0.7rem; }
 .oyun-secim button {

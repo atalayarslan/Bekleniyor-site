@@ -273,6 +273,7 @@ function lobiyiCiz() {
   const girilebilir = [...listede.filter((id) => !kilitliMi(id)), ...benimkiler].filter((id, i, a) => a.indexOf(id) === i)
     .sort((a, b) => kisi(b) - kisi(a) || bekleyenMasaVar(b) - bekleyenMasaVar(a) || caliyor(b) - caliyor(a));
   karsilamayiCiz(girilebilir);
+  kimlerNeredeCiz(girilebilir, listede.filter(kilitliMi));
 
   $("lobiYonetimTus").hidden = !yonetici;
 }
@@ -280,6 +281,30 @@ function lobiyiCiz() {
 // Karşılama. İlk kez gelen (hiç odaya girmemiş, odası yok) tanıtım başlığını görür. Geri dönen arkadaş ise
 // tanıtım yerine şu anın canlı cümlesini görür: "Zeynep ve Murat şu an “Cuma Akşamı” odasında · okeyde 1 yer boş".
 // Cümledeki oda adına basınca o odaya gidilir. Kimse yoksa tek bir davet cümlesi.
+// "Şu an kimler nerede": içinde insan olan her oda bir satır: kişilerin avatarı ve adı, oda adı, varsa boş koltuk.
+// Satıra basınca odaya gidilir. Gizli odalar (girilmemiş) tek satırda sadece kişi sayısıyla özetlenir.
+function kimlerNeredeCiz(girilebilir, kilitliler) {
+  const dolu = girilebilir.filter((id) => tumOdalar[id] && katilanListesi(tumOdalar[id].katilanlar).length);
+  const gizliKisi = kilitliler.reduce((t, id) => t + katilanListesi((tumOdalar[id] || {}).katilanlar).length, 0);
+  $("kimlerNerede").hidden = !dolu.length && !gizliKisi;
+  const satirlar = dolu.map((id) => {
+    const kisiler = katilanListesi(tumOdalar[id].katilanlar);
+    const adlar = kisiler.map((k) => String(k.ad || "").split(" ")[0]);
+    const masa = oyunMasalari(id).find((m) => !m.oyunVar && m.oturan < 4);
+    const dinlenen = typeof katildi !== "undefined" && katildi && id === odaId;
+    return el("a", {
+      className: "kimler-satir", href: "?oda=" + encodeURIComponent(id),
+      onclick: (e) => { if (dinlenen) { e.preventDefault(); odayaGeriDon(); } }
+    }, avatarYigini(kisiler, 4),
+      el("span", { className: "kimler-adlar" }, isimleriBirlestir(adlar)),
+      el("span", { className: "kimler-oda" }, "“" + ((tumOdalar[id].bilgi || {}).ad || (id === ANA_ODA ? "Ana Oda" : id)) + "”" +
+        (masa ? " · " + MASADA[masa.oyun] + " " + (4 - masa.oturan) + " yer boş" : "")),
+      el("b", { className: "kimler-git" }, dinlenen ? "Buradasın" : "Git →"));
+  });
+  if (gizliKisi) satirlar.push(el("div", { className: "kimler-satir gizli" }, "🔒 " + gizliKisi + " kişi gizli odada (davetle girilir)"));
+  $("kimlerListe").replaceChildren(...satirlar);
+}
+
 const MASADA = { okey: "okeyde", bilardo: "bilardoda" };
 function bosMasa(ids) {
   for (const id of ids) {
