@@ -233,15 +233,69 @@ function lobiyiCiz() {
     ...kilitliler.map((id) => kilitliOdaCipi(id, tumOdalar[id])));
   sonOdalariCiz(benimkiler);
 
-  // Karşılamadaki canlı sayı: şu an kaç kişi kaç odada
-  const kisiSayisi = Object.values(tumOdalar).reduce((t, o) => t + katilanListesi(o.katilanlar).length, 0);
-  const doluOda = Object.values(tumOdalar).filter((o) => katilanListesi(o.katilanlar).length).length;
-  const canli = $("lobiCanli");
-  // Kimse yokken tek bir davet: üç ayrı "boş" yazısı yerine
-  if (canli) canli.textContent = kisiSayisi ? "Şu an " + kisiSayisi + " kişi, " + doluOda + " odada dinliyor" : "Şu an kimse yok · bir odaya gir, müziği sen başlat";
-  if (canli) canli.classList.toggle("canli", kisiSayisi > 0);
+  // Karşılama: girilebilir odalar (benimkiler dahil) kalabalıktan aza
+  const girilebilir = [...listede.filter((id) => !kilitliMi(id)), ...benimkiler].filter((id, i, a) => a.indexOf(id) === i)
+    .sort((a, b) => kisi(b) - kisi(a) || bekleyenMasaVar(b) - bekleyenMasaVar(a) || caliyor(b) - caliyor(a));
+  karsilamayiCiz(girilebilir);
 
   $("lobiYonetimTus").hidden = !yonetici;
+}
+
+// Karşılama. İlk kez gelen (hiç odaya girmemiş, odası yok) tanıtım başlığını görür. Geri dönen arkadaş ise
+// tanıtım yerine şu anın canlı cümlesini görür: "Zeynep ve Murat şu an “Cuma Akşamı” odasında · okeyde 1 yer boş".
+// Cümledeki oda adına basınca o odaya gidilir. Kimse yoksa tek bir davet cümlesi.
+const MASADA = { okey: "okeyde", bilardo: "bilardoda" };
+function bosMasa(ids) {
+  for (const id of ids) {
+    for (const [oyun, m] of Object.entries(odaOyunlari[id] || {})) {
+      if (MASADA[oyun] && m && m.oturan > 0 && m.oturan < 4 && !m.oyunVar && sunucuZamani() - (m.zaman || 0) <= 10 * 60 * 1000) {
+        return { id, oyun, bos: 4 - m.oturan };
+      }
+    }
+  }
+  return null;
+}
+function isimleriBirlestir(adlar) {
+  if (adlar.length <= 2) return adlar.join(" ve ");
+  return adlar.slice(0, 2).join(", ") + " ve " + (adlar.length - 2) + " kişi daha";
+}
+function karsilamayiCiz(girilebilir) {
+  const kisiSayisi = Object.values(tumOdalar).reduce((t, o) => t + katilanListesi(o.katilanlar).length, 0);
+  const doluOda = Object.values(tumOdalar).filter((o) => katilanListesi(o.katilanlar).length).length;
+  const canli = $("lobiCanli"), baslik = $("lobiBaslik"), alt = $("lobiAlt");
+  const ilkGelis = !sonOdalar().length && !benimOdalarim().length;
+  $("lobi").querySelector(".karsilama").classList.toggle("tanitim", ilkGelis);
+  canli.classList.toggle("canli", kisiSayisi > 0);
+  canli.textContent = kisiSayisi ? "Şu an " + kisiSayisi + " kişi, " + doluOda + " odada" : "Şu an kimse yok";
+
+  if (ilkGelis) {
+    baslik.textContent = "Arkadaşını beklerken birlikte müzik dinle";
+    alt.textContent = "Odadaki herkes aynı şarkıyı aynı anda duyar; okey ve bilardo da masada. Bir odaya gir, istersen kendi odanı aç.";
+    return;
+  }
+  // Benim dışımdaki insanların olduğu en kalabalık oda
+  const benimAdim = kisaAd();
+  const adlar = (id) => katilanListesi(tumOdalar[id].katilanlar).map((k) => String(k.ad || "").split(" ")[0]).filter((a) => a && a !== benimAdim);
+  const odaAdi = (id) => (tumOdalar[id].bilgi || {}).ad || (id === ANA_ODA ? "Ana Oda ⭐" : id);
+  const odaBag = (id) => el("a", { href: "?oda=" + encodeURIComponent(id), onclick: (e) => { if (typeof katildi !== "undefined" && katildi && id === odaId) { e.preventDefault(); odayaGeriDon(); } } }, "“" + odaAdi(id) + "”");
+  const kalabalik = girilebilir.find((id) => tumOdalar[id] && adlar(id).length);
+  const masa = bosMasa(girilebilir);
+  if (!kalabalik && !masa) {
+    canli.textContent = "";   // başlık zaten "kimse yok" diyor; rozet tekrar etmesin
+    baslik.textContent = "Şu an kimse yok";
+    alt.textContent = "Bir odaya gir, müziği sen başlat; gelen arkadaşların seni orada bulur.";
+    return;
+  }
+  const parcalar = [];
+  if (kalabalik) parcalar.push(isimleriBirlestir(adlar(kalabalik)) + " şu an ", odaBag(kalabalik), " odasında");
+  if (masa) {
+    const yer = MASADA[masa.oyun] + " " + masa.bos + " yer boş";
+    if (masa.id === kalabalik) parcalar.push(" · " + yer);
+    else if (kalabalik) parcalar.push(" · " + yer + ": ", odaBag(masa.id));
+    else parcalar.push(odaBag(masa.id), " odasında " + yer);
+  }
+  baslik.replaceChildren(...parcalar);
+  alt.textContent = kisiSayisi > 1 && doluOda > 1 ? "Başka odalarda da insanlar var; hepsi aşağıda." : "Odaya girince müzik herkesle aynı anda çalar.";
 }
 
 function odaOlusturPenceresi() {

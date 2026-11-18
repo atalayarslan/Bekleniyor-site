@@ -404,6 +404,10 @@ a {
   text-wrap: balance;
 }
 
+/* Canlı cümledeki oda adı: basınca o odaya gidilir */
+.karsilama h1 a { color: var(--yesil); text-decoration: none; text-underline-offset: 0.15em; }
+.karsilama h1 a:hover { text-decoration: underline; }
+
 .karsilama p {
   color: var(--soluk);
   font-size: 1rem;
