@@ -516,6 +516,24 @@ a {
 .oda-karti.kilitli:hover { transform: none; border-color: rgba(255, 255, 255, 0.18); box-shadow: none; }
 .kart-kilit { color: var(--soluk); font-size: 0.85rem; font-weight: 700; }
 
+/* Son girilen odalar: kartların üstünde tek satırlık kısa yollar */
+.son-odalar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: -0.2rem 0 1rem; }
+.son-odalar-baslik { color: var(--soluk); font-size: max(13px, 0.85rem); font-weight: 700; margin-right: 0.15rem; }
+.son-oda {
+  display: inline-flex; align-items: center; gap: 0.45rem; min-height: 2.1rem; padding: 0.3rem 0.85rem;
+  border-radius: 999px; border: 1px solid var(--kenar); background: var(--yuzey2);
+  color: #fff; text-decoration: none; font-size: max(13px, 0.88rem); font-weight: 700;
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.son-oda:hover { border-color: rgba(255, 255, 255, 0.45); }
+.son-oda small { color: var(--soluk); font-weight: 600; font-size: max(12px, 0.75rem); }
+.son-oda.dolu small { color: var(--yesil); }
+/* Davet linki: gizli odaya girmenin yolu */
+.davet-formu { margin-top: 1.1rem; display: grid; gap: 0.5rem; max-width: 40rem; }
+.davet-formu label { color: var(--soluk); font-size: max(13px, 0.9rem); }
+.davet-satiri { display: flex; gap: 0.5rem; }
+.davet-satiri .metin-kutusu { flex: 1; min-width: 0; }
+
 /* Lobide okunabilirlik tabanı: sitenin genel ölçeği (html font-size) telefonda 13px'e indiği için küçük
    yazılar 9-11px'e düşüyordu. Lobideki yazılar 12px'in altına inmez (genel ölçeğe dokunulmaz). */
 .lobi .kart-rozet,
@@ -535,7 +553,10 @@ a {
   .lobi .kullanici-cipi { min-height: 44px; min-width: 44px; justify-content: center; }
   .lobi .kullanici-cipi img, .lobi .kullanici-cipi .avatar { width: 34px; height: 34px; }
   .lobi .tus-cerceve,
+  .lobi .son-oda,
+  .lobi .davet-satiri .metin-kutusu,
   .lobi .secenek-satiri button { min-height: 44px; }
+  .lobi .davet-satiri .metin-kutusu { font-size: 16px; }   /* telefon odaklanınca sayfayı büyütmesin */
   .lobi .logo { display: inline-flex; align-items: center; min-height: 44px; }
 }
 .kart-calan { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; }

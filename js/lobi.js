@@ -44,6 +44,7 @@ function lobiyiBaslat() {
   // Lobi odadan sonra açıldıysa (mini oynatıcı) oturum zaten bellidir
   if (kullanici) oturumaGore();
   $("lobiYonetimTus").addEventListener("click", yonetimiAc);
+  davetFormunuBagla();
   lobiyiCiz();
 }
 
@@ -139,6 +140,52 @@ function kilitliOdaKarti(id, oda) {
   return kart;
 }
 
+// ---------- Son girilen odalar (bu tarayıcıda) ----------
+const ODA_KIMLIGI = /^[A-Za-z0-9_-]{1,80}$/;
+function sonOdalar() {
+  try {
+    const liste = JSON.parse(hafizadanOku("sonOdalar") || "[]");
+    return Array.isArray(liste) ? liste.filter((id) => typeof id === "string" && ODA_KIMLIGI.test(id)) : [];
+  } catch (e) { return []; }
+}
+function sonOdayaEkle(id) {
+  if (!ODA_KIMLIGI.test(String(id || ""))) return;
+  hafizayaYaz("sonOdalar", JSON.stringify([id, ...sonOdalar().filter((x) => x !== id)].slice(0, 6)));
+}
+// Kendi odaların "Odalarım"da olduğu için burada tekrar edilmez; silinmiş odalar atlanır
+function sonOdalariCiz(benimkiler) {
+  const kutu = $("sonOdalar");
+  const odalar = sonOdalar().filter((id) => !benimkiler.has(id) && tumOdalar[id] && tumOdalar[id].bilgi).slice(0, 4);
+  kutu.hidden = !odalar.length;
+  kutu.replaceChildren(el("span", { className: "son-odalar-baslik" }, "Son girdiğin:"), ...odalar.map((id) => {
+    const oda = tumOdalar[id];
+    const sayi = katilanListesi(oda.katilanlar).length;
+    return el("a", { className: "son-oda" + (sayi ? " dolu" : ""), href: "?oda=" + encodeURIComponent(id) },
+      oda.bilgi.herkeseAcik === false ? "🔒 " : "", oda.bilgi.ad || id, sayi ? el("small", {}, sayi + " kişi") : null);
+  }));
+}
+
+// ---------- Davet linkiyle odaya gitme ----------
+function davetKimligi(metin) {
+  const deger = String(metin || "").trim();
+  if (!deger) return null;
+  try {
+    const id = new URL(deger, location.href).searchParams.get("oda");
+    if (id && ODA_KIMLIGI.test(id)) return id;
+  } catch (e) { }
+  return ODA_KIMLIGI.test(deger) ? deger : null;
+}
+function davetFormunuBagla() {
+  $("davetFormu").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const kutu = $("davetKutusu");
+    const id = davetKimligi(kutu.value);
+    if (!id) { bildir("Bu bir oda linkine benzemiyor. Linkin sonunda “?oda=…” olmalı."); kutu.focus(); return; }
+    if (!(tumOdalar[id] && tumOdalar[id].bilgi)) { bildir("Bu linkte bir oda bulunamadı; oda silinmiş olabilir. Arkadaşından linki tekrar iste."); kutu.focus(); return; }
+    location.href = "?oda=" + encodeURIComponent(id);
+  });
+}
+
 function benimOdalarim() {
   return Object.values(benimSlotlarim).filter((id) => id && tumOdalar[id] && tumOdalar[id].bilgi);
 }
@@ -186,6 +233,7 @@ function lobiyiCiz() {
     return gizli ? kilitliOdaKarti(id, oda) : odaKarti(id, oda);
   });
   $("acikOdalar").replaceChildren(...acikKartlar);
+  sonOdalariCiz(benimkiler);
 
   // Karşılamadaki canlı sayı: şu an kaç kişi kaç odada
   const kisiSayisi = Object.values(tumOdalar).reduce((t, o) => t + katilanListesi(o.katilanlar).length, 0);

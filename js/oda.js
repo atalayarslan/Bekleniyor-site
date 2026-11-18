@@ -453,6 +453,7 @@ function odayaKatil() {
   isim = $("isimKutusu").value.trim().slice(0, 20) || kisaAd() || "Misafir";
   hafizayaYaz("isim", isim);
   katildi = true;
+  if (typeof sonOdayaEkle === "function") sonOdayaEkle(odaId);   // lobide "Son girdiğin odalar" için
   katilmaZamani = sunucuZamani() - 1000;
   aktifOturumUid = null;
   $("kurulumUyarisi").hidden = true;
