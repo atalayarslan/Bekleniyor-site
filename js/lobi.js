@@ -10,6 +10,9 @@ let odaOyunlari = {};
 // üzerine gelince yazar).
 const OYUN_ADLARI = { okey: ["🀄", "Okey"], bilardo: ["🎱", "Bilardo"] };
 function oyunMasalari(id) {
+  // Masa özetini oyunu açık olan tarayıcılar yazar; herkes odadan çıkınca özeti güncelleyen kalmaz ve eski
+  // "3 boş yer" 10 dakika görünürdü. İçinde kimse olmayan odanın masası gösterilmez.
+  if (!katilanListesi((tumOdalar[id] || {}).katilanlar).length) return [];
   const masalar = odaOyunlari[id] || {};
   return Object.entries(OYUN_ADLARI).map(([oyun, [simge, ad]]) => {
     const m = masalar[oyun];
@@ -153,8 +156,7 @@ function kilitliOdaCipi(id, oda) {
 
 // Odada şu an çalan şarkı ve oyuncu bekleyen masa: sıralamada "girmeye değer" ölçüsü
 function bekleyenMasaVar(id) {
-  return Object.values(odaOyunlari[id] || {}).some((m) => m && m.oturan > 0 && m.oturan < 4 && !m.oyunVar &&
-    sunucuZamani() - (m.zaman || 0) <= 10 * 60 * 1000);
+  return oyunMasalari(id).some((m) => !m.oyunVar && m.oturan < 4) ? 1 : 0;
 }
 
 // ---------- Son girilen odalar (bu tarayıcıda) ----------
@@ -281,11 +283,8 @@ function lobiyiCiz() {
 const MASADA = { okey: "okeyde", bilardo: "bilardoda" };
 function bosMasa(ids) {
   for (const id of ids) {
-    for (const [oyun, m] of Object.entries(odaOyunlari[id] || {})) {
-      if (MASADA[oyun] && m && m.oturan > 0 && m.oturan < 4 && !m.oyunVar && sunucuZamani() - (m.zaman || 0) <= 10 * 60 * 1000) {
-        return { id, oyun, bos: 4 - m.oturan };
-      }
-    }
+    const m = oyunMasalari(id).find((x) => MASADA[x.oyun] && !x.oyunVar && x.oturan < 4);
+    if (m) return { id, oyun: m.oyun, bos: 4 - m.oturan };
   }
   return null;
 }
