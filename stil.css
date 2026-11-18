@@ -511,11 +511,16 @@ a {
 
 .kart-govde { display: grid; gap: 0.6rem; padding: 0.75rem 0.9rem 0.85rem; }
 .kart-govde:empty { display: none; }
-/* Gizli oda: içinde biri var ama davetle girilir; kart soluk durur, bağlantı değildir */
-.oda-karti.kilitli { font: inherit; text-align: left; padding: 0; cursor: help; }
-.oda-karti.kilitli .kart-gorsel { filter: saturate(0.55) brightness(0.8); }
-.oda-karti.kilitli:hover { transform: none; border-color: rgba(255, 255, 255, 0.18); box-shadow: none; }
-.kart-kilit { color: var(--soluk); font-size: 0.85rem; font-weight: 700; }
+/* Gizli odalar: girilebilir odalardan sonra küçük kilitli satır (içinde biri varken); bağlantı değil */
+.gizli-odalar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+.gizli-oda {
+  display: inline-flex; align-items: baseline; gap: 0.4rem; min-height: 2.1rem; padding: 0.3rem 0.85rem;
+  border-radius: 999px; border: 1px dashed rgba(255, 255, 255, 0.22); background: transparent;
+  color: var(--soluk); font: inherit; font-size: max(13px, 0.88rem); cursor: help; max-width: 100%;
+}
+.gizli-oda b { color: #fff; font-weight: 700; }
+.gizli-oda small { font-size: max(12px, 0.75rem); }
+.gizli-oda:hover { border-color: rgba(255, 255, 255, 0.45); }
 
 /* Son girilen odalar: kartların üstünde tek satırlık kısa yollar */
 .son-odalar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: -0.2rem 0 1rem; }
@@ -546,7 +551,6 @@ a {
 .lobi .siralama-detay { font-size: max(12px, 0.75rem); }
 .lobi .kart-sarki b,
 .lobi .lobi-canli,
-.lobi .kart-kilit,
 .lobi .tus-cerceve { font-size: max(13px, 0.85rem); }
 
 /* Klavyeyle gezinirken nerede olduğun görünsün (fareyle tıklayınca çerçeve çıkmaz) */
@@ -563,6 +567,7 @@ a {
   .lobi .kullanici-cipi img, .lobi .kullanici-cipi .avatar { width: 34px; height: 34px; }
   .lobi .tus-cerceve,
   .lobi .son-oda,
+  .lobi .gizli-oda,
   .lobi .davet-satiri .metin-kutusu,
   .lobi .secenek-satiri button { min-height: 44px; }
   .lobi .davet-satiri .metin-kutusu { font-size: 16px; }   /* telefon odaklanınca sayfayı büyütmesin */

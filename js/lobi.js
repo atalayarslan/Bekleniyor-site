@@ -116,28 +116,21 @@ function kartGorseliniYukle(id, kutu) {
   });
 }
 
-// Gizli oda (lobide listelenmesin denmiş) içinde biri varken kilitli kart olarak görünür: adı, görüntüsü ve
-// kaç kişi olduğu belli olur ama kart bir bağlantı değildir; girmek için oda sahibinin paylaştığı link gerekir.
-function kilitliOdaKarti(id, oda) {
+// Gizli oda (lobide listelenmesin denmiş), içinde biri varken girilebilir odaların ARDINDAN küçük bir satırda
+// görünür: adı, sahibi ve kaç kişi olduğu. Bağlantı değildir; girmek için oda sahibinin davet linki gerekir.
+// (Bu tarayıcıda daha önce girilmiş gizli oda kilitli sayılmaz, normal kart olarak gösterilir.)
+function kilitliOdaCipi(id, oda) {
   const bilgi = oda.bilgi || {};
-  const tasarim = tasarimiTamamla(oda.tasarim, id);
   const sayi = katilanListesi(oda.katilanlar).length;
-  const gorsel = el("div", { className: "kart-gorsel" },
-    el("div", { className: "kart-rozetler" },
-      el("span", { className: "kart-rozet canli" }, sayi + " kişi içeride")),
-    el("div", { className: "kart-emoji", "aria-hidden": "true" }, "🔒"),
-    el("div", { className: "kart-baslik" },
-      el("h3", {}, bilgi.ad || id),
-      bilgi.sahipAdi ? el("div", { className: "kart-sahip" }, bilgi.sahipAdi) : null));
-  kartGorseliniYukle(id, gorsel);
   const aciklama = "Gizli oda. Girmek için " + (bilgi.sahipAdi || "oda sahibi") + " sana davet linkini göndermeli.";
-  const kart = el("button", {
-    type: "button", className: "oda-karti kilitli", title: aciklama,
-    onclick: () => bildir("🔒 " + aciklama)
-  }, gorsel, el("div", { className: "kart-govde" }, el("div", { className: "kart-kilit" }, "🔒 Davetle girilir")));
-  kart.style.setProperty("--k1", tasarim.arka2 === tasarim.arka1 ? tasarim.daire1 : tasarim.arka1);
-  kart.style.setProperty("--k2", tasarim.arka2 === tasarim.arka1 ? tasarim.daire2 : tasarim.arka2);
-  return kart;
+  return el("button", { type: "button", className: "gizli-oda", title: aciklama, onclick: () => bildir("🔒 " + aciklama) },
+    "🔒 ", el("b", {}, bilgi.ad || id), el("small", {}, (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + sayi + " kişi"));
+}
+
+// Odada şu an çalan şarkı ve oyuncu bekleyen masa: sıralamada "girmeye değer" ölçüsü
+function bekleyenMasaVar(id) {
+  return Object.values(odaOyunlari[id] || {}).some((m) => m && m.oturan > 0 && m.oturan < 4 && !m.oyunVar &&
+    sunucuZamani() - (m.zaman || 0) <= 10 * 60 * 1000);
 }
 
 // ---------- Son girilen odalar (bu tarayıcıda) ----------
@@ -217,8 +210,9 @@ function lobiyiCiz() {
     odalarim.replaceChildren(...kartlar);
   }
 
-  // Odalar: içinde insan olan odalar başta (kalabalıktan aza), sonra ana oda, sonra diğer açık odalar.
-  // Gizli odalar yalnızca içinde biri varken kilitli kart olarak görünür. "Odalarım"dakiler burada tekrar edilmez.
+  // Odalar: girilebilir odalar önce: içinde insan olanlar (kalabalıktan aza), eşitse oyuncu bekleyen masası ve
+  // çalan şarkısı olan, sonra ana oda, sonra diğerleri. Gizli odalar içinde biri varken en sonda küçük bir satırda.
+  // "Odalarım"dakiler burada tekrar edilmez.
   const benimkiler = new Set(kullanici ? [...benimOdalarim(), ...Object.keys(tumOdalar).filter((id) =>
     yonetici && tumOdalar[id].bilgi && tumOdalar[id].bilgi.sahip === kullanici.uid)] : []);
   const kisi = (id) => katilanListesi((tumOdalar[id] || {}).katilanlar).length;
@@ -226,14 +220,17 @@ function lobiyiCiz() {
   const listede = Object.keys(tumOdalar).filter((id) => !benimkiler.has(id) && tumOdalar[id].bilgi &&
     (id === ANA_ODA || tumOdalar[id].bilgi.herkeseAcik !== false || kisi(id) > 0 || id === dinlenenOda));
   if (!benimkiler.has(ANA_ODA) && !listede.includes(ANA_ODA)) listede.push(ANA_ODA);
-  listede.sort((a, b) => kisi(b) - kisi(a) || (b === ANA_ODA) - (a === ANA_ODA)
+  const caliyor = (id) => { const m = ((tumOdalar[id] || {}).muzik || {}).simdiki; return m && !m.duraklatildi && kisi(id) > 0 ? 1 : 0; };
+  listede.sort((a, b) => kisi(b) - kisi(a) || bekleyenMasaVar(b) - bekleyenMasaVar(a) || caliyor(b) - caliyor(a)
+    || (b === ANA_ODA) - (a === ANA_ODA)
     || ((tumOdalar[b] || {}).bilgi || {}).olusturma - ((tumOdalar[a] || {}).bilgi || {}).olusturma || 0);
-  const acikKartlar = listede.map((id) => {
-    const oda = tumOdalar[id] || {};
-    const gizli = id !== ANA_ODA && oda.bilgi && oda.bilgi.herkeseAcik === false && id !== dinlenenOda;
-    return gizli ? kilitliOdaKarti(id, oda) : odaKarti(id, oda);
-  });
-  $("acikOdalar").replaceChildren(...acikKartlar);
+  const girilmis = new Set(sonOdalar());
+  const kilitliMi = (id) => { const b = (tumOdalar[id] || {}).bilgi; return id !== ANA_ODA && b && b.herkeseAcik === false && id !== dinlenenOda && !girilmis.has(id); };
+  $("acikOdalar").replaceChildren(...listede.filter((id) => !kilitliMi(id)).map((id) => odaKarti(id, tumOdalar[id] || {})));
+  const kilitliler = listede.filter(kilitliMi);
+  $("gizliOdalar").hidden = !kilitliler.length;
+  $("gizliOdalar").replaceChildren(el("span", { className: "son-odalar-baslik" }, "Gizli odalar:"),
+    ...kilitliler.map((id) => kilitliOdaCipi(id, tumOdalar[id])));
   sonOdalariCiz(benimkiler);
 
   // Karşılamadaki canlı sayı: şu an kaç kişi kaç odada
@@ -268,7 +265,7 @@ function odaOlusturPenceresi() {
   pencereAc("Yeni oda", [
     el("label", { className: "alan" }, "Oda adı", adKutusu),
     el("div", { className: "alan" }, "Başlangıç teması (sonra düzen modunda değiştirebilirsin)", seridi),
-    el("label", { className: "anahtar" }, acikKutusu, "Lobideki “Açık odalar”da görünsün")
+    el("label", { className: "anahtar" }, acikKutusu, "Lobideki “Odalar”da herkes görsün (kapalıysa sadece davet linkiyle girilir)")
   ], [
     { yazi: "Vazgeç", is: pencereKapat },
     {
