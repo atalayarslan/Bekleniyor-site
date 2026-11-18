@@ -205,6 +205,7 @@ function lobiyiCiz() {
     const hepsi = [...yoneticiOdalari, ...benim];
     // Yöneticinin oda sınırı yok; ona kendi odalarının sayısı gösterilir. Hiç odası yokken sayı gösterilmez.
     $("odaHakki").textContent = !hepsi.length ? "" : yonetici ? hepsi.length + " oda" : benim.length + " / " + ODA_HAKKI + " oda";
+    $("odaHakki").title = yonetici ? "" : "Her hesap en fazla " + ODA_HAKKI + " oda açabilir";
     // Yeni oda: büyük boş kart yerine başlığın yanında küçük bir düğme
     const acabilir = !yasakli && (benim.length < ODA_HAKKI || yonetici);
     const yeniTus = $("yeniOdaTus");

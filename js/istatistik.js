@@ -8,7 +8,8 @@ let benimIstatistigim = null;
 let birikenSitede = 0;
 let birikenDinleme = 0;
 let siralamaVerisi = {};
-let siralamaTuru = "sitede";
+// Sıralama "Dinleme" ile açılır: sitenin işi birlikte dinlemek (sekmeyi açık bırakmayı ödüllendiren "Sitede" sonda)
+let siralamaTuru = "dinleme";
 
 function sureMetni(saniye) {
   // Örnek: "1 g 2 sa 10 sn" — sıfır olan birimler yazılmaz
@@ -228,7 +229,10 @@ function siralamayiCiz() {
     .filter((v) => (v[siralamaTuru] || 0) > 0)
     .sort((a, b) => (b[siralamaTuru] || 0) - (a[siralamaTuru] || 0));
   if (!kayitlar.length) {
-    kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Henüz kimse süre kazanmadı. Google ile giriş yapıp odada müzik dinledikçe burada görünürsün."));
+    // Lobiyi herkes giriş yapmış görür; "giriş yap" demeye gerek yok
+    kutu.replaceChildren(el("div", { className: "bos-kutu" }, siralamaTuru === "dinleme"
+      ? "Henüz kimse müzik dinlemedi. Bir odaya girip dinledikçe burada görünürsün."
+      : "Henüz kimse süre biriktirmedi. Sitede vakit geçirdikçe burada görünürsün."));
     return;
   }
   const enYuksek = kayitlar[0][siralamaTuru] || 1;
