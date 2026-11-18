@@ -515,6 +515,16 @@ a {
 
 .kart-govde { display: grid; gap: 0.6rem; padding: 0.75rem 0.9rem 0.85rem; }
 .kart-govde:empty { display: none; }
+/* Oyuncu bekleyen masa: kartın en belirgin çağrısı, odanın kendi vurgu rengiyle */
+.kart-oyun-davet {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.75rem; border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--kv, #1db954) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kv, #1db954) 55%, transparent);
+  color: #fff; font-weight: 700; font-size: max(13px, 0.9rem); cursor: pointer;
+}
+.kart-oyun-davet b { margin-left: auto; color: color-mix(in srgb, var(--kv, #1db954) 70%, white); white-space: nowrap; }
+.kart-oyun-davet:hover { background: color-mix(in srgb, var(--kv, #1db954) 28%, transparent); }
+.kart-oyun-davet:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Gizli odalar: girilebilir odalardan sonra küçük kilitli satır (içinde biri varken); bağlantı değil */
 .gizli-odalar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
 .gizli-oda {

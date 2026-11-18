@@ -4,16 +4,34 @@ let tumOdalar = {};
 let benimSlotlarim = {};
 let odaOyunlari = {};
 
-// Odadaki masaların rozetleri: son 10 dakikada güncellenmiş ve en az bir kişinin oturduğu masalar
+// Odadaki masalar: son 10 dakikada güncellenmiş ve en az bir kişinin oturduğu masalar. Oynanan masa küçük bir
+// rozet olur; oyuncu bekleyen (boş koltuğu olan) masa kartın altında belirgin bir "Otur" daveti olur.
+// Koltuk sayısına botlar da dahildir; bu yüzden "N kişi içeride" ile masadaki sayı farklı olabilir (açıklaması
+// üzerine gelince yazar).
 const OYUN_ADLARI = { okey: ["🀄", "Okey"], bilardo: ["🎱", "Bilardo"] };
-function oyunRozetleri(id) {
+function oyunMasalari(id) {
   const masalar = odaOyunlari[id] || {};
   return Object.entries(OYUN_ADLARI).map(([oyun, [simge, ad]]) => {
     const m = masalar[oyun];
     if (!m || !(m.oturan > 0) || sunucuZamani() - (m.zaman || 0) > 10 * 60 * 1000) return null;
-    return el("span", { className: "kart-rozet oyun" + (m.oyunVar ? " oynaniyor" : ""), title: m.oyunVar ? ad + " oynanıyor" : ad + " masasında bekleyen var" },
-      simge + " " + ad + " " + m.oturan + "/4" + (m.oyunVar ? "" : " · bekliyor"));
+    return { oyun, simge, ad, oturan: Math.min(4, m.oturan), oyunVar: !!m.oyunVar };
   }).filter(Boolean);
+}
+function oyunRozetleri(id) {
+  return oyunMasalari(id).filter((m) => m.oyunVar || m.oturan >= 4).map((m) =>
+    el("span", { className: "kart-rozet oyun" + (m.oyunVar ? " oynaniyor" : ""), title: m.ad + (m.oyunVar ? " oynanıyor" : " masası dolu") + " (" + m.oturan + "/4 koltuk, botlar dahil)" },
+      m.simge + " " + m.ad + " " + m.oturan + "/4"));
+}
+function oyunDavetleri(id) {
+  return oyunMasalari(id).filter((m) => !m.oyunVar && m.oturan < 4).map((m) => {
+    const bos = 4 - m.oturan;
+    return el("span", {
+      className: "kart-oyun-davet", role: "link", tabIndex: 0,
+      title: "Masada " + m.oturan + " koltuk dolu (botlar da sayılır). Basınca odaya girip masayı açar.",
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); location.href = "?oda=" + encodeURIComponent(id) + "&" + m.oyun + "=1"; },
+      onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); e.currentTarget.click(); } }
+    }, el("span", { "aria-hidden": "true" }, m.simge), " " + (m.oyun === "okey" ? "Okeyde " : "Bilardoda ") + bos + " boş yer", el("b", {}, "Otur →"));
+  });
 }
 
 function lobiyiBaslat() {
@@ -79,6 +97,7 @@ function odaKarti(id, oda) {
   },
     gorsel,
     el("div", { className: "kart-govde" },
+      ...oyunDavetleri(id),
       calan ? el("div", { className: "kart-calan" },
         kapakResmi(calan, { className: "kart-kapak" }),
         el("div", { className: "kart-sarki" }, el("b", {}, calan.baslik), el("small", {}, sanatci || (caliyor ? "Çalıyor" : "Duraklatıldı"))),
