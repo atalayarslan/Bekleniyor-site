@@ -436,6 +436,14 @@ a {
 .lobi-yan { position: sticky; top: 4.5rem; }
 .lobi-yan .siralama { max-width: none; }
 .lobi-yan .secenek-satiri { margin-bottom: 0.8rem; }
+/* Oyunlar sekmesinde okey / bilardo seçimi: sekmelerden küçük, aynı dil */
+.oyun-secim { display: flex; gap: 0.35rem; margin-bottom: 0.7rem; }
+.oyun-secim button {
+  padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--kenar); background: transparent;
+  color: var(--soluk); font: inherit; font-size: max(13px, 0.85rem); font-weight: 700; cursor: pointer;
+}
+.oyun-secim button.secili { background: var(--yuzey3); color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+@media (hover: none), (pointer: coarse) { .oyun-secim button { min-height: 44px; } }
 @media (max-width: 1000px) {
   .lobi-duzen { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .lobi-yan { position: static; }

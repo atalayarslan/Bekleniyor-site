@@ -146,6 +146,7 @@ function siralamayiBaslat() {
 // Sunucuya ulaşılamazsa (ya da 10 sn'de cevap gelmezse) "alınamadı" yazar ve tekrar denenebilir; daha önce
 // alınmış bir liste varsa o gösterilmeye devam eder.
 let galibiyetler = null, galibiyetZamani = 0, galibiyetIstegi = null, galibiyetHatasi = false;
+let oyunSiralamaSecimi = "okey";   // Oyunlar sekmesinde hangi oyunun sıralaması görünür
 function oyunSunucusu() {
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return "http://127.0.0.1:8787";
   return String(AYARLAR.okeySunucu || "").replace(/\/+$/, "");
@@ -187,23 +188,29 @@ function oyunSiralamasiniCiz(kutu) {
     return;
   }
   if (!galibiyetler) { kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Galibiyetler yükleniyor…")); return; }
-  if (!galibiyetler.length) {
-    kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Henüz kimse okey ya da bilardo kazanmadı. Bir odada masaya otur, ilk sen kazan."));
+  // Okey ve bilardo ayrı sıralanır; üstte iki küçük seçim düğmesi
+  const secim = el("div", { className: "oyun-secim", role: "group", "aria-label": "Oyun seç" },
+    ...[["okey", "🀄 Okey"], ["bilardo", "🎱 Bilardo"]].map(([oyun, yazi]) => el("button", {
+      type: "button", className: oyun === oyunSiralamaSecimi ? "secili" : "", "aria-pressed": String(oyun === oyunSiralamaSecimi),
+      onclick: () => { oyunSiralamaSecimi = oyun; siralamayiCiz(); }
+    }, yazi)));
+  const oyun = oyunSiralamaSecimi;
+  const liste = galibiyetler.filter((v) => (v[oyun] || 0) > 0).sort((a, b) => b[oyun] - a[oyun]);
+  if (!liste.length) {
+    kutu.replaceChildren(secim, el("div", { className: "bos-kutu" }, oyun === "okey"
+      ? "Henüz kimse okey oyunu kazanmadı. Okeyde, masada seçilen el sayısı bitince en düşük puanlı kazanır."
+      : "Henüz kimse bilardo kazanmadı. Bir odada masaya otur, ilk sen kazan."));
     return;
   }
   const madalya = ["🥇", "🥈", "🥉"];
-  const enYuksek = galibiyetler[0].okey + galibiyetler[0].bilardo || 1;
-  kutu.replaceChildren(...galibiyetler.slice(0, 10).map((v, i) => {
-    const toplam = v.okey + v.bilardo;
-    return el("div", { className: "siralama-satiri" },
-      el("div", { className: "sira-no" }, madalya[i] || String(i + 1)),
-      avatarOgesi({ ad: v.ad, foto: v.foto }),
-      el("div", { className: "siralama-bilgi" },
-        el("div", { className: "siralama-ad" }, (v.ad || "İsimsiz").split(" ")[0]),
-        el("div", { className: "siralama-detay" }, [v.okey ? "Okey " + v.okey : "", v.bilardo ? "Bilardo " + v.bilardo : ""].filter(Boolean).join(" · ")),
-        el("div", { className: "siralama-cubuk" }, el("div", { style: { width: Math.max(4, toplam / enYuksek * 100) + "%" } }))),
-      el("div", { className: "siralama-sure", title: v.oyun + " oyunda " + toplam + " galibiyet" }, toplam + " 🏆"));
-  }));
+  const enYuksek = liste[0][oyun] || 1;
+  kutu.replaceChildren(secim, ...liste.slice(0, 10).map((v, i) => el("div", { className: "siralama-satiri" },
+    el("div", { className: "sira-no" }, madalya[i] || String(i + 1)),
+    avatarOgesi({ ad: v.ad, foto: v.foto }),
+    el("div", { className: "siralama-bilgi" },
+      el("div", { className: "siralama-ad" }, (v.ad || "İsimsiz").split(" ")[0]),
+      el("div", { className: "siralama-cubuk" }, el("div", { style: { width: Math.max(4, v[oyun] / enYuksek * 100) + "%" } }))),
+    el("div", { className: "siralama-sure", title: (oyun === "okey" ? "Okey" : "Bilardo") + ": " + v[oyun] + " galibiyet" }, v[oyun] + " 🏆"))));
 }
 
 function siralamayiCiz() {
