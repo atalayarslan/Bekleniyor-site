@@ -557,6 +557,16 @@ a {
 .lobi .lobi-canli,
 .lobi .tus-cerceve { font-size: max(13px, 0.85rem); }
 
+/* Telefonda (dar ekran) ilk ekranda daha çok oda görünsün: kart görseli yassılaşır, son odalar tek satırda
+   yana kayar (alt alta iki satır yer kaplamaz) */
+@media (max-width: 640px) {
+  .lobi .kart-gorsel { aspect-ratio: 5 / 2; }
+  .lobi .son-odalar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -1.5rem; padding-right: 1.5rem; }
+  .lobi .son-odalar::-webkit-scrollbar { display: none; }
+  .lobi .son-oda, .lobi .son-odalar-baslik { flex-shrink: 0; white-space: nowrap; }
+  .lobi .karsilama { padding-top: 1rem; }
+}
+
 /* Klavyeyle gezinirken nerede olduğun görünsün (fareyle tıklayınca çerçeve çıkmaz) */
 .lobi :is(a, button, input, [tabindex]):focus-visible,
 .pencere-kart :is(a, button, input, select, textarea):focus-visible {
