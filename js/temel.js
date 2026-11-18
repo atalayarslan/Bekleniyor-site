@@ -573,8 +573,12 @@ function oturumRozetleriniCiz() {
   document.querySelectorAll(".oturum-kutusu").forEach((kutu) => {
     if (!auth) { kutu.replaceChildren(); return; }
     if (!kullanici) { kutu.replaceChildren(googleTusu()); return; }
-    const cip = el("button", { className: "kullanici-cipi", title: kullanici.email || "" },
-      el("img", { src: kullanici.photoURL || BOS_KAPAK, alt: "", referrerPolicy: "no-referrer" }),
+    // Fotoğrafı yoksa (ya da güvenli adres değilse) boş müzik simgesi yerine adının baş harfi görünür;
+    // telefonda ad gizlendiği için düğmenin ne olduğu ekran okuyucuya da söylenir
+    const cip = el("button", { className: "kullanici-cipi", title: kullanici.email || "", "aria-label": "Hesabım: " + (kisaAd() || "") },
+      guvenliFoto(kullanici.photoURL)
+        ? el("img", { src: kullanici.photoURL, alt: "", referrerPolicy: "no-referrer" })
+        : avatarOgesi({ ad: kisaAd() || "?" }),
       el("span", { className: "cip-adi" }, kisaAd() || "Hesabım"));
     cip.addEventListener("click", () => menuAc(cip, [
       { baslik: kullanici.email || "" },

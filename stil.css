@@ -515,6 +515,29 @@ a {
 .oda-karti.kilitli .kart-gorsel { filter: saturate(0.55) brightness(0.8); }
 .oda-karti.kilitli:hover { transform: none; border-color: rgba(255, 255, 255, 0.18); box-shadow: none; }
 .kart-kilit { color: var(--soluk); font-size: 0.85rem; font-weight: 700; }
+
+/* Lobide okunabilirlik tabanı: sitenin genel ölçeği (html font-size) telefonda 13px'e indiği için küçük
+   yazılar 9-11px'e düşüyordu. Lobideki yazılar 12px'in altına inmez (genel ölçeğe dokunulmaz). */
+.lobi .kart-rozet,
+.lobi .kart-sahip,
+.lobi .kart-sarki small,
+.lobi .kart-kisiler span,
+.lobi .avatar.harf,
+.lobi .bolum-baslik .rozet,
+.lobi .siralama-detay { font-size: max(12px, 0.75rem); }
+.lobi .kart-sarki b,
+.lobi .lobi-canli,
+.lobi .kart-kilit,
+.lobi .tus-cerceve { font-size: max(13px, 0.85rem); }
+
+/* Dokunmatik ekranda lobideki düğmeler parmakla rahat basılacak boyda (en az 44px) */
+@media (hover: none), (pointer: coarse) {
+  .lobi .kullanici-cipi { min-height: 44px; min-width: 44px; justify-content: center; }
+  .lobi .kullanici-cipi img, .lobi .kullanici-cipi .avatar { width: 34px; height: 34px; }
+  .lobi .tus-cerceve,
+  .lobi .secenek-satiri button { min-height: 44px; }
+  .lobi .logo { display: inline-flex; align-items: center; min-height: 44px; }
+}
 .kart-calan { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; }
 .kart-kapak { width: 2.6rem; height: 2.6rem; border-radius: 0.45rem; object-fit: cover; background: #222; }
 .kart-sarki { min-width: 0; display: grid; line-height: 1.25; }
