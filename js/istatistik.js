@@ -136,12 +136,15 @@ function siralamayiBaslat() {
     siralamayiCiz();
   });
   oturumDegisince(siralamayiCiz);
-  // Herkesin süresi her saniye canlı artsın (sadece lobi görünürken çizilir)
-  setInterval(() => { if (!$("lobi").hidden) siralamayiCiz(); }, 1000);
+  // Herkesin süresi her saniye canlı artsın (sadece lobi görünürken çizilir). Oyun sekmesi saniyede bir
+  // çizilmez: süresi yok, üstelik "Tekrar dene" düğmesi tıklanırken yerine yenisi konup tıklama kaybolurdu.
+  setInterval(() => { if (!$("lobi").hidden && siralamaTuru !== "oyun") siralamayiCiz(); }, 1000);
 }
 
-// Oyun galibiyetleri (okey + bilardo) oyun sunucusunda tutulur (okey-sunucu/src/galibiyet.js); dakikada bir okunur
-let galibiyetler = null, galibiyetZamani = 0, galibiyetIstegi = null;
+// Oyun galibiyetleri (okey + bilardo) oyun sunucusunda tutulur (okey-sunucu/src/galibiyet.js); dakikada bir okunur.
+// Sunucuya ulaşılamazsa (ya da 10 sn'de cevap gelmezse) "alınamadı" yazar ve tekrar denenebilir; daha önce
+// alınmış bir liste varsa o gösterilmeye devam eder.
+let galibiyetler = null, galibiyetZamani = 0, galibiyetIstegi = null, galibiyetHatasi = false;
 function oyunSunucusu() {
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return "http://127.0.0.1:8787";
   return String(AYARLAR.okeySunucu || "").replace(/\/+$/, "");
@@ -149,20 +152,40 @@ function oyunSunucusu() {
 function galibiyetleriGetir() {
   if (galibiyetIstegi || Date.now() - galibiyetZamani < 60000) return;
   galibiyetIstegi = (async () => {
+    const iptal = new AbortController();
+    const zaman = setTimeout(() => iptal.abort(), 10000);
     try {
       const kart = await kimlikKarti();
-      const yanit = await fetch(oyunSunucusu() + "/galibiyetler", kart ? { headers: { "Authorization": "Bearer " + kart } } : {});
-      if (yanit.ok) galibiyetler = (await yanit.json()).liste || [];
-    } catch (e) { }
+      const yanit = await fetch(oyunSunucusu() + "/galibiyetler", Object.assign({ signal: iptal.signal },
+        kart ? { headers: { "Authorization": "Bearer " + kart } } : {}));
+      if (!yanit.ok) throw new Error("HTTP " + yanit.status);
+      galibiyetler = (await yanit.json()).liste || [];
+      galibiyetHatasi = false;
+    } catch (e) {
+      galibiyetHatasi = true;
+    }
+    clearTimeout(zaman);
     galibiyetZamani = Date.now();
     galibiyetIstegi = null;
     siralamayiCiz();
   })();
 }
 
+function galibiyetleriYenidenDene() {
+  galibiyetHatasi = false;
+  galibiyetZamani = 0;
+  siralamayiCiz();
+}
+
 function oyunSiralamasiniCiz(kutu) {
   galibiyetleriGetir();
-  if (!galibiyetler) { kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Yükleniyor…")); return; }
+  if (!galibiyetler && galibiyetHatasi) {
+    kutu.replaceChildren(el("div", { className: "bos-kutu" },
+      el("p", {}, "Oyun galibiyetleri şu an alınamadı. Oyun sunucusuna ulaşılamıyor olabilir."),
+      el("button", { type: "button", className: "tus-cerceve", onclick: galibiyetleriYenidenDene }, "Tekrar dene")));
+    return;
+  }
+  if (!galibiyetler) { kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Galibiyetler yükleniyor…")); return; }
   if (!galibiyetler.length) {
     kutu.replaceChildren(el("div", { className: "bos-kutu" }, "Henüz kimse okey ya da bilardo kazanmadı. Bir odada masaya otur, ilk sen kazan."));
     return;

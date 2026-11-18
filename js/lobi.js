@@ -260,7 +260,9 @@ async function odaOlustur(ad, herkeseAcik, temaId) {
     await db.ref().update(guncellemeler);
     location.href = "?oda=" + id;
   } catch (e) {
-    bildir("Oda oluşturulamadı: " + (e.code === "PERMISSION_DENIED" ? "izin yok (oda hakkın dolmuş olabilir)" : e.message));
+    console.warn("Oda oluşturulamadı:", e);
+    bildir(e.code === "PERMISSION_DENIED" ? "Oda oluşturulamadı: oda hakkın dolmuş olabilir. Odalarından birini silip tekrar dene."
+      : "Oda oluşturulamadı. İnternet bağlantını kontrol edip tekrar dene.");
   }
 }
 
@@ -281,7 +283,9 @@ async function odaSil(id, bilgi) {
     bildir("Oda silindi");
     if (new URLSearchParams(location.search).get("oda") === id) location.href = "./";
   } catch (e) {
-    bildir("Silinemedi: " + (e.code === "PERMISSION_DENIED" ? "izin yok" : e.message));
+    console.warn("Oda silinemedi:", e);
+    bildir(e.code === "PERMISSION_DENIED" ? "Oda silinemedi: bu odayı silme iznin yok."
+      : "Oda silinemedi. İnternet bağlantını kontrol edip tekrar dene.");
   }
 }
 
