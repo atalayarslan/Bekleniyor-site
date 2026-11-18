@@ -83,9 +83,10 @@ function odaKarti(id, oda) {
       // Boş oda için rozet yok (ekran "boş" yazılarıyla dolmasın); dolu oda canlı sayıyla öne çıkar
       icerdekiler.length ? el("span", { className: "kart-rozet canli" }, icerdekiler.length + " kişi içeride") : null,
       ...oyunRozetleri(id)),
-    el("div", { className: "kart-emoji" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
+    // Odanın emojisi köşede (favori/puan gibi okunuyordu) değil, adın önünde durur
     el("div", { className: "kart-baslik" },
-      el("h3", {}, bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
+      el("h3", {}, el("span", { className: "kart-emoji", "aria-hidden": "true" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
+        bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
       bilgi.sahipAdi ? el("div", { className: "kart-sahip" }, bilgi.sahipAdi) : null));
   kartGorseliniYukle(id, gorsel);
   const sanatci = calan ? sanatciBul(calan) : "";
@@ -98,6 +99,8 @@ function odaKarti(id, oda) {
     gorsel,
     el("div", { className: "kart-govde" },
       ...oyunDavetleri(id),
+      // Boş oda: tek, soluk bir satır (kart durumsuz görünmesin)
+      !calan && !icerdekiler.length ? el("div", { className: "kart-bos" }, "Şu an boş · ilk sen gir") : null,
       calan ? el("div", { className: "kart-calan" },
         kapakResmi(calan, { className: "kart-kapak" }),
         el("div", { className: "kart-sarki" }, el("b", {}, calan.baslik), el("small", {}, sanatci || (caliyor ? "Çalıyor" : "Duraklatıldı"))),

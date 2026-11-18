@@ -506,15 +506,13 @@ a {
 .kart-rozet.burada { background: var(--yesil); color: #000; }
 .kart-rozet.oyun { color: #fff; }
 .kart-rozet.oyun.oynaniyor { background: color-mix(in srgb, var(--kv, #1db954) 85%, black); }
-.oda-karti .kart-emoji {
-  position: absolute; top: 0.6rem; right: 0.8rem; font-size: 1.7rem; opacity: 0.9;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-}
+.oda-karti .kart-emoji { margin-right: 0.4rem; font-size: 0.95em; }
 .kart-baslik h3 { margin: 0; font-size: 1.2rem; line-height: 1.2; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
 .kart-sahip { font-size: 0.78rem; color: rgba(255, 255, 255, 0.8); margin-top: 0.15rem; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
 
 .kart-govde { display: grid; gap: 0.6rem; padding: 0.75rem 0.9rem 0.85rem; }
 .kart-govde:empty { display: none; }
+.kart-bos { color: var(--soluk); font-size: max(12px, 0.8rem); }
 /* Oyuncu bekleyen masa: kartın en belirgin çağrısı, odanın kendi vurgu rengiyle */
 .kart-oyun-davet {
   display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.75rem; border-radius: 0.7rem;
@@ -639,7 +637,8 @@ a {
   font-size: 0.75rem;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(135deg, #7209b7, #1db954);
+  /* Koyu uçlar: beyaz harf her noktada okunur (açık yeşil uçta 3.6:1 idi; #0f7a37 üstünde 5.4:1) */
+  background: linear-gradient(135deg, #6a0dad, #0f7a37);
 }
 
 .kart-kisiler {
@@ -1965,6 +1964,8 @@ a {
   color: #fff;
   font-size: 0.9rem;
 }
+/* Örnek yazı okunur olsun (tarayıcının varsayılan grisi #242424 üstünde 3.4:1 idi; bu 5.5:1) */
+.metin-kutusu::placeholder { color: #9a9a9a; opacity: 1; }
 
 #aramaKutusu:focus,
 .metin-kutusu:focus {
