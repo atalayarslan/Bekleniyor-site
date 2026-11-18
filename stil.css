@@ -529,6 +529,13 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
 .kart-rozet.oyun.oynaniyor { background: color-mix(in srgb, var(--kv, #1db954) 85%, black); }
 .oda-karti .kart-emoji { margin-right: 0.4rem; font-size: 0.95em; }
 .kart-baslik h3 { margin: 0; font-size: 1.2rem; line-height: 1.2; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
+/* Kartın bağlantısı başlıktadır; karta tıklamak da bu bağlantıya gider (lobi.js). Otur ve kişiler ayrı öğeler */
+.oda-karti { cursor: pointer; }
+.kart-bag { color: inherit; text-decoration: none; }
+.kart-oyun-davet { text-decoration: none; }
+.kart-kisiler { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; min-height: 32px; }
+.oda-karti:has(.kart-bag:focus-visible) { outline: 2px solid var(--kv, #1db954); outline-offset: 3px; }
+@media (hover: none), (pointer: coarse) { .kart-oyun-davet, .kart-kisiler { min-height: 44px; } }
 .kart-sahip { font-size: 0.78rem; color: rgba(255, 255, 255, 0.8); margin-top: 0.15rem; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
 
 .kart-govde { display: grid; gap: 0.6rem; padding: 0.75rem 0.9rem 0.85rem; }
@@ -573,6 +580,9 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
 .davet-satiri { display: flex; gap: 0.5rem; }
 .davet-satiri .metin-kutusu { flex: 1; min-width: 0; }
 .davet-satiri .metin-kutusu[aria-invalid="true"] { border-color: #ff6b70; }
+.davet-ac { margin-top: 1rem; background: none; border: 0; padding: 0.3rem 0; color: var(--soluk); font: inherit; font-size: max(13px, 0.9rem); font-weight: 700; cursor: pointer; }
+.davet-ac:hover { color: #fff; text-decoration: underline; }
+@media (hover: none), (pointer: coarse) { .davet-ac { min-height: 44px; } }
 .davet-hata { margin: 0; color: #ff8a8e; font-size: max(13px, 0.88rem); font-weight: 700; }
 .gizli-aciklama { margin-top: 0.6rem; }
 

@@ -28,11 +28,9 @@ function oyunRozetleri(id) {
 function oyunDavetleri(id) {
   return oyunMasalari(id).filter((m) => !m.oyunVar && m.oturan < 4).map((m) => {
     const bos = 4 - m.oturan;
-    return el("span", {
-      className: "kart-oyun-davet", role: "link", tabIndex: 0,
-      title: "Masada " + m.oturan + " koltuk dolu (botlar da sayılır). Basınca odaya girip masayı açar.",
-      onclick: (e) => { e.preventDefault(); e.stopPropagation(); location.href = "?oda=" + encodeURIComponent(id) + "&" + m.oyun + "=1"; },
-      onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); e.currentTarget.click(); } }
+    return el("a", {
+      className: "kart-oyun-davet", href: "?oda=" + encodeURIComponent(id) + "&" + m.oyun + "=1",
+      title: "Masada " + m.oturan + " koltuk dolu (botlar da sayılır). Basınca odaya girip masayı açar."
     }, el("span", { "aria-hidden": "true" }, m.simge), " " + (m.oyun === "okey" ? "Okeyde " : "Bilardoda ") + bos + " boş yer", el("b", {}, "Otur →"));
   });
 }
@@ -88,14 +86,19 @@ function odaKarti(id, oda) {
       ...oyunRozetleri(id)),
     // Odanın emojisi köşede (favori/puan gibi okunuyordu) değil, adın önünde durur
     el("div", { className: "kart-baslik" },
-      el("h3", {}, el("span", { className: "kart-emoji", "aria-hidden": "true" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
-        bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id)),
+      // Kartın asıl bağlantısı odanın adıdır; ::after ile bütün kartı kaplar (kart içindeki düğmeler ayrı kalır)
+      el("h3", {}, el("a", {
+        className: "kart-bag", href: "?oda=" + encodeURIComponent(id),
+        onclick: (e) => { if (dinlenen) { e.preventDefault(); odayaGeriDon(); } }
+      }, el("span", { className: "kart-emoji", "aria-hidden": "true" }, tasarim.emojiSayisi ? tasarim.emoji : "🎧"),
+        bilgi.ad || (id === ANA_ODA ? "Ana Oda ⭐" : id))),
       bilgi.sahipAdi ? el("div", { className: "kart-sahip" }, bilgi.sahipAdi) : null));
   kartGorseliniYukle(id, gorsel);
   const sanatci = calan ? sanatciBul(calan) : "";
-  const kart = el("a", {
-    className: "oda-karti" + (dinlenen ? " dinlenen" : "") + (caliyor ? " caliyor" : ""), href: "?oda=" + id,
-    onclick: (e) => { if (dinlenen) { e.preventDefault(); odayaGeriDon(); } },
+  const kart = el("article", {
+    className: "oda-karti" + (dinlenen ? " dinlenen" : "") + (caliyor ? " caliyor" : ""),
+    // Kartın boş yerine tıklamak başlıktaki bağlantıya basmak demek (içteki bağlantı/düğmeler kendi işini yapar)
+    onclick: (e) => { if (!e.target.closest("a, button")) kart.querySelector(".kart-bag").click(); },
     onmouseenter: () => { const v = gorsel.querySelector("video"); if (v) v.play().catch(() => { }); },
     onmouseleave: () => { const v = gorsel.querySelector("video"); if (v) v.pause(); }
   },
@@ -110,8 +113,8 @@ function odaKarti(id, oda) {
         caliyor ? el("span", { className: "kart-dalga", "aria-hidden": "true" }, el("i"), el("i"), el("i"), el("i")) : null)
         : null,
       // Kişilere basınca odaya girilmez, içeridekilerin listesi açılır
-      icerdekiler.length ? el("div", {
-        className: "kart-kisiler", title: "Kimler var?",
+      icerdekiler.length ? el("button", {
+        type: "button", className: "kart-kisiler", title: "Kimler var?", "aria-haspopup": "menu",
         onclick: (e) => { e.preventDefault(); e.stopPropagation(); kisileriGoster(e.currentTarget, icerdekiler, id); }
       }, avatarYigini(icerdekiler, 5), el("span", {}, isimler)) : null));
   kart.style.setProperty("--k1", tasarim.arka2 === tasarim.arka1 ? tasarim.daire1 : tasarim.arka1);
@@ -149,7 +152,7 @@ function kilitliOdaCipi(id, oda) {
   const sayi = katilanListesi(oda.katilanlar).length;
   const aciklama = "Gizli oda. Girmek için " + (bilgi.sahipAdi || "oda sahibi") + " sana davet linkini göndermeli.";
   // Basınca açıklama satırın hemen altında yazar (kaybolan bildirim yerine)
-  const goster = () => { const p = $("gizliAciklama"); p.textContent = "🔒 " + (bilgi.ad || id) + ": " + aciklama; p.hidden = false; };
+  const goster = () => { const p = $("gizliAciklama"); p.textContent = "🔒 " + (bilgi.ad || id) + ": " + aciklama; p.hidden = false; davetKutusunuAc(false); };
   return el("button", { type: "button", className: "gizli-oda", title: aciklama, onclick: goster },
     "🔒 ", el("b", {}, bilgi.ad || id), el("small", {}, (bilgi.sahipAdi ? bilgi.sahipAdi + " · " : "") + sayi + " kişi"));
 }
@@ -194,6 +197,13 @@ function davetKimligi(metin) {
   } catch (e) { }
   return ODA_KIMLIGI.test(deger) ? deger : null;
 }
+function davetKutusunuAc(odaklan) {
+  $("davetFormu").hidden = false;
+  $("davetAcTus").hidden = true;
+  $("davetAcTus").setAttribute("aria-expanded", "true");
+  if (odaklan) $("davetKutusu").focus();
+}
+
 // Hata kutunun hemen altında yazar (kaybolan bildirim yerine); ekran okuyucu da okur. Yazmaya başlayınca silinir.
 function davetFormunuBagla() {
   const kutu = $("davetKutusu"), hata = $("davetHata");
@@ -203,6 +213,8 @@ function davetFormunuBagla() {
     if (metin) kutu.setAttribute("aria-invalid", "true"); else kutu.removeAttribute("aria-invalid");
   };
   kutu.addEventListener("input", () => { if (!hata.hidden) hataGoster(""); });
+  // Seyrek iş: kutu küçük bir düğmenin arkasında durur
+  $("davetAcTus").addEventListener("click", () => davetKutusunuAc(true));
   $("davetFormu").addEventListener("submit", (e) => {
     e.preventDefault();
     const id = davetKimligi(kutu.value);
@@ -318,8 +330,10 @@ function isimleriBirlestir(adlar) {
   return adlar.slice(0, 2).join(", ") + " ve " + (adlar.length - 2) + " kişi daha";
 }
 function karsilamayiCiz(girilebilir) {
-  const kisiSayisi = Object.values(tumOdalar).reduce((t, o) => t + katilanListesi(o.katilanlar).length, 0);
-  const doluOda = Object.values(tumOdalar).filter((o) => katilanListesi(o.katilanlar).length).length;
+  // Sayılar sadece girilebilen odalardan (gizli odadakiler "kimler nerede"de ayrıca sayıyla yazar)
+  const girilenOdalar = girilebilir.map((id) => tumOdalar[id]).filter(Boolean);
+  const kisiSayisi = girilenOdalar.reduce((t, o) => t + katilanListesi(o.katilanlar).length, 0);
+  const doluOda = girilenOdalar.filter((o) => katilanListesi(o.katilanlar).length).length;
   const canli = $("lobiCanli"), baslik = $("lobiBaslik"), alt = $("lobiAlt");
   const ilkGelis = !sonOdalar().length && !benimOdalarim().length;
   $("lobi").querySelector(".karsilama").classList.toggle("tanitim", ilkGelis);
@@ -383,7 +397,7 @@ function odaOlusturPenceresi() {
     {
       yazi: "Oluştur", ana: true, is: () => {
         const ad = adKutusu.value.trim();
-        if (!ad) { adKutusu.focus(); return; }
+        if (!ad) { adKutusu.focus(); bildir("Odaya bir ad ver (ör. Cuma Akşamı)"); return; }
         pencereKapat();
         odaOlustur(ad, acikKutusu.checked, secilenTema);
       }

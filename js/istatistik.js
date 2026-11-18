@@ -216,7 +216,10 @@ function oyunSiralamasiniCiz(kutu) {
 function siralamayiCiz() {
   const kutu = $("siralama");
   if (!kutu) return;
-  $("siralamaSecim").querySelectorAll("button").forEach((b) => b.classList.toggle("secili", b.dataset.tur === siralamaTuru));
+  $("siralamaSecim").querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("secili", b.dataset.tur === siralamaTuru);
+    b.setAttribute("aria-pressed", String(b.dataset.tur === siralamaTuru));   // seçili sekme ekran okuyucuya da söylenir
+  });
   if (siralamaTuru === "oyun") { oyunSiralamasiniCiz(kutu); return; }
   const veri = {};
   // Başkaları: kayıtlı süre + (sayıyorlarsa) son kayıttan bu yana geçen saniyeler
