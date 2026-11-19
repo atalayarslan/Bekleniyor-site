@@ -1066,6 +1066,39 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
   transition: left var(--kayma), right var(--kayma);
 }
 
+/* Plağın ortasındaki yazı, temanın açık renkli iç dairesinde de okunsun */
+.daire-yazi { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55), 0 0 1px rgba(0, 0, 0, 0.6); }
+
+/* Odada okunabilirlik tabanı (genel ölçek telefonda 13px'e indiği için küçük yazılar 9-11px'e düşüyordu) */
+.oda-gorunumu .geri-tus,
+.oda-gorunumu .ust-cubuk .tus-cerceve,
+.oda-gorunumu .oyunlar-tus,
+.oda-gorunumu #endButton,
+.oda-gorunumu .yan-panel .sekme,
+.oda-gorunumu .yan-panel .sekmeler button { font-size: max(13px, 0.85rem); }
+.oda-gorunumu #sarkiAlt,
+.oda-gorunumu .tek-satir.soluk,
+.oda-gorunumu .avatar.harf,
+.oda-gorunumu .yan-panel .not { font-size: max(12px, 0.75rem); }
+
+/* Dokunmatik ekranda oda düğmeleri parmak boyunda */
+@media (hover: none), (pointer: coarse) {
+  .oda-gorunumu .geri-tus,
+  .oda-gorunumu .ust-cubuk .tus-cerceve,
+  .oda-gorunumu .oyunlar-tus,
+  .oda-gorunumu .kullanici-cipi,
+  .oda-gorunumu .kontrol-tus,
+  .oda-gorunumu .oynat-tus,
+  .oda-gorunumu #endButton,
+  .oda-gorunumu #simdikiListeye { min-height: 44px; min-width: 44px; }
+  .oda-gorunumu .geri-tus { display: inline-flex; align-items: center; }
+}
+/* Dar ekranda "Sonunda" sadece 🎉: şarkı başlığına yer kalsın (başlık "D." diye kesiliyordu) */
+@media (max-width: 640px) {
+  .oda-gorunumu #endButton { font-size: 0; padding-inline: 0.6rem; }
+  .oda-gorunumu #endButton::after { content: "🎉"; font-size: 18px; }
+}
+
 /* Yan panel açıkken süslemeler geri çekilir: içerik okunsun */
 .oda-gorunumu.sag-acik .foto-katmani,
 .oda-gorunumu.sol-acik .foto-katmani,
