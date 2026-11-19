@@ -557,7 +557,19 @@
   let canliIstaka = false;
   function istakaCiz(c, b, d, geri, skin) {
     const bas = R + 4 + geri * 0.9;
-    const boy = 520;
+    // Istaka hep tamamen görünsün: çizim alanının (tuvalin) kenarına çarpmadan sığacak kadar kısalır (en çok 520).
+    // Görünen alan tuvalin köşelerinin dünya koordinatına çevrilmesiyle bulunur; kenara 10 birim pay bırakılır.
+    let boy = 520;
+    try {
+      const ters = c.getTransform().inverse();
+      const k1 = ters.transformPoint(new DOMPoint(0, 0)), k2 = ters.transformPoint(new DOMPoint(c.canvas.width, c.canvas.height));
+      const minX = Math.min(k1.x, k2.x) + 10, maxX = Math.max(k1.x, k2.x) - 10, minY = Math.min(k1.y, k2.y) + 10, maxY = Math.max(k1.y, k2.y) - 10;
+      const sx = b.x - d.x * bas, sy = b.y - d.y * bas, ux = -d.x, uy = -d.y;
+      let sinir = Infinity;
+      if (ux > 1e-6) sinir = Math.min(sinir, (maxX - sx) / ux); else if (ux < -1e-6) sinir = Math.min(sinir, (minX - sx) / ux);
+      if (uy > 1e-6) sinir = Math.min(sinir, (maxY - sy) / uy); else if (uy < -1e-6) sinir = Math.min(sinir, (minY - sy) / uy);
+      if (isFinite(sinir)) boy = Math.max(140, Math.min(520, sinir));
+    } catch (e) { }
     const x1 = b.x - d.x * bas, y1 = b.y - d.y * bas;
     const x2 = b.x - d.x * (bas + boy), y2 = b.y - d.y * (bas + boy);
     G.istakaCiz(c, x1, y1, x2, y2, skin, performance.now());
