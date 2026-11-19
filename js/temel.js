@@ -356,6 +356,19 @@ function bildir(metin) {
   bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur"), Math.min(8000, 3200 + String(metin).length * 40));
 }
 
+// Geri alınabilir iş bildirimi: "… geçildi · Geri al". 6 sn durur; düğmeye basınca iş geri alınır.
+function bildirGeriAl(metin, geriAl) {
+  const kutu = $("bildirim");
+  const tus = el("button", { type: "button", className: "bildirim-geri", onclick: () => {
+    kutu.classList.remove("gorunur", "eylemli");
+    try { geriAl(); bildir("Geri alındı"); } catch (e) { bildir("Geri alınamadı"); }
+  } }, "Geri al");
+  kutu.replaceChildren(el("span", {}, metin + " "), tus);
+  kutu.classList.add("gorunur", "eylemli");
+  clearTimeout(bildirimZamanlayici);
+  bildirimZamanlayici = setTimeout(() => kutu.classList.remove("gorunur", "eylemli"), 6000);
+}
+
 // Odadakiler listesi. Her kayıt { ad, foto, zaman }; "zaman" odadaki sekme açık kaldıkça dakikada bir
 // yenilenir. 3 dakikadır yenilenmeyen kayıtlar (kapanmamış eski sekme, kopmuş bağlantı) ve zamanı
 // olmayan eski biçimli kayıtlar gösterilmez; böylece kimse girmediği bir odada görünmez.

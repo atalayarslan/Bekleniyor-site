@@ -1771,7 +1771,11 @@ function siraCiz() {
   kutu.replaceChildren(...sira.map((s, i) => {
     const satir = sarkiSatiri(s, (i + 1) + ". · " + (gecerliId(s.videoId) ? "" : "Spotify · ") + "ekleyen: " + (s.ekleyen || "?"), [
       listeDugmesi(s),
-      { yazi: "✕", baslik: "Sıradan çıkar", is: () => muzikRef.child("sira/" + s.anahtar).remove() }
+      { yazi: "✕", baslik: "Sıradan çıkar", is: async () => {
+        const yedek = (await muzikRef.child("sira/" + s.anahtar).get()).val();
+        await muzikRef.child("sira/" + s.anahtar).remove();
+        if (yedek) bildirGeriAl("“" + (s.baslik || "Şarkı") + "” sıradan çıkarıldı", () => muzikRef.child("sira/" + s.anahtar).set(yedek));
+      } }
     ], () => hemenCal(s, s.anahtar));
     siraSuruklemesiEkle(satir, s.anahtar, kutu);
     return satir;
@@ -2232,7 +2236,13 @@ function odaOlaylariniBagla() {
 
   // Önce sıradaki şarkı bu cihazda hemen başlatılır (kilit ekranındaki "sonraki" dokunuşunun izni sürerken),
   // sonra oda güncellenir. Ekran kapalıyken telefonun sesi kesmemesi buna bağlı.
-  $("atlaTus").addEventListener("click", () => { if (simdiki) sonrakineGec(sarkiKimligi(simdiki), sonrakiniHemenYukle()); });
+  $("atlaTus").addEventListener("click", () => {
+    if (!simdiki) return;
+    const gecilen = simdiki.baslik || "Şarkı";
+    sonrakineGec(sarkiKimligi(simdiki), sonrakiniHemenYukle());
+    // Yanlışlıkla geçildiyse: "Geri al" önceki şarkıya döner (geri tuşuyla aynı iş)
+    bildirGeriAl("“" + gecilen + "” geçildi", geriGit);
+  });
   $("geriTus").addEventListener("click", geriGit);
 
   ilerlemeOlaylariniBagla();
@@ -2256,7 +2266,9 @@ function odaOlaylariniBagla() {
   $("siraKaydet").addEventListener("click", () => topluListeyeKaydet(siraListesi(), (odaBilgi && odaBilgi.ad || "Oda") + " sırası"));
   $("siraTemizle").addEventListener("click", async () => {
     if (await onayla("Sırayı temizle", "Sıradaki tüm şarkılar silinecek (çalan şarkı devam eder).", "Temizle", true)) {
-      muzikRef.child("sira").remove();
+      const yedek = (await muzikRef.child("sira").get()).val();
+      await muzikRef.child("sira").remove();
+      if (yedek) bildirGeriAl("Sıra temizlendi (" + Object.keys(yedek).length + " şarkı)", () => muzikRef.child("sira").update(yedek));
     }
   });
 
@@ -2271,7 +2283,9 @@ function odaOlaylariniBagla() {
     });
   });
 
-  $("endButton").addEventListener("click", () => {
+  $("endButton").addEventListener("click", async () => {
+    // Herkesin müziğini durdurur: önce sorulur
+    if (!(await onayla("Sonunda 🎉", "Beklenen geldi mi? Müzik odadaki herkes için duracak ve kutlama başlayacak.", "Evet, kutla"))) return;
     if (simdiki && !simdiki.duraklatildi) duraklat();
     muzikRef.child("kutlama").set(firebase.database.ServerValue.TIMESTAMP);
   });
