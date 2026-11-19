@@ -965,7 +965,10 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
   left: calc(var(--sol) + (100% - var(--sol) - var(--sag)) / 2);
   top: calc(var(--ust) + (100% - var(--ust) - var(--alt)) / 2 + var(--cap) / 2 + 0.9rem);
   transform: translateX(-50%); transition: left var(--kayma), top var(--kayma);
-  width: min(28rem, 90vw); text-align: center; z-index: 5; pointer-events: none;
+  width: min(28rem, 90vw); text-align: center; z-index: 30; pointer-events: none;
+  /* Uçan fotoğraf ve kalplerin üstünde, hafif koyu zeminle her zaman okunur */
+  padding: 0.45rem 0.9rem; border-radius: 0.9rem; background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8); font-family: 'Nunito', Arial, sans-serif;
 }
 .simdi-baslik { font-weight: 800; font-size: max(15px, 1.05rem); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1062,6 +1065,12 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
   overflow: hidden;
   transition: left var(--kayma), right var(--kayma);
 }
+
+/* Yan panel açıkken süslemeler geri çekilir: içerik okunsun */
+.oda-gorunumu.sag-acik .foto-katmani,
+.oda-gorunumu.sol-acik .foto-katmani,
+.oda-gorunumu.sag-acik .emoji-katmani,
+.oda-gorunumu.sol-acik .emoji-katmani { opacity: 0.25; transition: opacity 0.3s; }
 
 .foto-paneli {
   position: absolute;
