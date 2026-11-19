@@ -541,6 +541,10 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
 .kart-govde { display: grid; gap: 0.6rem; padding: 0.75rem 0.9rem 0.85rem; }
 .kart-govde:empty { display: none; }
 .kart-bos { color: var(--soluk); font-size: max(12px, 0.8rem); }
+/* Boş odanın görseli sönük: görsel ağırlık fotoğrafa değil odadaki doluluğa göre (dolu oda öne çıkar) */
+.oda-karti.bos-oda .kart-medya { filter: grayscale(0.7) brightness(0.45); }
+.oda-karti.bos-oda .kart-gorsel { aspect-ratio: 5 / 2; }
+.oda-karti.bos-oda:hover .kart-medya { filter: grayscale(0.2) brightness(0.7); }
 /* Oyuncu bekleyen masa: kartın en belirgin çağrısı, odanın kendi vurgu rengiyle */
 .kart-oyun-davet {
   display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.75rem; border-radius: 0.7rem;

@@ -96,7 +96,7 @@ function odaKarti(id, oda) {
   kartGorseliniYukle(id, gorsel);
   const sanatci = calan ? sanatciBul(calan) : "";
   const kart = el("article", {
-    className: "oda-karti" + (dinlenen ? " dinlenen" : "") + (caliyor ? " caliyor" : ""),
+    className: "oda-karti" + (dinlenen ? " dinlenen" : "") + (caliyor ? " caliyor" : "") + (icerdekiler.length ? "" : " bos-oda"),
     // Kartın boş yerine tıklamak başlıktaki bağlantıya basmak demek (içteki bağlantı/düğmeler kendi işini yapar)
     onclick: (e) => { if (!e.target.closest("a, button")) kart.querySelector(".kart-bag").click(); },
     onmouseenter: () => { const v = gorsel.querySelector("video"); if (v) v.play().catch(() => { }); },
@@ -177,7 +177,9 @@ function sonOdayaEkle(id) {
 // Kendi odaların "Odalarım"da olduğu için burada tekrar edilmez; silinmiş odalar atlanır
 function sonOdalariCiz(benimkiler) {
   const kutu = $("sonOdalar");
-  const odalar = sonOdalar().filter((id) => !benimkiler.has(id) && tumOdalar[id] && tumOdalar[id].bilgi).slice(0, 4);
+  // İçinde insan olan odalar zaten başlıkta ve en üstteki kartta: "Son girdiğin"de tekrar edilmez
+  const odalar = sonOdalar().filter((id) => !benimkiler.has(id) && tumOdalar[id] && tumOdalar[id].bilgi &&
+    !katilanListesi(tumOdalar[id].katilanlar).length).slice(0, 4);
   kutu.hidden = !odalar.length;
   kutu.replaceChildren(el("span", { className: "son-odalar-baslik" }, "Son girdiğin:"), ...odalar.map((id) => {
     const oda = tumOdalar[id];
@@ -298,7 +300,8 @@ function lobiyiCiz() {
 function kimlerNeredeCiz(girilebilir, kilitliler) {
   const dolu = girilebilir.filter((id) => tumOdalar[id] && katilanListesi(tumOdalar[id].katilanlar).length);
   const gizliKisi = kilitliler.reduce((t, id) => t + katilanListesi((tumOdalar[id] || {}).katilanlar).length, 0);
-  $("kimlerNerede").hidden = !dolu.length && !gizliKisi;
+  // Tek dolu oda varken (ve gizli oda yokken) başlık cümlesi zaten aynı şeyi söylüyor: bölüm tekrar etmesin
+  $("kimlerNerede").hidden = (!dolu.length && !gizliKisi) || (dolu.length === 1 && !gizliKisi);
   const satirlar = dolu.map((id) => {
     const kisiler = katilanListesi(tumOdalar[id].katilanlar);
     const adlar = kisiler.map((k) => String(k.ad || "").split(" ")[0]);
