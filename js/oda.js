@@ -252,7 +252,9 @@ function sarkiDegisinceCubuguGoster() {
   if (!katildi || !kimlik || kimlik === sonGosterilenKimlik) return;
   const ilk = sonGosterilenKimlik === null;
   sonGosterilenKimlik = kimlik;
-  if (!ilk && !fareCubukta) cubuguAc(4000);
+  // Oyun (okey, bilardo) açıkken şarkı değişince çubuk yukarı fırlamaz: oyunun üstüne binip oyunu bölüyordu
+  const oyunAcik = !!document.querySelector("#okeyTus.acik, #bilardoTus.acik");
+  if (!ilk && !fareCubukta && !oyunAcik) cubuguAc(4000);
 }
 
 // ---------- Telefonda ekran kapanınca ----------
