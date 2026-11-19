@@ -87,6 +87,7 @@ function odayiBaslat(id) {
     oncekiListesi = Object.values(m.onceki || {});
     radyoKapali = m.radyoKapali === true;
     sarkiDegisinceCubuguGoster();
+    simdiCalaniCiz();
     ekraniAcikTut();
     arayuzuGuncelle();
     siraCiz();
@@ -107,6 +108,9 @@ function odayiBaslat(id) {
     odadakiHamSayi = Object.keys(s.val() || {}).length;
     katilanlarYuklendi = true;
     $("kisiSayisi").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 3), odadakiler.length + " kişi bekliyor"] : []));
+    // Üst çubukta da hep görünür: kimler burada
+    $("ustKisiler").hidden = !odadakiler.length;
+    $("ustKisiler").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 5), el("span", {}, odadakiler.length + " kişi burada")] : []));
   });
 
   db.ref("odaGecmisi/" + id).limitToLast(100).on("value", (s) => {
@@ -226,6 +230,20 @@ function cubukDavranisiniBagla() {
   $("calar").addEventListener("mouseleave", ayrildi);
   window.addEventListener("blur", () => { if (fareCubukta) ayrildi(); });
   document.addEventListener("mouseleave", () => { if (fareCubukta) ayrildi(); });
+}
+
+// Plağın altında çalan şarkı (adı, sanatçı, kim ekledi) ve sıradaki şarkı: alt çubuk gizliyken de odanın ne
+// çaldığı görünsün
+function simdiCalaniCiz() {
+  const kutu = $("simdiCalan");
+  if (!kutu) return;
+  if (!simdiki) { kutu.replaceChildren(el("span", { className: "simdi-bos" }, "Şu an şarkı yok · Müzik panelinden ekle")); return; }
+  const sanatci = sanatciBul(simdiki);
+  const sonraki = siraListesi()[0];
+  kutu.replaceChildren(
+    el("div", { className: "simdi-baslik" }, (simdiki.duraklatildi ? "⏸ " : "♪ ") + (simdiki.baslik || "")),
+    el("div", { className: "simdi-alt" }, [sanatci, simdiki.ekleyen ? "ekleyen: " + simdiki.ekleyen : ""].filter(Boolean).join(" · ")),
+    sonraki ? el("div", { className: "simdi-sonraki" }, "Sıradaki: " + (sonraki.baslik || "")) : null);
 }
 
 let sonGosterilenKimlik = null;
@@ -2160,6 +2178,7 @@ function odaOlaylariniBagla() {
 
   // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
   $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler, odaId));
+  $("ustKisiler").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler, odaId));
 
   // Kutu büyüyüp küçüldükçe (panel, mini oynatıcı, tam ekran) küçük oynatıcının görüntüsü ona sığacak kadar ölçeklenir
   if (window.ResizeObserver) {
