@@ -34,7 +34,11 @@
   display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 14px;
 }
 .oyunlar-listesi .oyun-satiri .etiket { display: inline !important; }
-.oyunlar-listesi .oyun-satiri .okey-sayac { margin-left: auto; }
+.oyunlar-listesi .oyun-satiri .okey-sayac { margin-left: auto; opacity: 1; color: #fff; background: rgba(255, 255, 255, .12); padding: 2px 8px; border-radius: 999px; }
+.oyunlar-listesi .oyun-satiri { min-height: 44px; color: #fff; background: #26262a; border: 1px solid rgba(255, 255, 255, .08); }
+.oyunlar-listesi .oyun-satiri:hover { background: #303036; border-color: rgba(255, 255, 255, .25); }
+/* Odanın üst çubuğu (Oyunlar menüsü dahil) uçan fotoğrafların, emojilerin ve patlama tuvalinin üstünde durur */
+.oda-gorunumu .oda-ust { z-index: 48; }
 .oyunlar-listesi .oyun-satiri.acik { background: var(--oda-vurgu); color: var(--oda-vurgu-yazi); border-color: var(--oda-vurgu); }
 
 .oyun-ikon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
