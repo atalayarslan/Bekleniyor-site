@@ -974,15 +974,11 @@ a.kimler-satir:hover { border-color: rgba(255, 255, 255, 0.4); }
 .simdi-baslik { font-weight: 800; font-size: max(15px, 1.05rem); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .simdi-alt, .simdi-bos { color: rgba(255, 255, 255, 0.78); font-size: max(13px, 0.85rem); margin-top: 0.15rem; }
 .simdi-sonraki { color: rgba(255, 255, 255, 0.62); font-size: max(12px, 0.8rem); margin-top: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Üst çubukta odadakiler */
-.ust-kisiler {
-  display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.25rem 0.7rem 0.25rem 0.3rem; min-height: 36px;
-  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.45);
-  color: #fff; font: inherit; font-size: max(13px, 0.85rem); font-weight: 700; cursor: pointer;
-}
-.ust-kisiler:hover { border-color: rgba(255, 255, 255, 0.5); }
-@media (hover: none), (pointer: coarse) { .ust-kisiler { min-height: 44px; } }
-@media (max-width: 640px) { .ust-kisiler span:last-child { display: none; } }
+/* Şarkı kutusu sadece alt çubuk gizliyken ve plak görünürken: çubuk zaten şarkıyı yazıyor,
+   plak yokken de kutu arka plan resminin ortasına düşüyordu */
+.oda-gorunumu.cubuk-acik .simdi-calan,
+.oda-gorunumu.cubuk-sabit .simdi-calan,
+.oda-gorunumu.daire-yok .simdi-calan { display: none; }
 
 .daire-dis {
   --cap: min(26rem, 55vmin, calc(100vw - var(--sol) - var(--sag) - 4rem),

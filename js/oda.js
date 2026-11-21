@@ -107,11 +107,7 @@ function odayiBaslat(id) {
     odadakiler = katilanListesi(s.val());
     odadakiHamSayi = Object.keys(s.val() || {}).length;
     katilanlarYuklendi = true;
-    $("kisiSayisi").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 3), odadakiler.length + " kişi bekliyor"] : []));
-    // Üst çubukta da hep görünür: kimler burada
-    $("ustKisiler").hidden = !odadakiler.length;
-    $("ustKisiler").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 5), el("span", {}, odadakiler.length + " kişi burada")] : []));
-  });
+    $("kisiSayisi").replaceChildren(...(odadakiler.length ? [avatarYigini(odadakiler, 3), odadakiler.length + " kişi bekliyor"] : []));  });
 
   db.ref("odaGecmisi/" + id).limitToLast(100).on("value", (s) => {
     const veri = s.val() || {};
@@ -2180,8 +2176,6 @@ function odaOlaylariniBagla() {
 
   // Kişi rozetine tıklayınca odadakiler fotoğraf ve isimleriyle listelenir
   $("kisiSayisi").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler, odaId));
-  $("ustKisiler").addEventListener("click", (e) => kisileriGoster(e.currentTarget, odadakiler, odaId));
-
   // Kutu büyüyüp küçüldükçe (panel, mini oynatıcı, tam ekran) küçük oynatıcının görüntüsü ona sığacak kadar ölçeklenir
   if (window.ResizeObserver) {
     new ResizeObserver(([g]) => {
